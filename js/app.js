@@ -99,6 +99,57 @@ function getItemIconHTML(item) {
             </div>`;
 }
 
+// Ajoutez cette fonction dans la liste de vos fonctions :
+async function checkMonthlyWishReset() {
+    if (!supabaseClient) return;
+    const now = new Date();
+    // Clé unique pour le mois actuel, ex: "2026-06"
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('guild_teams')
+            .select('data')
+            .eq('id', 2)
+            .single();
+
+        if (data && data.data) {
+            const settings = data.data;
+            const lastReset = settings.lastWishReset || "";
+
+            if (lastReset !== currentMonthKey) {
+                console.log(`Changement de mois détecté (${currentMonthKey}). Restauration des jetons de souhaits...`);
+
+                const { data: members, error: fetchErr } = await supabaseClient
+                    .from('member_profiles')
+                    .select('id');
+
+                if (fetchErr) throw fetchErr;
+
+                if (members && members.length > 0) {
+                    const resetPromises = members.map(m => 
+                        supabaseClient
+                            .from('member_profiles')
+                            .update({ wish_tokens: 2 })
+                            .eq('id', m.id)
+                    );
+                    await Promise.all(resetPromises);
+                }
+
+                settings.lastWishReset = currentMonthKey;
+                await supabaseClient
+                    .from('guild_teams')
+                    .update({ data: settings })
+                    .eq('id', 2);
+
+                console.log("Restauration mensuelle automatique des souhaits effectuée.");
+            }
+        }
+    } catch (err) {
+        console.error("Erreur lors de la vérification de réinitialisation mensuelle :", err);
+    }
+}
+
 // Trouver un équipement par son nom (avec comparaison de texte sécurisée)
 function findItemByName(name) {
     if (!name) return null;
@@ -349,6 +400,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     loadTeamsFromStorage();
     loadPointsConfig();
     await loadFormStatus();
+    await checkMonthlyWishReset();
     
     flatpickrInstance = flatpickr("#event-date", {
         enableTime: true,
@@ -971,20 +1023,20 @@ async function submitForm(event) {
 // GESTION DU PROFIL DU JOUEUR (Membres)
 // ==========================================
 
-// Décodeur universel pour lire les formats de tableaux PostgreSQL et JS
+// Décodeur universel pour lire les formats de tableaux PostgreSQL et JS (Focalisé sur 2 souhaits)
 function parseWishlistArray(wishlistVal) {
-    if (!wishlistVal) return ["", "", ""];
+    if (!wishlistVal) return ["", ""];
     if (Array.isArray(wishlistVal)) {
         let arr = [...wishlistVal];
-        while (arr.length < 3) {
+        if (arr.length > 2) arr = arr.slice(0, 2);
+        while (arr.length < 2) {
             arr.push("");
         }
         return arr;
     }
     if (typeof wishlistVal === 'string') {
-        // Gère le format natif Postgres de type "{item1,item2,item3}"
         let cleaned = wishlistVal.replace(/[{}]/g, '');
-        if (cleaned.trim() === "") return ["", "", ""];
+        if (cleaned.trim() === "") return ["", ""];
         let parsed = cleaned.split(',').map(item => {
             let trimmed = item.trim();
             if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
@@ -992,12 +1044,13 @@ function parseWishlistArray(wishlistVal) {
             }
             return (trimmed === "NULL" || trimmed === "null" || !trimmed) ? "" : trimmed;
         });
-        while (parsed.length < 3) {
+        if (parsed.length > 2) parsed = parsed.slice(0, 2);
+        while (parsed.length < 2) {
             parsed.push("");
         }
         return parsed;
     }
-    return ["", "", ""];
+    return ["", ""];
 }
 
 function renderWeaponCheckboxes() {
@@ -1046,11 +1099,18 @@ async function loadMemberProfile() {
                 cb.disabled = true;
             });
 
-            // Décodage et chargement propre dans les trois champs de saisie (Souhait 1, 2, 3)
+            // Décodage et chargement propre dans les deux champs de saisie (Souhait 1, 2)
             const wishlist = parseWishlistArray(data.wishlist);
-            for (let i = 0; i < 3; i++) {
+            for (let i = 0; i < 2; i++) {
                 const input = document.getElementById(`wishlist-item-${i}`);
                 if (input) input.value = wishlist[i] || '';
+            }
+
+            // Gérer l'affichage du nombre de jetons restants pour le mois
+            const tokens = data.wish_tokens !== undefined && data.wish_tokens !== null ? data.wish_tokens : 2;
+            const counter = document.getElementById('wish-tokens-counter');
+            if (counter) {
+                counter.innerText = tokens;
             }
 
             // Rendu visuel de la Wishlist
@@ -1146,7 +1206,7 @@ async function saveMemberProfile(event) {
     }
 }
 
-// Sauvegarde de la liste de souhaits (Wishlist) avec préservation des emplacements
+// Sauvegarde de la liste de souhaits (Wishlist) limitée par les jetons disponibles
 async function saveWishlist(event) {
     event.preventDefault();
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -1154,13 +1214,27 @@ async function saveWishlist(event) {
 
     const wish0 = document.getElementById('wishlist-item-0').value.trim();
     const wish1 = document.getElementById('wishlist-item-1').value.trim();
-    const wish2 = document.getElementById('wishlist-item-2').value.trim();
-
-    // On préserve les 3 emplacements (index 0, 1, 2) pour éviter les décalages visuels
-    const newWishlist = [wish0, wish1, wish2];
+    const newWishlist = [wish0, wish1];
+    const filledWishesCount = newWishlist.filter(w => w !== "").length;
 
     try {
-        // Récupérer les enchères remportées
+        // 1. Récupérer le profil pour valider le nombre de jetons restants
+        const { data: profile, error: profErr } = await supabaseClient
+            .from('member_profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+        if (profErr) throw profErr;
+
+        const tokens = profile.wish_tokens !== undefined && profile.wish_tokens !== null ? profile.wish_tokens : 2;
+
+        if (filledWishesCount > tokens) {
+            alert(`Action refusée ! Vous ne pouvez pas enregistrer ${filledWishesCount} souhaits car il ne vous reste que ${tokens} jeton(s) de souhait disponible(s) pour ce mois-ci.`);
+            return;
+        }
+
+        // 2. Récupérer les enchères remportées
         const { data: resolvedAuctions, error } = await supabaseClient
             .from('auctions')
             .select('*')
@@ -1456,12 +1530,11 @@ async function resolveAuction(auctionId) {
 
         for (const userId in bidsMap) {
             const bidInfo = bidsMap[userId];
-            // Sécurité : Comparaison UUID insensible à la casse
             const memberProfile = latestMembers.find(m => m.id.toLowerCase() === userId.toLowerCase());
             const currentActualPoints = memberProfile ? (memberProfile.points || 0) : 0;
 
             if (bidInfo.amount <= currentActualPoints) {
-                const wishlist = memberProfile ? parseWishlistArray(memberProfile.wishlist) : ["", "", ""];
+                const wishlist = memberProfile ? parseWishlistArray(memberProfile.wishlist) : ["", ""];
                 const hasWishlist = wishlist.some(item => item && cleanCompareString(item) === cleanCompareString(auction.item_name));
 
                 bidsArray.push({
@@ -1498,7 +1571,7 @@ async function resolveAuction(auctionId) {
 
         if (wishlistBidders.length > 0) {
             finalCandidates = wishlistBidders;
-            priorityMessage = "🏆 Priorité de Wishlist active ! Seuls les offreurs ayant l'objet dans leur liste de souhaits sont éligibles.";
+            priorityMessage = "🏆 Priorité de Wishlist active ! Seuls les offreurs l'ayant en wishlist sont éligibles.";
         }
 
         // 4. Trier les offreurs éligibles finaux (Montant puis Date)
@@ -1519,19 +1592,27 @@ async function resolveAuction(auctionId) {
             return;
         }
 
-        // 5. Calculer le nouveau solde et nettoyer sa wishlist à l'emplacement précis (avec nettoyage Unicode)
+        // 5. Débiter les points, nettoyer la wishlist et consommer 1 jeton de souhait
         const newPointsTotal = winner.profile.points - winner.amount;
         const winnerWishlist = parseWishlistArray(winner.profile.wishlist);
+        
+        let tokenSpent = false;
         const cleanedWishlist = winnerWishlist.map(item => {
             if (item && cleanCompareString(item) === cleanCompareString(auction.item_name)) {
-                return ""; // On vide uniquement cet emplacement
+                tokenSpent = true; // Jeton consommé
+                return ""; // On vide l'emplacement
             }
             return item;
         });
 
+        // Calcul du nouveau solde de jetons
+        const currentTokens = winner.profile.wish_tokens !== undefined && winner.profile.wish_tokens !== null ? winner.profile.wish_tokens : 2;
+        const newTokensTotal = tokenSpent ? Math.max(0, currentTokens - 1) : currentTokens;
+
         const updatePayload = {
             points: newPointsTotal,
-            wishlist: cleanedWishlist
+            wishlist: cleanedWishlist,
+            wish_tokens: newTokensTotal
         };
 
         // 6. Mise à jour unifiée en une seule transaction
@@ -1542,7 +1623,7 @@ async function resolveAuction(auctionId) {
 
         if (profileErr) {
             console.error("Échec de mise à jour du profil du vainqueur :", profileErr);
-            throw new Error("Impossible de débiter les points ou de nettoyer la wishlist.");
+            throw new Error("Impossible de débiter les points ou de mettre à jour les souhaits.");
         }
 
         // 7. Mettre à jour l'enchère à résolue
@@ -1911,6 +1992,29 @@ async function loadMembersViewData() {
     lucide.createIcons();
 }
 
+// Ajoutez cette nouvelle fonction d'action d'administration
+async function resetMemberWishes(memberId, memberName) {
+    if (!supabaseClient) return;
+    
+    // Message de validation interactif pour parer à toute fausse manipulation
+    if (confirm(`Êtes-vous sûr de vouloir réinitialiser manuellement le quota de souhaits de "${memberName}" à 2 jetons pour ce mois-ci ?`)) {
+        try {
+            const { error } = await supabaseClient
+                .from('member_profiles')
+                .update({ wish_tokens: 2 })
+                .eq('id', memberId);
+
+            if (error) throw error;
+
+            alert(`Le quota de souhaits de "${memberName}" a été réinitialisé à 2 jetons avec succès.`);
+            await loadDashboardData();
+        } catch (err) {
+            console.error("Erreur de réinitialisation manuelle :", err);
+            alert("Une erreur est survenue lors de la réinitialisation.");
+        }
+    }
+}
+
 async function loadDashboardData() {
     try {
         await loadFormStatus();
@@ -2023,18 +2127,25 @@ async function loadDashboardData() {
                     let deleteButtonHtml = "";
                     const maskedEmail = maskEmail(m.email);
                     const displayName = m.character_name || maskedEmail;
-
+                    const currentTokens = m.wish_tokens !== undefined && m.wish_tokens !== null ? m.wish_tokens : 2;
+        
                     if (m.email !== ADMIN_EMAIL) {
                         deleteButtonHtml = `
-                            <button onclick="deleteMemberAccount('${m.id}', '${displayName}')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-white px-2.5 py-1 rounded border border-red-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Supprimer le compte de la guilde">
-                                <i data-lucide="user-minus" class="w-3.5 h-3.5"></i>
-                                Supprimer
-                            </button>
+                            <div class="flex flex-wrap justify-center gap-1.5">
+                                <button onclick="resetMemberWishes('${m.id}', '${displayName}')" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-white px-2.5 py-1 rounded border border-blue-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Réinitialiser le quota à 2 jetons">
+                                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                                    Reset Souhaits
+                                </button>
+                                <button onclick="deleteMemberAccount('${m.id}', '${displayName}')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-white px-2.5 py-1 rounded border border-red-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Supprimer le compte de la guilde">
+                                    <i data-lucide="user-minus" class="w-3.5 h-3.5"></i>
+                                    Supprimer
+                                </button>
+                            </div>
                         `;
                     } else {
                         deleteButtonHtml = `<span class="text-xs text-slate-500 font-semibold italic select-none">Administrateur</span>`;
                     }
-
+        
                     membersTableBody.innerHTML += `
                         <tr class="hover:bg-[#161b26]/40 transition duration-150">
                             <td class="p-4 font-semibold text-slate-400">${maskedEmail}</td>
@@ -2043,6 +2154,7 @@ async function loadDashboardData() {
                             <td class="p-4"><span class="text-xs px-2.5 py-1 rounded bg-[#161b26] border border-[#252f44] text-slate-300 font-semibold flex items-center gap-1.5">${getWeaponIcon(m.weapon1)} ${m.weapon1 || '--'}</span></td>
                             <td class="p-4"><span class="text-xs px-2.5 py-1 rounded bg-[#161b26] border border-[#252f44] text-slate-300 font-semibold flex items-center gap-1.5">${getWeaponIcon(m.weapon2)} ${m.weapon2 || '--'}</span></td>
                             <td class="p-4 font-bold text-emerald-400">${m.points || 0} pts</td>
+                            <td class="p-4 text-center font-bold text-blue-400">${currentTokens} / 2</td>
                             <td class="p-4 text-center">
                                 ${deleteButtonHtml}
                             </td>
