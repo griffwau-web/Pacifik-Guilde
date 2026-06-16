@@ -1492,6 +1492,7 @@ function getRemainingTimeText(endTimeStr) {
     return `Temps restant : ${hours}h ${minutes}m`;
 }
 
+// Chargement de l'Espace Membre
 async function loadMembersViewData() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) return;
@@ -1547,7 +1548,7 @@ async function loadMembersViewData() {
             const remainingText = getRemainingTimeText(auc.end_time);
 
             const itemObj = findItemByName(auc.item_name);
-            const iconHtml = itemObj ? getItemIconHTML(itemObj) : `<div class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-500/20 bg-slate-500/5 text-slate-400 shrink-0"><i data-lucide="help-circle" class="w-4 h-4"></i></div>`;
+            const iconHtml = itemObj ? getItemIconHTML(itemObj) : `<div class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-500/20 bg-[#0b0e14]/40 text-slate-400 shrink-0"><i data-lucide="help-circle" class="w-4 h-4"></i></div>`;
 
             return `
                 <div class="bg-[#161b26] border border-[#1e2638] rounded-xl p-4 flex flex-wrap justify-between items-center gap-4 animate-fade-in">
@@ -1600,12 +1601,20 @@ async function loadMembersViewData() {
 
             const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
             const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
+            const isAssigned = isPlayerAssignedToTeam(displayName, team.id);
 
             if (team.validated) {
                 applicationsPanelHtml = `
                     <div class="mt-4 p-2.5 bg-emerald-950/20 border border-emerald-500/20 rounded-xl text-center text-xs text-emerald-400 font-bold select-none flex items-center justify-center gap-1.5">
                         <i data-lucide="check-circle" class="w-4 h-4"></i>
                         Activité validée (Points distribués : +${team.distributedPoints || 10} pts)
+                    </div>
+                `;
+            } else if (isAssigned) {
+                applicationsPanelHtml = `
+                    <div class="mt-4 p-2.5 bg-blue-950/20 border border-blue-500/20 rounded-xl text-center text-xs text-blue-400 font-bold select-none flex items-center justify-center gap-1.5">
+                        <i data-lucide="shield-check" class="w-4 h-4"></i>
+                        Vous êtes déjà assigné à cette composition
                     </div>
                 `;
             } else {
@@ -1616,7 +1625,7 @@ async function loadMembersViewData() {
                     if (myApplication.role === 'Healer') roleColor = "text-emerald-400";
 
                     applicationsPanelHtml = `
-                        <div class="mt-4 p-3 bg-[#0b0e14]/60 border border-[#252f44] rounded-xl flex items-center justify-between gap-2">
+                        <div class="mt-4 p-3 bg-[#0b0e14]/60 border border-[#252f44] rounded-xl flex items-center justify-between gap-2 animate-fade-in">
                             <span class="text-xs text-slate-300">Candidature active : <span class="${roleColor} font-bold">${myApplication.role}</span></span>
                             <button onclick="cancelApplication('${team.id}')" class="text-xs text-red-400 hover:text-red-300 underline font-medium transition">
                                 Annuler
@@ -1625,7 +1634,7 @@ async function loadMembersViewData() {
                     `;
                 } else {
                     applicationsPanelHtml = `
-                        <div class="mt-4 space-y-2">
+                        <div class="mt-4 space-y-2 animate-fade-in">
                             <span class="block text-[10px] text-slate-500 font-bold uppercase tracking-wider">Postuler pour ce rôle :</span>
                             <div class="grid grid-cols-3 gap-2">
                                 <button onclick="applyToEvent('${team.id}', 'Tank')" class="bg-blue-600/10 hover:bg-blue-600/30 text-blue-400 border border-blue-500/20 hover:border-blue-500/40 py-2 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1">
@@ -1741,6 +1750,7 @@ async function loadMembersViewData() {
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${slotsBHtml}</div>
                             </div>
                         </div>
+                        ${applicationsPanelHtml}
                     </div>
                 `;
             } else {
