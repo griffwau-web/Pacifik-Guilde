@@ -287,8 +287,8 @@ const QUESTIONS_MAPPING = {
         title: "3. Réactivité et adaptation aux nouvelles stratégies",
         options: {
             1: "A. J'ai besoin de temps pour m'adapter.",
-            2: "B. Je m'adapte après quelques essais.",
-            3: "C. Je m'adaptes rapidement.",
+            2: "B. Je m'adaptes après quelques essais.",
+            3: "C. Je m'adapte rapidement.",
             4: "D. Je trouve souvent les meilleures stratégies avant les autres."
         }
     },
@@ -1712,7 +1712,7 @@ async function loadMembersViewData() {
                 }
 
                 membersTeamsView.innerHTML += `
-                    <div class="col-span-full bg-[#161b26]/50 border border-[#1e2638] rounded-xl p-5 space-y-4">
+                    <div class="col-span-full bg-[#161b26]/50 border border-[#1e2638] rounded-xl p-5 space-y-4 animate-fade-in">
                         <div class="flex justify-between items-center border-b border-[#1e2638] pb-3 flex-wrap gap-2">
                             <div class="flex items-center gap-3">
                                 <span class="text-xs px-2.5 py-1 rounded-full border ${raidBadgeClass} font-bold uppercase tracking-wider">${difficultyText}</span>
@@ -1741,10 +1741,10 @@ async function loadMembersViewData() {
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${slotsBHtml}</div>
                             </div>
                         </div>
-                        ${applicationsPanelHtml}
                     </div>
                 `;
             } else {
+                let teamSlotsHtml = "";
                 let badgeColor = "bg-blue-500/10 text-blue-400 border-blue-500/20";
                 let labelText = team.motif;
                 if (team.motif === "PVP") {
