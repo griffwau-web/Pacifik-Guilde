@@ -15,6 +15,7 @@ let dashboardAutoRefreshInterval = null;
 let flatpickrInstance = null; 
 let teamsChannel = null;      
 let notificationsEnabled = true; 
+let isFormActive = true; // État d'activation du formulaire public
 
 let allDatabasePlayers = []; 
 let allDatabaseMembers = []; 
@@ -334,6 +335,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     lucide.createIcons();
     loadTeamsFromStorage();
     loadPointsConfig();
+    await loadFormStatus();
     
     flatpickrInstance = flatpickr("#event-date", {
         enableTime: true,
@@ -405,6 +407,77 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+// Lecture de l'activation du formulaire
+async function loadFormStatus() {
+    const stored = localStorage.getItem('lespacific_form_active');
+    if (stored !== null) {
+        isFormActive = (stored === 'true');
+    }
+    updateFormStatusUI();
+
+    if (supabaseClient) {
+        try {
+            const { data, error } = await supabaseClient
+                .from('guild_teams')
+                .select('data')
+                .eq('id', 2)
+                .single();
+            if (data && data.data) {
+                isFormActive = data.data.formActive;
+                localStorage.setItem('lespacific_form_active', isFormActive);
+                updateFormStatusUI();
+            }
+        } catch (err) {
+            console.log("Lecture de configuration Supabase indisponible, utilisation du cache.");
+        }
+    }
+}
+
+// Basculement de l'état d'activation du formulaire
+async function toggleFormStatus() {
+    isFormActive = !isFormActive;
+    localStorage.setItem('lespacific_form_active', isFormActive);
+    updateFormStatusUI();
+
+    if (supabaseClient) {
+        try {
+            await supabaseClient
+                .from('guild_teams')
+                .upsert({ id: 2, data: { formActive: isFormActive } });
+        } catch (err) {
+            console.error("Échec de synchronisation du formulaire :", err);
+        }
+    }
+}
+
+// Mise à jour de l'affichage de l'état du formulaire
+function updateFormStatusUI() {
+    const btnToggleForm = document.getElementById('btn-toggle-form');
+    const formContent = document.getElementById('form-content-container');
+    const formClosedMsg = document.getElementById('form-closed-message');
+
+    if (btnToggleForm) {
+        if (isFormActive) {
+            btnToggleForm.className = "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-400 border border-emerald-900/30 transition";
+            btnToggleForm.innerHTML = `<i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-400"></i> Formulaire : ACTIF`;
+        } else {
+            btnToggleForm.className = "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-red-950/40 hover:bg-red-900/40 text-red-400 border border-red-900/30 transition";
+            btnToggleForm.innerHTML = `<i data-lucide="lock" class="w-3.5 h-3.5 text-red-400"></i> Formulaire : FERMÉ`;
+        }
+    }
+
+    if (formContent && formClosedMsg) {
+        if (isFormActive) {
+            formContent.classList.remove('hidden');
+            formClosedMsg.classList.add('hidden');
+        } else {
+            formContent.classList.add('hidden');
+            formClosedMsg.classList.remove('hidden');
+        }
+    }
+    lucide.createIcons();
+}
+
 // Lecture des configurations de points
 function loadPointsConfig() {
     const stored = localStorage.getItem('lespacific_points_config');
@@ -458,10 +531,10 @@ function updateNotifToggleButton() {
     if (!btn) return;
     if (notificationsEnabled) {
         btn.className = "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-400 border border-emerald-900/30 transition";
-        btn.innerHTML = `<i data-lucide="bell" class="w-3.5 h-3.5"></i> Notification ON`;
+        btn.innerHTML = `<i data-lucide="bell" class="w-3.5 h-3.5 text-emerald-400"></i> Notification ON`;
     } else {
         btn.className = "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-red-950/40 hover:bg-red-900/40 text-red-400 border border-red-900/30 transition";
-        btn.innerHTML = `<i data-lucide="bell-off" class="w-3.5 h-3.5"></i> Notification OFF`;
+        btn.innerHTML = `<i data-lucide="bell-off" class="w-3.5 h-3.5 text-red-400"></i> Notification OFF`;
     }
     lucide.createIcons();
 }
@@ -1442,6 +1515,7 @@ async function loadMembersViewData() {
     await loadMemberProfile();
     await loadTeamsFromStorage();
     await loadAuctionsFromStorage();
+    await loadFormStatus();
 
     try {
         const { data: members, error } = await supabaseClient
@@ -1733,6 +1807,7 @@ async function loadMembersViewData() {
 
 async function loadDashboardData() {
     try {
+        await loadFormStatus();
         const { data: players, error } = await supabaseClient
             .from('players')
             .select('*')
@@ -1809,14 +1884,14 @@ async function loadDashboardData() {
                         <td class="p-4 text-slate-500 text-xs">${dateFormatted}</td>
                         <td class="p-4 text-center">
                             <div class="flex items-center justify-center gap-2">
-                                <button onclick="openInfoModal('${p.id}')" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-white px-2.5 py-1 rounded border border-blue-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Voir les réponses">
-                                    <i data-lucide="info" class="w-3.5 h-3.5"></i>
-                                    Fiche
-                                </button>
-                                <button onclick="deletePlayerFromDatabase('${p.id}', '${p.name}')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-white px-2.5 py-1 rounded border border-red-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Supprimer définitivement">
-                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                                    Supprimer
-                                </button>
+                                        <button onclick="openInfoModal('${p.id}')" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-white px-2.5 py-1 rounded border border-blue-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Voir les réponses">
+                                            <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                                            Fiche
+                                        </button>
+                                        <button onclick="deletePlayerFromDatabase('${p.id}', '${p.name}')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-white px-2.5 py-1 rounded border border-red-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Supprimer définitivement">
+                                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                            Supprimer
+                                        </button>
                             </div>
                         </td>
                     </tr>
