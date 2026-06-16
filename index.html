@@ -69,228 +69,213 @@
         <!-- VUE FORMULAIRE DE CANDIDATURE (PUBLIC) -->
         <section id="view-form" class="space-y-8">
             <div class="max-w-3xl mx-auto bg-[#111622] border border-[#1e2638] rounded-2xl p-6 md:p-10 shadow-xl">
-                
-                <!-- Message de fermeture (Masqué par défaut) -->
-                <div id="form-closed-message" class="hidden text-center py-12 space-y-4 animate-fade-in">
-                    <div class="bg-red-500/10 text-red-400 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto border border-red-500/20">
-                        <i data-lucide="lock" class="w-8 h-8"></i>
+                <h1 class="text-2xl md:text-3xl font-extrabold mb-2 text-white">Évaluation de Niveau de Jeu</h1>
+                <p class="text-slate-400 text-sm md:text-base mb-8 border-b border-[#1e2638] pb-6">
+                    Merci de remplir ce formulaire afin d'évaluer vos compétences pour la prochaine mise à jour de la guilde.
+                </p>
+
+                <form id="evaluation-form" onsubmit="submitForm(event)" class="space-y-6">
+                    <!-- NOM DU JOUEUR -->
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-slate-200">Nom du joueur *</label>
+                        <input type="text" id="player-name" required class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-xl px-4 py-3 text-slate-100 outline-none transition" placeholder="Votre pseudonyme en jeu">
                     </div>
-                    <h2 class="text-xl font-bold text-white">Formulaire de Recrutement Suspendu</h2>
-                    <p class="text-sm text-slate-400 max-w-md mx-auto">
-                        Les évaluations de niveau de jeu sont actuellement suspendues par les administrateurs de la guilde. Merci de contacter un officier ou de revenir ultérieurement.
-                    </p>
-                </div>
 
-                <!-- Contenu du Formulaire public -->
-                <div id="form-content-container">
-                    <h1 class="text-2xl md:text-3xl font-extrabold mb-2 text-white">Évaluation de Niveau de Jeu</h1>
-                    <p class="text-slate-400 text-sm md:text-base mb-8 border-b border-[#1e2638] pb-6">
-                        Merci de remplir ce formulaire afin d'évaluer vos compétences pour la prochaine mise à jour de la guilde.
-                    </p>
-
-                    <form id="evaluation-form" onsubmit="submitForm(event)" class="space-y-6">
-                        <!-- NOM DU JOUEUR -->
-                        <div>
-                            <label class="block text-sm font-semibold mb-2 text-slate-200">Nom du joueur *</label>
-                            <input type="text" id="player-name" required class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-xl px-4 py-3 text-slate-100 outline-none transition" placeholder="Votre pseudonyme en jeu">
-                        </div>
-
-                        <!-- QUESTIONS -->
-                        <div class="space-y-8 pt-4">
-                            <!-- Q1 -->
-                            <div class="question-group">
-                                <label class="block text-sm font-semibold mb-3 text-slate-200">1. Connaissance des mécaniques du jeu</label>
-                                <div class="grid grid-cols-1 gap-2">
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q1" value="1" required class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">A. Je découvre encore certaines bases.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q1" value="2" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">B. Je maîtrise les mécaniques principales.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q1" value="3" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">C. Je connais très bien toutes les mécaniques importantes.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q1" value="4" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">D. Je maîtrise les mécaniques avancées et j'aide les autres à les comprendre.</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Q2 -->
-                            <div class="question-group">
-                                <label class="block text-sm font-semibold mb-3 text-slate-200">2. Temps de jeu disponible par semaine</label>
-                                <div class="grid grid-cols-1 gap-2">
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q2" value="1" required class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">A. Moins de 5 heures.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q2" value="2" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">B. Entre 5 et 10 heures.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q2" value="3" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">C. Entre 10 et 20 heures.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q2" value="4" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">D. Plus de 20 heures.</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Q3 -->
-                            <div class="question-group">
-                                <label class="block text-sm font-semibold mb-3 text-slate-200">3. Réactivité et adaptation aux nouvelles stratégies</label>
-                                <div class="grid grid-cols-1 gap-2">
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q3" value="1" required class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">A. J'ai besoin de temps pour m'adapter.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q3" value="2" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">B. Je m'adapte après quelques essais.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q3" value="3" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">C. Je m'adaptes rapidement.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q3" value="4" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">D. Je trouve souvent les meilleures stratégies avant les autres.</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Q4 -->
-                            <div class="question-group">
-                                <label class="block text-sm font-semibold mb-3 text-slate-200">4. Optimisation de mon personnage / équipement</label>
-                                <div class="grid grid-cols-1 gap-2">
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q4" value="1" required class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">A. Peu optimisé.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q4" value="2" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">B. Correctement optimisé.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q4" value="3" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">C. Très bien optimisé.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q4" value="4" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">D. Optimisation maximale recherchée en permanence.</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Q5 -->
-                            <div class="question-group">
-                                <label class="block text-sm font-semibold mb-3 text-slate-200">5. Gestion des contenus difficiles</label>
-                                <div class="grid grid-cols-1 gap-2">
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q5" value="1" required class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">A. Je préfère les contenus simples.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q5" value="2" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">B. Je réussis les contenus intermédiaires.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q5" value="3" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">C. Je participe régulièrement aux contenus difficiles.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q5" value="4" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">D. Je recherche les défis les plus exigeants du jeu.</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Q6 -->
-                            <div class="question-group">
-                                <label class="block text-sm font-semibold mb-3 text-slate-200">6. Travail en équipe</label>
-                                <div class="grid grid-cols-1 gap-2">
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q6" value="1" required class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">A. Je joue surtout de façon détendue.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q6" value="2" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">B. Je suis les consignes quand elles sont données.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q6" value="3" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">C. Je communique activement et coordonne mon équipe.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q6" value="4" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">D. Je peux prendre un rôle de leader ou de stratège.</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Q7 -->
-                            <div class="question-group">
-                                <label class="block text-sm font-semibold mb-3 text-slate-200">7. Motivation pour la nouvelle mise à jour</label>
-                                <div class="grid grid-cols-1 gap-2">
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q7" value="1" required class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">A. Je veux surtout découvrir le contenu.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q7" value="2" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">B. Je souhaite progresser tranquillement.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q7" value="3" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">C. Je vise les récompenses et les succès importants.</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="q7" value="4" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">D. Je vise les classements, records ou contenus élite.</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- QUESTION FINALE -->
-                            <div class="question-group border-t border-[#1e2638] pt-6">
-                                <label class="block text-sm font-semibold mb-3 text-slate-200">Dans quel groupe souhaites-tu être placé pour la mise à jour ?</label>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="desired-group" value="Niveau normal" required class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">Niveau normal</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="desired-group" value="Niveau moyen" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">Niveau moyen</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="desired-group" value="Haut niveau" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">Haut niveau</span>
-                                    </label>
-                                    <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
-                                        <input type="radio" name="desired-group" value="Très haut niveau" class="accent-blue-500">
-                                        <span class="text-sm text-slate-300">Très haut niveau</span>
-                                    </label>
-                                </div>
+                    <!-- QUESTIONS -->
+                    <div class="space-y-8 pt-4">
+                        <!-- Q1 -->
+                        <div class="question-group">
+                            <label class="block text-sm font-semibold mb-3 text-slate-200">1. Connaissance des mécaniques du jeu</label>
+                            <div class="grid grid-cols-1 gap-2">
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q1" value="1" required class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">A. Je découvre encore certaines bases.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q1" value="2" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">B. Je maîtrise les mécaniques principales.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q1" value="3" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">C. Je connais très bien toutes les mécaniques importantes.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q1" value="4" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">D. Je maîtrise les mécaniques avancées et j'aide les autres à les comprendre.</span>
+                                </label>
                             </div>
                         </div>
 
-                        <!-- SUBMIT BUTTON -->
-                        <div class="pt-6">
-                            <button type="submit" class="w-full bg-[#ff3355] hover:bg-[#e62243] text-white font-bold py-3 px-6 rounded-xl transition duration-200 flex justify-center items-center gap-2">
-                                <i data-lucide="send" class="w-5 h-5"></i>
-                                Soumettre mon évaluation
-                            </button>
+                        <!-- Q2 -->
+                        <div class="question-group">
+                            <label class="block text-sm font-semibold mb-3 text-slate-200">2. Temps de jeu disponible par semaine</label>
+                            <div class="grid grid-cols-1 gap-2">
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q2" value="1" required class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">A. Moins de 5 heures.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q2" value="2" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">B. Entre 5 et 10 heures.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q2" value="3" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">C. Entre 10 et 20 heures.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q2" value="4" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">D. Plus de 20 heures.</span>
+                                </label>
+                            </div>
                         </div>
-                    </form>
-                </div>
+
+                        <!-- Q3 -->
+                        <div class="question-group">
+                            <label class="block text-sm font-semibold mb-3 text-slate-200">3. Réactivité et adaptation aux nouvelles stratégies</label>
+                            <div class="grid grid-cols-1 gap-2">
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q3" value="1" required class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">A. J'ai besoin de temps pour m'adapter.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q3" value="2" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">B. Je m'adapte après quelques essais.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q3" value="3" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">C. Je m'adaptes rapidement.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q3" value="4" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">D. Je trouve souvent les meilleures stratégies avant les autres.</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Q4 -->
+                        <div class="question-group">
+                            <label class="block text-sm font-semibold mb-3 text-slate-200">4. Optimisation de mon personnage / équipement</label>
+                            <div class="grid grid-cols-1 gap-2">
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q4" value="1" required class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">A. Peu optimisé.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q4" value="2" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">B. Correctement optimisé.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q4" value="3" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">C. Très bien optimisé.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q4" value="4" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">D. Optimisation maximale recherchée en permanence.</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Q5 -->
+                        <div class="question-group">
+                            <label class="block text-sm font-semibold mb-3 text-slate-200">5. Gestion des contenus difficiles</label>
+                            <div class="grid grid-cols-1 gap-2">
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q5" value="1" required class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">A. Je préfère les contenus simples.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q5" value="2" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">B. Je réussis les contenus intermédiaires.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q5" value="3" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">C. Je participe régulièrement aux contenus difficiles.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q5" value="4" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">D. Je recherche les défis les plus exigeants du jeu.</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Q6 -->
+                        <div class="question-group">
+                            <label class="block text-sm font-semibold mb-3 text-slate-200">6. Travail en équipe</label>
+                            <div class="grid grid-cols-1 gap-2">
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q6" value="1" required class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">A. Je joue surtout de façon détendue.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q6" value="2" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">B. Je suis les consignes quand elles sont données.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q6" value="3" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">C. Je communique activement et coordonne mon équipe.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q6" value="4" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">D. Je peux prendre un rôle de leader ou de stratège.</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Q7 -->
+                        <div class="question-group">
+                            <label class="block text-sm font-semibold mb-3 text-slate-200">7. Motivation pour la nouvelle mise à jour</label>
+                            <div class="grid grid-cols-1 gap-2">
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q7" value="1" required class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">A. Je veux surtout découvrir le contenu.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q7" value="2" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">B. Je souhaite progresser tranquillement.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q7" value="3" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">C. Je vise les récompenses et les succès importants.</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="q7" value="4" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">D. Je vise les classements, records ou contenus élite.</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- QUESTION FINALE -->
+                        <div class="question-group border-t border-[#1e2638] pt-6">
+                            <label class="block text-sm font-semibold mb-3 text-slate-200">Dans quel groupe souhaites-tu être placé pour la mise à jour ?</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="desired-group" value="Niveau normal" required class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">Niveau normal</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="desired-group" value="Niveau moyen" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">Niveau moyen</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="desired-group" value="Haut niveau" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">Haut niveau</span>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 bg-[#0b0e14]/50 hover:bg-[#161b26] rounded-xl border border-[#1e2638] cursor-pointer transition">
+                                    <input type="radio" name="desired-group" value="Très haut niveau" class="accent-blue-500">
+                                    <span class="text-sm text-slate-300">Très haut niveau</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SUBMIT BUTTON -->
+                    <div class="pt-6">
+                        <button type="submit" class="w-full bg-[#ff3355] hover:bg-[#e62243] text-white font-bold py-3 px-6 rounded-xl transition duration-200 flex justify-center items-center gap-2">
+                            <i data-lucide="send" class="w-5 h-5"></i>
+                            Soumettre mon évaluation
+                        </button>
+                    </div>
+                </form>
             </div>
         </section>
 
