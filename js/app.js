@@ -44,6 +44,18 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     console.warn("Veuillez configurer Supabase avec vos clés d'API.");
 }
 
+// Normaliseur de texte ultra-robuste (insensible aux accents, NFC/NFD, espaces ou tirets)
+function cleanCompareString(str) {
+    if (!str) return "";
+    return str
+        .normalize("NFC")                  // Force la normalisation NFC des accents
+        .toLowerCase()                     // Convertit en minuscules
+        .replace(/[\u00a0\s]+/g, " ")      // Remplace les espaces insécables par des espaces simples
+        .replace(/[’']/g, "'")             // Uniformise les apostrophes
+        .replace(/[-–—]/g, "-")            // Uniformise tous les types de tirets
+        .trim();
+}
+
 // Traduction des armes en icônes Questlog CDN
 function getWeaponIcon(weaponName) {
     const mapping = {
@@ -87,10 +99,11 @@ function getItemIconHTML(item) {
             </div>`;
 }
 
-// Trouver un équipement par son nom
+// Trouver un équipement par son nom (avec comparaison de texte sécurisée)
 function findItemByName(name) {
     if (!name) return null;
-    return TL_ITEMS_DB.find(item => item.name.toLowerCase().trim() === name.toLowerCase().trim()) || null;
+    const cleanSearchName = cleanCompareString(name);
+    return TL_ITEMS_DB.find(item => item && cleanCompareString(item.name) === cleanSearchName) || null;
 }
 
 // Moteur d'autocomplétion dynamique pour les suggestions d'objets
@@ -1147,7 +1160,7 @@ async function saveWishlist(event) {
     const newWishlist = [wish0, wish1, wish2];
 
     try {
-        // Récupérer les enchères résolues remportées par ce membre
+        // Récupérer les enchères remportées
         const { data: resolvedAuctions, error } = await supabaseClient
             .from('auctions')
             .select('*')
@@ -1156,11 +1169,11 @@ async function saveWishlist(event) {
 
         if (error) throw error;
 
-        const obtainedItems = resolvedAuctions ? resolvedAuctions.map(a => a.item_name.toLowerCase().trim()) : [];
+        const obtainedItems = resolvedAuctions ? resolvedAuctions.map(a => cleanCompareString(a.item_name)) : [];
 
         // Validation : Impossible de wishlister un objet déjà gagné par le passé
         for (const wish of newWishlist) {
-            if (wish && obtainedItems.includes(wish.toLowerCase().trim())) {
+            if (wish && obtainedItems.includes(cleanCompareString(wish))) {
                 alert(`Action refusée ! Vous avez déjà obtenu l'objet "${wish}" lors d'une précédente enchère de guilde. Vous ne pouvez plus le rajouter à votre Wishlist.`);
                 return;
             }
@@ -1418,8 +1431,6 @@ function showPriorityModal(itemName, sortedMembers) {
 }
 
 // Résolution de l'enchère par l'administrateur
-// Résolution de l'enchère par l'administrateur
-// Résolution de l'enchère par l'administrateur
 async function resolveAuction(auctionId) {
     if (!supabaseClient) return;
 
@@ -1445,12 +1456,13 @@ async function resolveAuction(auctionId) {
 
         for (const userId in bidsMap) {
             const bidInfo = bidsMap[userId];
-            const memberProfile = latestMembers.find(m => m.id === userId);
+            // Sécurité : Comparaison UUID insensible à la casse
+            const memberProfile = latestMembers.find(m => m.id.toLowerCase() === userId.toLowerCase());
             const currentActualPoints = memberProfile ? (memberProfile.points || 0) : 0;
 
             if (bidInfo.amount <= currentActualPoints) {
                 const wishlist = memberProfile ? parseWishlistArray(memberProfile.wishlist) : ["", "", ""];
-                const hasWishlist = wishlist.some(item => item && item.toLowerCase().trim() === auction.item_name.toLowerCase().trim());
+                const hasWishlist = wishlist.some(item => item && cleanCompareString(item) === cleanCompareString(auction.item_name));
 
                 bidsArray.push({
                     userId: userId,
@@ -1503,15 +1515,15 @@ async function resolveAuction(auctionId) {
             alert(priorityMessage);
         }
 
-        if (!confirm(`Le vainqueur est "${winner.char_name}" avec une mise de ${winner.amount} pts.\nConfirmer et clôturer l'enchère ?`)) {
+        if (!confirm(`Le vainqueur est "${winner.char_name}" avec une mise de ${winner.amount} pts (Wishlist Prioritaire).\nConfirmer et clôturer l'enchère ?`)) {
             return;
         }
 
-        // 5. Calculer le nouveau solde et nettoyer sa wishlist à l'emplacement précis
+        // 5. Calculer le nouveau solde et nettoyer sa wishlist à l'emplacement précis (avec nettoyage Unicode)
         const newPointsTotal = winner.profile.points - winner.amount;
         const winnerWishlist = parseWishlistArray(winner.profile.wishlist);
         const cleanedWishlist = winnerWishlist.map(item => {
-            if (item && item.toLowerCase().trim() === auction.item_name.toLowerCase().trim()) {
+            if (item && cleanCompareString(item) === cleanCompareString(auction.item_name)) {
                 return ""; // On vide uniquement cet emplacement
             }
             return item;
@@ -1522,7 +1534,7 @@ async function resolveAuction(auctionId) {
             wishlist: cleanedWishlist
         };
 
-        // 6. Mise à jour atomique unifiée (Points + Wishlist en une seule transaction)
+        // 6. Mise à jour unifiée en une seule transaction
         const { error: profileErr } = await supabaseClient
             .from('member_profiles')
             .update(updatePayload)
