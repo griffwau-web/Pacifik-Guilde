@@ -958,6 +958,35 @@ async function submitForm(event) {
 // GESTION DU PROFIL DU JOUEUR (Membres)
 // ==========================================
 
+// Décodeur universel pour lire les formats de tableaux PostgreSQL et JS
+function parseWishlistArray(wishlistVal) {
+    if (!wishlistVal) return ["", "", ""];
+    if (Array.isArray(wishlistVal)) {
+        let arr = [...wishlistVal];
+        while (arr.length < 3) {
+            arr.push("");
+        }
+        return arr;
+    }
+    if (typeof wishlistVal === 'string') {
+        // Gère le format natif Postgres de type "{item1,item2,item3}"
+        let cleaned = wishlistVal.replace(/[{}]/g, '');
+        if (cleaned.trim() === "") return ["", "", ""];
+        let parsed = cleaned.split(',').map(item => {
+            let trimmed = item.trim();
+            if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+                trimmed = trimmed.substring(1, trimmed.length - 1);
+            }
+            return (trimmed === "NULL" || trimmed === "null" || !trimmed) ? "" : trimmed;
+        });
+        while (parsed.length < 3) {
+            parsed.push("");
+        }
+        return parsed;
+    }
+    return ["", "", ""];
+}
+
 function renderWeaponCheckboxes() {
     const container = document.getElementById('weapons-checkboxes-container');
     if (!container) return;
@@ -1004,14 +1033,14 @@ async function loadMemberProfile() {
                 cb.disabled = true;
             });
 
-            // Charger la wishlist dans les trois champs de saisie (Souhait 1, 2, 3)
-            const wishlist = data.wishlist || ["", "", ""];
+            // Décodage et chargement propre dans les trois champs de saisie (Souhait 1, 2, 3)
+            const wishlist = parseWishlistArray(data.wishlist);
             for (let i = 0; i < 3; i++) {
                 const input = document.getElementById(`wishlist-item-${i}`);
                 if (input) input.value = wishlist[i] || '';
             }
 
-            // Rendu visuel de la Wishlist (en ignorant les emplacements vides uniquement à l'affichage des cartes)
+            // Rendu visuel de la Wishlist
             const summaryContainer = document.getElementById('wishlist-summary-container');
             if (summaryContainer) {
                 const activeWishes = wishlist.filter(w => w && w.trim() !== "");
@@ -1390,6 +1419,7 @@ function showPriorityModal(itemName, sortedMembers) {
 
 // Résolution de l'enchère par l'administrateur
 // Résolution de l'enchère par l'administrateur
+// Résolution de l'enchère par l'administrateur
 async function resolveAuction(auctionId) {
     if (!supabaseClient) return;
 
@@ -1418,10 +1448,8 @@ async function resolveAuction(auctionId) {
             const memberProfile = latestMembers.find(m => m.id === userId);
             const currentActualPoints = memberProfile ? (memberProfile.points || 0) : 0;
 
-            // Sécurité : n'inclure que les mises inférieures ou égales au solde réel actuel du joueur
             if (bidInfo.amount <= currentActualPoints) {
-                const wishlist = memberProfile ? (memberProfile.wishlist || []) : [];
-                // Vérifier s'il possède l'objet en wishlist au moment de la clôture
+                const wishlist = memberProfile ? parseWishlistArray(memberProfile.wishlist) : ["", "", ""];
                 const hasWishlist = wishlist.some(item => item && item.toLowerCase().trim() === auction.item_name.toLowerCase().trim());
 
                 bidsArray.push({
@@ -1464,9 +1492,9 @@ async function resolveAuction(auctionId) {
         // 4. Trier les offreurs éligibles finaux (Montant puis Date)
         finalCandidates.sort((a, b) => {
             if (b.amount !== a.amount) {
-                return b.amount - a.amount; // Plus grand montant
+                return b.amount - a.amount;
             }
-            return new Date(a.timestamp) - new Date(b.timestamp); // Premier à avoir misé (égalité résolue)
+            return new Date(a.timestamp) - new Date(b.timestamp);
         });
 
         const winner = finalCandidates[0];
@@ -1475,39 +1503,34 @@ async function resolveAuction(auctionId) {
             alert(priorityMessage);
         }
 
-        if (!confirm(`Le vainqueur est "${winner.char_name}" avec une mise de ${winner.amount} pts (Wishlist Prioritaire).\nConfirmer et clôturer l'enchère ?`)) {
+        if (!confirm(`Le vainqueur est "${winner.char_name}" avec une mise de ${winner.amount} pts.\nConfirmer et clôturer l'enchère ?`)) {
             return;
         }
 
-        // 5. Débiter les points du vainqueur
+        // 5. Calculer le nouveau solde et nettoyer sa wishlist à l'emplacement précis
         const newPointsTotal = winner.profile.points - winner.amount;
-        const { error: debitErr } = await supabaseClient
-            .from('member_profiles')
-            .update({ points: newPointsTotal })
-            .eq('id', winner.userId);
-
-        if (debitErr) throw debitErr;
-
-        // 6. Retirer automatiquement l'objet de l'emplacement précis (Souhait 1, 2 ou 3) du vainqueur
-        const winnerWishlist = winner.profile.wishlist || ["", "", ""];
+        const winnerWishlist = parseWishlistArray(winner.profile.wishlist);
         const cleanedWishlist = winnerWishlist.map(item => {
             if (item && item.toLowerCase().trim() === auction.item_name.toLowerCase().trim()) {
-                return ""; // On remplace par un vide pour réinitialiser spécifiquement cet emplacement
+                return ""; // On vide uniquement cet emplacement
             }
             return item;
         });
 
-        if (winnerWishlist.join(',') !== cleanedWishlist.join(',')) {
-            const { error: wishlistErr } = await supabaseClient
-                .from('member_profiles')
-                .update({ wishlist: cleanedWishlist })
-                .eq('id', winner.userId);
+        const updatePayload = {
+            points: newPointsTotal,
+            wishlist: cleanedWishlist
+        };
 
-            if (wishlistErr) {
-                console.error("Échec de mise à jour automatique de la wishlist du vainqueur :", wishlistErr);
-            } else {
-                console.log(`L'objet "${auction.item_name}" a été automatiquement retiré de la wishlist de ${winner.char_name}.`);
-            }
+        // 6. Mise à jour atomique unifiée (Points + Wishlist en une seule transaction)
+        const { error: profileErr } = await supabaseClient
+            .from('member_profiles')
+            .update(updatePayload)
+            .eq('id', winner.userId);
+
+        if (profileErr) {
+            console.error("Échec de mise à jour du profil du vainqueur :", profileErr);
+            throw new Error("Impossible de débiter les points ou de nettoyer la wishlist.");
         }
 
         // 7. Mettre à jour l'enchère à résolue
