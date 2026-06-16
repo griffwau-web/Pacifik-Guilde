@@ -1368,10 +1368,12 @@ function showPriorityModal(itemName, sortedMembers) {
     lucide.createIcons();
 }
 
+// Résolution de l'enchère par l'administrateur
 async function resolveAuction(auctionId) {
     if (!supabaseClient) return;
 
     try {
+        // 1. Récupérer l'enchère
         const { data: auction, error: getErr } = await supabaseClient
             .from('auctions')
             .select('*')
@@ -1380,6 +1382,7 @@ async function resolveAuction(auctionId) {
 
         if (getErr || !auction) throw new Error("Enchère introuvable.");
 
+        // 2. Récupérer tous les membres pour validation de sécurité des points réels
         const { data: latestMembers, error: membersErr } = await supabaseClient
             .from('member_profiles')
             .select('*');
@@ -1394,8 +1397,10 @@ async function resolveAuction(auctionId) {
             const memberProfile = latestMembers.find(m => m.id === userId);
             const currentActualPoints = memberProfile ? (memberProfile.points || 0) : 0;
 
+            // Sécurité : n'inclure que les mises inférieures ou égales au solde réel actuel du joueur
             if (bidInfo.amount <= currentActualPoints) {
                 const wishlist = memberProfile ? (memberProfile.wishlist || []) : [];
+                // Vérifier s'il possède l'objet en wishlist au moment de la clôture
                 const hasWishlist = wishlist.some(item => item && item.toLowerCase().trim() === auction.item_name.toLowerCase().trim());
 
                 bidsArray.push({
@@ -1420,11 +1425,12 @@ async function resolveAuction(auctionId) {
                 .eq('id', auctionId);
 
             if (error) throw error;
-            alert("Aucune mise valide trouvée.");
+            alert("Aucune mise valide trouvée. L'enchère s'est clôturée sans vainqueur.");
             await loadDashboardData();
             return;
         }
 
+        // 3. Application de la fusion Wishlist : Filtrer pour prioriser uniquement ceux l'ayant wishlisted
         const wishlistBidders = bidsArray.filter(b => b.hasWishlist);
         let finalCandidates = bidsArray;
         let priorityMessage = "";
@@ -1434,11 +1440,12 @@ async function resolveAuction(auctionId) {
             priorityMessage = "🏆 Priorité de Wishlist active ! Seuls les offreurs ayant l'objet dans leur liste de souhaits sont éligibles.";
         }
 
+        // 4. Trier les offreurs éligibles finaux (Montant puis Date)
         finalCandidates.sort((a, b) => {
             if (b.amount !== a.amount) {
-                return b.amount - a.amount;
+                return b.amount - a.amount; // Plus grand montant
             }
-            return new Date(a.timestamp) - new Date(b.timestamp);
+            return new Date(a.timestamp) - new Date(b.timestamp); // Premier à avoir misé (égalité résolue)
         });
 
         const winner = finalCandidates[0];
@@ -1447,10 +1454,11 @@ async function resolveAuction(auctionId) {
             alert(priorityMessage);
         }
 
-        if (!confirm(`Le vainqueur est "${winner.char_name}" avec une mise de ${winner.amount} pts. Clôturer l'enchère ?`)) {
+        if (!confirm(`Le vainqueur est "${winner.char_name}" avec une mise de ${winner.amount} pts (Wishlist Prioritaire).\nConfirmer et clôturer l'enchère ?`)) {
             return;
         }
 
+        // 5. Débiter les points du vainqueur
         const newPointsTotal = winner.profile.points - winner.amount;
         const { error: debitErr } = await supabaseClient
             .from('member_profiles')
@@ -1459,6 +1467,26 @@ async function resolveAuction(auctionId) {
 
         if (debitErr) throw debitErr;
 
+        // 6. [NOUVEAU] Retirer automatiquement l'objet de la Wishlist du vainqueur s'il y figurait
+        const winnerWishlist = winner.profile.wishlist || [];
+        const cleanedWishlist = winnerWishlist.filter(item => 
+            item && item.toLowerCase().trim() !== auction.item_name.toLowerCase().trim()
+        );
+
+        if (winnerWishlist.length !== cleanedWishlist.length) {
+            const { error: wishlistErr } = await supabaseClient
+                .from('member_profiles')
+                .update({ wishlist: cleanedWishlist })
+                .eq('id', winner.userId);
+
+            if (wishlistErr) {
+                console.error("Échec de mise à jour automatique de la wishlist du vainqueur :", wishlistErr);
+            } else {
+                console.log(`L'objet "${auction.item_name}" a été automatiquement retiré de la wishlist de ${winner.char_name}.`);
+            }
+        }
+
+        // 7. Mettre à jour l'enchère à résolue
         const { error: resolveErr } = await supabaseClient
             .from('auctions')
             .update({
@@ -1471,16 +1499,18 @@ async function resolveAuction(auctionId) {
 
         if (resolveErr) throw resolveErr;
 
+        // 8. Publier la notification dans l'historique
         await supabaseClient
             .from('notifications')
             .insert([{
                 message: `🏆 L'enchère pour "${auction.item_name}" a été remportée par ${winner.char_name} avec une offre de ${winner.amount} points !`
             }]);
 
-        alert(`L'enchère est clôturée. ${winner.char_name} a remporté l'objet.`);
+        alert(`Succès ! L'enchère est clôturée. ${winner.char_name} a remporté l'objet.`);
         await loadDashboardData();
     } catch (err) {
         console.error("Erreur de clôture :", err);
+        alert("Une erreur s'est produite lors de la validation : " + err.message);
     }
 }
 
