@@ -541,6 +541,7 @@ function updateNotifToggleButton() {
     lucide.createIcons();
 }
 
+// Écoute dynamique temps réel multi-tables (Équipes, Enchères et Profils)
 function subscribeToRealtimeTeams() {
     if (!supabaseClient) return;
 
@@ -549,21 +550,33 @@ function subscribeToRealtimeTeams() {
     }
 
     teamsChannel = supabaseClient
-        .channel('public:guild_teams')
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'guild_teams' }, async (payload) => {
+        .channel('public:guild_changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'guild_teams' }, async (payload) => {
             console.log("Mise à jour d'équipe reçue en direct :", payload);
-            
-            const dashboardSection = document.getElementById('view-dashboard');
-            if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
-                await loadDashboardData();
-            }
-
-            const membersSection = document.getElementById('view-members');
-            if (membersSection && !membersSection.classList.contains('hidden')) {
-                await loadMembersViewData();
-            }
+            await handleLiveUpdate();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'auctions' }, async (payload) => {
+            console.log("Mise à jour d'enchère reçue en direct :", payload);
+            await handleLiveUpdate();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'member_profiles' }, async (payload) => {
+            console.log("Mise à jour de profil reçue en direct :", payload);
+            await handleLiveUpdate();
         })
         .subscribe();
+}
+
+// Fonction de centralisation des mises à jour en direct
+async function handleLiveUpdate() {
+    const dashboardSection = document.getElementById('view-dashboard');
+    if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
+        await loadDashboardData();
+    }
+
+    const membersSection = document.getElementById('view-members');
+    if (membersSection && !membersSection.classList.contains('hidden')) {
+        await loadMembersViewData();
+    }
 }
 
 function updateUIVisibility(session) {
@@ -991,18 +1004,21 @@ async function loadMemberProfile() {
                 cb.disabled = true;
             });
 
-            const wishlist = data.wishlist || [];
+            // Charger la wishlist dans les trois champs de saisie (Souhait 1, 2, 3)
+            const wishlist = data.wishlist || ["", "", ""];
             for (let i = 0; i < 3; i++) {
                 const input = document.getElementById(`wishlist-item-${i}`);
                 if (input) input.value = wishlist[i] || '';
             }
 
+            // Rendu visuel de la Wishlist (en ignorant les emplacements vides uniquement à l'affichage des cartes)
             const summaryContainer = document.getElementById('wishlist-summary-container');
             if (summaryContainer) {
-                if (wishlist.length === 0) {
+                const activeWishes = wishlist.filter(w => w && w.trim() !== "");
+                if (activeWishes.length === 0) {
                     summaryContainer.innerHTML = `<span class="text-xs text-slate-500 italic block text-center">Aucun souhait enregistré</span>`;
                 } else {
-                    summaryContainer.innerHTML = wishlist.map(wish => {
+                    summaryContainer.innerHTML = activeWishes.map(wish => {
                         const itemObj = findItemByName(wish);
                         const iconHtml = itemObj ? getItemIconHTML(itemObj) : `<div class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-500/20 bg-slate-500/5 text-slate-400 shrink-0"><i data-lucide="help-circle" class="w-4 h-4"></i></div>`;
                         const rarityText = itemObj ? (itemObj.rarity === 'legendary' ? 'Légendaire' : `Épique ${itemObj.tier || ''}`) : 'Objet personnalisé';
@@ -1088,6 +1104,7 @@ async function saveMemberProfile(event) {
     }
 }
 
+// Sauvegarde de la liste de souhaits (Wishlist) avec préservation des emplacements
 async function saveWishlist(event) {
     event.preventDefault();
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -1097,9 +1114,11 @@ async function saveWishlist(event) {
     const wish1 = document.getElementById('wishlist-item-1').value.trim();
     const wish2 = document.getElementById('wishlist-item-2').value.trim();
 
-    const newWishlist = [wish0, wish1, wish2].filter(w => w !== "");
+    // On préserve les 3 emplacements (index 0, 1, 2) pour éviter les décalages visuels
+    const newWishlist = [wish0, wish1, wish2];
 
     try {
+        // Récupérer les enchères résolues remportées par ce membre
         const { data: resolvedAuctions, error } = await supabaseClient
             .from('auctions')
             .select('*')
@@ -1110,9 +1129,10 @@ async function saveWishlist(event) {
 
         const obtainedItems = resolvedAuctions ? resolvedAuctions.map(a => a.item_name.toLowerCase().trim()) : [];
 
+        // Validation : Impossible de wishlister un objet déjà gagné par le passé
         for (const wish of newWishlist) {
-            if (obtainedItems.includes(wish.toLowerCase().trim())) {
-                alert(`Action refusée ! Vous avez déjà obtenu l'objet "${wish}".`);
+            if (wish && obtainedItems.includes(wish.toLowerCase().trim())) {
+                alert(`Action refusée ! Vous avez déjà obtenu l'objet "${wish}" lors d'une précédente enchère de guilde. Vous ne pouvez plus le rajouter à votre Wishlist.`);
                 return;
             }
         }
@@ -1369,6 +1389,7 @@ function showPriorityModal(itemName, sortedMembers) {
 }
 
 // Résolution de l'enchère par l'administrateur
+// Résolution de l'enchère par l'administrateur
 async function resolveAuction(auctionId) {
     if (!supabaseClient) return;
 
@@ -1467,13 +1488,16 @@ async function resolveAuction(auctionId) {
 
         if (debitErr) throw debitErr;
 
-        // 6. [NOUVEAU] Retirer automatiquement l'objet de la Wishlist du vainqueur s'il y figurait
-        const winnerWishlist = winner.profile.wishlist || [];
-        const cleanedWishlist = winnerWishlist.filter(item => 
-            item && item.toLowerCase().trim() !== auction.item_name.toLowerCase().trim()
-        );
+        // 6. Retirer automatiquement l'objet de l'emplacement précis (Souhait 1, 2 ou 3) du vainqueur
+        const winnerWishlist = winner.profile.wishlist || ["", "", ""];
+        const cleanedWishlist = winnerWishlist.map(item => {
+            if (item && item.toLowerCase().trim() === auction.item_name.toLowerCase().trim()) {
+                return ""; // On remplace par un vide pour réinitialiser spécifiquement cet emplacement
+            }
+            return item;
+        });
 
-        if (winnerWishlist.length !== cleanedWishlist.length) {
+        if (winnerWishlist.join(',') !== cleanedWishlist.join(',')) {
             const { error: wishlistErr } = await supabaseClient
                 .from('member_profiles')
                 .update({ wishlist: cleanedWishlist })
