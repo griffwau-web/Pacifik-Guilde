@@ -11,7 +11,6 @@ const WEAPONS_LIST = ["Arbalète", "Bâton", "Épée bouclier", "Espadon", "Dagu
 let supabaseClient = null;
 let pieChartInstance = null;
 let barChartInstance = null;
-let dashboardAutoRefreshInterval = null;
 let flatpickrInstance = null; 
 let teamsChannel = null;      
 let notificationsEnabled = true; 
@@ -789,6 +788,7 @@ async function saveTeamsState() {
     }
 }
 
+// Routage et affichage des vues privées
 function switchView(view) {
     // Sécurité de routage : si le formulaire est désactivé, on redirige vers l'onglet Connexion
     if (view === 'form' && !isFormActive) {
@@ -800,11 +800,6 @@ function switchView(view) {
     const dashboardSection = document.getElementById('view-dashboard');
     const membersSection = document.getElementById('view-members');
     const inviteSignupSection = document.getElementById('view-invite-signup');
-
-    if (dashboardAutoRefreshInterval) {
-        clearInterval(dashboardAutoRefreshInterval);
-        dashboardAutoRefreshInterval = null;
-    }
 
     setTabActive('nav-form', view === 'form');
     setTabActive('nav-login', view === 'login');
@@ -824,11 +819,10 @@ function switchView(view) {
     } else if (view === 'dashboard') {
         dashboardSection?.classList.remove('hidden');
         switchDbSection('management'); 
-        loadDashboardData();
-        dashboardAutoRefreshInterval = setInterval(loadDashboardData, 15000);
+        loadDashboardData(); // Chargement unique à l'ouverture de l'onglet
     } else if (view === 'members') {
         membersSection?.classList.remove('hidden');
-        loadMembersViewData();
+        loadMembersViewData(); // Chargement unique à l'ouverture de l'onglet
     } else if (view === 'signup') {
         inviteSignupSection?.classList.remove('hidden');
     }
