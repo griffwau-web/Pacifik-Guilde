@@ -225,7 +225,7 @@ function selectItemSuggestion(inputId, containerId, itemName) {
 
 // Fermeture automatique des dropdowns au clic extérieur
 document.addEventListener('click', function(event) {
-    const containers = ['auction-suggestions', 'wishlist-suggestions-0', 'wishlist-suggestions-1', 'wishlist-suggestions-2'];
+    const containers = ['auction-suggestions'];
     containers.forEach(id => {
         const container = document.getElementById(id);
         if (container && !container.contains(event.target) && !event.target.classList.contains('w-full')) {
@@ -1164,47 +1164,6 @@ async function loadMemberProfile() {
                 cb.disabled = true;
             });
 
-            // Décodage et chargement propre dans les deux champs de saisie (Souhait 1, 2)
-            const wishlist = parseWishlistArray(data.wishlist);
-            for (let i = 0; i < 2; i++) {
-                const input = document.getElementById(`wishlist-item-${i}`);
-                if (input) input.value = wishlist[i] || '';
-            }
-
-            // Gérer l'affichage du nombre de jetons restants pour le mois
-            const tokens = data.wish_tokens !== undefined && data.wish_tokens !== null ? data.wish_tokens : 2;
-            const counter = document.getElementById('wish-tokens-counter');
-            if (counter) {
-                counter.innerText = tokens;
-            }
-
-            // Rendu visuel de la Wishlist
-            const summaryContainer = document.getElementById('wishlist-summary-container');
-            if (summaryContainer) {
-                const activeWishes = wishlist.filter(w => w && w.trim() !== "");
-                if (activeWishes.length === 0) {
-                    summaryContainer.innerHTML = `<span class="text-xs text-slate-500 italic block text-center">Aucun souhait enregistré</span>`;
-                } else {
-                    summaryContainer.innerHTML = activeWishes.map(wish => {
-                        const itemObj = findItemByName(wish);
-                        const iconHtml = itemObj ? getItemIconHTML(itemObj) : `<div class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-500/20 bg-slate-500/5 text-slate-400 shrink-0"><i data-lucide="help-circle" class="w-4 h-4"></i></div>`;
-                        const rarityText = itemObj ? (itemObj.rarity === 'legendary' ? 'Légendaire' : `Épique ${itemObj.tier || ''}`) : 'Objet personnalisé';
-                        const colorClass = itemObj ? (itemObj.rarity === 'legendary' ? 'text-red-400' : 'text-purple-400') : 'text-slate-400';
-                        const url = itemObj ? itemObj.questlogUrl : "#";
-
-                        return `
-                            <div class="flex items-center gap-2.5 p-2 bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl hover:border-purple-500/30 transition">
-                                ${iconHtml}
-                                <div class="truncate">
-                                    <a href="${url}" target="_blank" class="block text-xs font-bold text-slate-200 hover:text-purple-400 truncate">${wish}</a>
-                                    <span class="block text-[9px] ${colorClass} font-semibold">${rarityText}</span>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-                }
-            }
-
             document.getElementById('btn-edit-profile').classList.remove('hidden');
             document.getElementById('btn-save-profile').classList.add('hidden');
             document.getElementById('profile-char-name').disabled = true;
@@ -1268,67 +1227,6 @@ async function saveMemberProfile(event) {
     } catch (err) {
         console.error(err);
         alert("Erreur lors de la sauvegarde.");
-    }
-}
-
-// Sauvegarde de la liste de souhaits (Wishlist) limitée par les jetons disponibles
-async function saveWishlist(event) {
-    event.preventDefault();
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) return;
-
-    const wish0 = document.getElementById('wishlist-item-0').value.trim();
-    const wish1 = document.getElementById('wishlist-item-1').value.trim();
-    const newWishlist = [wish0, wish1];
-    const filledWishesCount = newWishlist.filter(w => w !== "").length;
-
-    try {
-        // 1. Récupérer le profil pour valider le nombre de jetons restants
-        const { data: profile, error: profErr } = await supabaseClient
-            .from('member_profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-        if (profErr) throw profErr;
-
-        const tokens = profile.wish_tokens !== undefined && profile.wish_tokens !== null ? profile.wish_tokens : 2;
-
-        if (filledWishesCount > tokens) {
-            alert(`Action refusée ! Vous ne pouvez pas enregistrer ${filledWishesCount} souhaits car il ne vous reste que ${tokens} jeton(s) de souhait disponible(s) pour ce mois-ci.`);
-            return;
-        }
-
-        // 2. Récupérer les enchères remportées
-        const { data: resolvedAuctions, error } = await supabaseClient
-            .from('auctions')
-            .select('*')
-            .eq('status', 'resolved')
-            .eq('winner_id', session.user.id);
-
-        if (error) throw error;
-
-        const obtainedItems = resolvedAuctions ? resolvedAuctions.map(a => cleanCompareString(a.item_name)) : [];
-
-        // Validation : Impossible de wishlister un objet déjà gagné par le passé
-        for (const wish of newWishlist) {
-            if (wish && obtainedItems.includes(cleanCompareString(wish))) {
-                alert(`Action refusée ! Vous avez déjà obtenu l'objet "${wish}" lors d'une précédente enchère de guilde. Vous ne pouvez plus le rajouter à votre Wishlist.`);
-                return;
-            }
-        }
-
-        const { error: updErr } = await supabaseClient
-            .from('member_profiles')
-            .update({ wishlist: newWishlist })
-            .eq('id', session.user.id);
-
-        if (updErr) throw updErr;
-
-        alert("Votre liste de souhaits (Wishlist) a été mise à jour !");
-        await loadMembersViewData();
-    } catch (err) {
-        console.error("Échec de sauvegarde Wishlist :", err);
     }
 }
 
