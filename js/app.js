@@ -1792,29 +1792,74 @@ async function loadMembersViewData() {
             const itemObj = findItemByName(auc.item_name);
             const iconHtml = itemObj ? getItemIconHTML(itemObj) : `<div class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-500/20 bg-[#0b0e14]/40 text-slate-400 shrink-0"><i data-lucide="help-circle" class="w-4 h-4"></i></div>`;
 
+            // Extraction et tri des offres des autres joueurs
+            const otherBids = Object.entries(bidsMap)
+                .filter(([userId]) => userId !== session.user.id)
+                .map(([_, bid]) => ({
+                    char_name: bid.char_name || "Joueur anonyme",
+                    amount: bid.amount,
+                    timestamp: bid.timestamp
+                }))
+                .sort((a, b) => b.amount - a.amount); // Tri de l'offre la plus haute à la plus basse
+
+            // Génération du HTML pour la liste des autres propositions
+            let otherBidsListHtml = "";
+            if (otherBids.length > 0) {
+                otherBidsListHtml = `
+                    <div class="w-full mt-4 pt-3 border-t border-[#1e2638] space-y-2">
+                        <span class="block text-[10px] text-slate-500 uppercase font-bold tracking-wider">Offres des autres membres (${otherBids.length})</span>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-28 overflow-y-auto pr-1">
+                            ${otherBids.map(b => `
+                                <div class="flex items-center justify-between p-2 bg-[#0b0e14]/40 border border-[#1e2638]/60 rounded-lg text-xs">
+                                    <span class="font-semibold text-slate-300">${b.char_name}</span>
+                                    <span class="font-bold text-amber-400">
+                                        ${b.amount} pts 
+                                        <span class="text-[9px] text-slate-500 font-normal">
+                                            (${new Date(b.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})})
+                                        </span>
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                otherBidsListHtml = `
+                    <div class="w-full mt-4 pt-3 border-t border-[#1e2638] text-center">
+                        <span class="text-xs text-slate-500 italic">Aucune autre offre soumise pour le moment.</span>
+                    </div>
+                `;
+            }
+
             return `
-                <div class="bg-[#161b26] border border-[#1e2638] rounded-xl p-4 flex flex-wrap justify-between items-center gap-4 animate-fade-in">
-                    <div class="flex items-center gap-3">
-                        ${iconHtml}
-                        <div>
-                            <h4 class="font-bold text-sm text-amber-400 flex items-center gap-1.5 uppercase font-sans">
-                                <a href="${itemObj ? itemObj.questlogUrl : '#'}" target="_blank" class="hover:text-amber-300 transition">${auc.item_name}</a>
-                            </h4>
-                            <p class="text-xs text-slate-400 mt-1">${remainingText}</p>
+                <div class="bg-[#161b26] border border-[#1e2638] rounded-xl p-4 flex flex-col gap-2 animate-fade-in">
+                    <!-- Ligne principale : Infos de l'objet et Formulaire de mise -->
+                    <div class="flex flex-wrap justify-between items-center gap-4">
+                        <div class="flex items-center gap-3">
+                            ${iconHtml}
+                            <div>
+                                <h4 class="font-bold text-sm text-amber-400 flex items-center gap-1.5 uppercase font-sans">
+                                    <a href="${itemObj ? itemObj.questlogUrl : '#'}" target="_blank" class="hover:text-amber-300 transition">${auc.item_name}</a>
+                                </h4>
+                                <p class="text-xs text-slate-400 mt-1">${remainingText}</p>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-4">
+                            <div class="text-right">
+                                <span class="block text-[10px] text-slate-500 uppercase font-bold">Votre mise actuelle</span>
+                                <span class="text-sm font-extrabold text-[#38bdf8]">${myBid !== null ? `${myBid} points` : 'Aucune'}</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="number" id="member-bid-input-${index}" placeholder="Mise" class="bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-100 outline-none w-20">
+                                <button onclick="submitBlindBid('${auc.id}', 'member-bid-input-${index}')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition duration-150">
+                                    Miser
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div class="flex flex-wrap items-center gap-4">
-                        <div class="text-right">
-                            <span class="block text-[10px] text-slate-500 uppercase font-bold">Votre mise actuelle</span>
-                            <span class="text-sm font-extrabold text-[#38bdf8]">${myBid !== null ? `${myBid} points` : 'Aucune'}</span>
-                        </div>
-                        <div class="flex gap-2">
-                            <input type="number" id="member-bid-input-${index}" placeholder="Mise" class="bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-100 outline-none w-20">
-                            <button onclick="submitBlindBid('${auc.id}', 'member-bid-input-${index}')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition duration-150">
-                                Miser (Secrètement)
-                            </button>
-                        </div>
-                    </div>
+                    
+                    <!-- Ligne secondaire : Affichage des propositions des autres joueurs -->
+                    ${otherBidsListHtml}
                 </div>
             `;
         }).join('');
