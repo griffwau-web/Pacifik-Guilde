@@ -56,6 +56,22 @@ function cleanCompareString(str) {
         .trim();
 }
 
+// Calculateur de bonus de points pour les épreuves dimensionnelles (Tiers 1 à 10)
+function getDimensionalTierBonus(tierStr) {
+    if (!tierStr) return 0;
+    // Extraction du chiffre (ex: "Tier 8" -> 8)
+    const match = tierStr.match(/\d+/);
+    if (!match) return 0;
+    const tier = parseInt(match[0], 10);
+
+    if (tier >= 1 && tier <= 4) return 1;
+    if (tier >= 5 && tier <= 7) return 2;
+    if (tier === 8) return 3;
+    if (tier === 9) return 5;
+    if (tier === 10) return 10;
+    return 0;
+}
+
 // Traduction des armes en icônes Questlog CDN
 function getWeaponIcon(weaponName) {
     const mapping = {
@@ -1756,22 +1772,21 @@ async function loadMembersViewData() {
     if (teamsData.length === 0) {
         membersTeamsView.innerHTML = `<div class="col-span-full p-4 text-center text-slate-500">Aucune équipe n'est encore constituée par l'administrateur.</div>`;
     } else {
-        teamsData.forEach(team => {
-            let teamPlayersHtml = "";
-            let applicationsPanelHtml = "";
-            let gsBadgeHtml = ""; 
+// Dans loadMembersViewData, remplacez le début de la boucle "teamsData.forEach(team => {" par :
+    teamsData.forEach(team => {
+        let teamPlayersHtml = "";
+        let applicationsPanelHtml = "";
+        let gsBadgeHtml = ""; 
 
-            if (team.gearScoreLimit && team.gearScoreLimit > 0) {
-                gsBadgeHtml = `
-                    <span class="text-[9px] px-2 py-0.5 rounded border border-red-500/20 bg-red-500/10 text-red-400 font-extrabold tracking-wide uppercase flex items-center gap-1 font-sans">
-                        <i data-lucide="shield-alert" class="w-3 h-3"></i> Requis: ${team.gearScoreLimit} GS
-                    </span>
-                `;
-            }
+        // Calcul dynamique des points attendus pour l'activité
+        let calculatedBase = pointsConfig[team.motif] || 10;
+        if (team.motif === "Épreuve dimensionnelle" && team.dimensionalTier) {
+            calculatedBase += getDimensionalTierBonus(team.dimensionalTier);
+        }
 
-            const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
-            const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
-            const isAssigned = isPlayerAssignedToTeam(displayName, team.id);
+        const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
+        const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
+        const isAssigned = isPlayerAssignedToTeam(displayName, team.id);
 
             if (team.validated) {
                 applicationsPanelHtml = `
@@ -1980,9 +1995,9 @@ async function loadMembersViewData() {
                                 <div class="space-y-1.5">${teamPlayersHtml}</div>
                             </div>
                         </div>
-                        ${applicationsPanelHtml}
+                       ${applicationsPanelHtml}
                         <div class="flex justify-between items-center text-[10px] text-slate-500 mt-2 border-t border-[#1e2638] pt-2">
-                            <span>Prévu le : ${formatEventDate(team.date)}</span>
+                            <span>Prévu le : ${formatEventDate(team.date)} | Valeur : ${calculatedBase} pts</span>
                         </div>
                     </div>
                 `;
@@ -2227,11 +2242,17 @@ async function loadDashboardData() {
     }
 }
 
+// Attribution des points d'activité d'une équipe par l'admin (avec calcul de bonus de Tier)
 async function validateEvent(teamId) {
     const team = teamsData.find(t => t.id === teamId);
     if (!team) return;
 
-    const defaultPoints = pointsConfig[team.motif] || 10;
+    let defaultPoints = pointsConfig[team.motif] || 10;
+
+    // Ajout automatique du bonus lié au Tier s'il s'agit d'une épreuve dimensionnelle
+    if (team.motif === "Épreuve dimensionnelle" && team.dimensionalTier) {
+        defaultPoints += getDimensionalTierBonus(team.dimensionalTier);
+    }
 
     const ptsInput = prompt("Saisissez la valeur de points d'activité à accorder aux membres sélectionnés :", defaultPoints);
     const points = parseInt(ptsInput, 10);
@@ -2241,7 +2262,7 @@ async function validateEvent(teamId) {
         return;
     }
 
-    if (confirm(`Vous allez distribuer +${points} points aux participants. Continuer ?`)) {
+    if (confirm(`Vous allez distribuer définitivement +${points} points aux participants. Continuer ?`)) {
         let assignedPlayers = [];
         if (team.motif === "Raid") {
             if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
@@ -2652,9 +2673,13 @@ function renderTeamMaker() {
                 </div>
             `;
         } else {
+            let calculatedBase = pointsConfig[team.motif] || 10;
+            if (team.motif === "Épreuve dimensionnelle" && team.dimensionalTier) {
+                calculatedBase += getDimensionalTierBonus(team.dimensionalTier);
+            }
             validationButtonHtml = `
                 <button onclick="validateEvent('${team.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] transition flex items-center justify-center gap-1">
-                    <i class="w-3.5 h-3.5" data-lucide="award"></i> Valider & Distribuer Points
+                    <i class="w-3.5 h-3.5" data-lucide="award"></i> Valider & Distribuer (${calculatedBase} pts)
                 </button>
             `;
         }
