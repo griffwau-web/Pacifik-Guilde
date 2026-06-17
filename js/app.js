@@ -462,8 +462,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     lucide.createIcons();
     loadTeamsFromStorage();
     loadPointsConfig();
-    await loadFormStatus();
-    await checkMonthlyWishReset();
     
     flatpickrInstance = flatpickr("#event-date", {
         enableTime: true,
@@ -514,24 +512,31 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
     updateNotifToggleButton();
     
-    const urlParams = new URLSearchParams(window.location.search);
-    const inviteToken = urlParams.get('invite');
-    
-    if (inviteToken) {
-        verifyAndShowInvite(inviteToken);
-    } else {
-        if (supabaseClient) {
-            const { data: { session } } = await supabaseClient.auth.getSession();
+    // Écouteur d'état d'authentification Supabase (Gère la connexion et l'abonnement RLS en temps réel)
+    if (supabaseClient) {
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+            console.log("Changement d'état d'authentification :", event);
             updateUIVisibility(session);
-            subscribeToRealtimeTeams(); 
+            subscribeToRealtimeTeams(); // Ré-abonne le WebSocket avec les bons privilèges RLS
+            await checkMonthlyWishReset();
+            
             if (session) {
                 if (session.user.email === ADMIN_EMAIL) {
                     switchView('dashboard');
                 } else {
                     switchView('members');
                 }
+            } else {
+                // Redirection par défaut si non connecté
+                const urlParams = new URLSearchParams(window.location.search);
+                const inviteToken = urlParams.get('invite');
+                if (inviteToken) {
+                    verifyAndShowInvite(inviteToken);
+                } else {
+                    switchView('form');
+                }
             }
-        }
+        });
     }
 });
 
@@ -696,6 +701,8 @@ function subscribeToRealtimeTeams() {
 
 // Fonction de centralisation des mises à jour en direct
 async function handleLiveUpdate() {
+    await loadFormStatus(); // Synchronise l'état d'ouverture/fermeture du formulaire pour tout le monde
+
     const dashboardSection = document.getElementById('view-dashboard');
     if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
         await loadDashboardData();
