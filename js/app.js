@@ -260,7 +260,7 @@ function maskEmail(email) {
     return maskedMailbox + "@" + maskedDomain;
 }
 
-// Envoi de la notification sur Discord via Webhook
+// Envoi de la notification d'événement sur Discord via Webhook
 async function sendDiscordNotification(name, dateVal, motif, gsLimit) {
     if (!DISCORD_WEBHOOK_URL || DISCORD_WEBHOOK_URL.trim() === "" || DISCORD_WEBHOOK_URL.includes("VOTRE_WEBHOOK")) {
         console.log("Notification Discord ignorée : Aucun Webhook configuré.");
@@ -291,7 +291,7 @@ async function sendDiscordNotification(name, dateVal, motif, gsLimit) {
     const payload = {
         embeds: [{
             title: `🚀 Nouvelle Activité : ${eventName}`,
-            description: `Un nouvel événement de guilde vient d'être planifié ! Rendez-vous sur votre espace membre pour postuler.`,
+            description: `Pour Postuler dans l'équipe allez sur votre espace membre ici : https://pacifik-guilde.vercel.app/`,
             color: embedColor,
             fields: [
                 { name: "Motif / Type", value: eventMotif, inline: true },
@@ -315,9 +315,57 @@ async function sendDiscordNotification(name, dateVal, motif, gsLimit) {
         });
 
         if (!response.ok) throw new Error(`Code HTTP ${response.status}`);
-        console.log("Notification Discord envoyée avec succès.");
+        console.log("Notification Discord d'événement envoyée avec succès.");
     } catch (err) {
         console.error("Échec de l'envoi Discord :", err);
+    }
+}
+
+// Envoi de la notification de lancement d'enchère sur Discord via Webhook
+async function sendDiscordAuctionNotification(itemName, endTime) {
+    if (!DISCORD_WEBHOOK_URL || DISCORD_WEBHOOK_URL.trim() === "" || DISCORD_WEBHOOK_URL.includes("VOTRE_WEBHOOK")) {
+        console.log("Notification Discord d'enchère ignorée : Aucun Webhook configuré.");
+        return;
+    }
+
+    const formattedEnd = formatEventDate(endTime);
+    const itemObj = findItemByName(itemName);
+    let embedColor = 16753920; // Or par défaut pour les enchères
+    
+    // Si l'objet est identifié comme légendaire, l'embed s'affiche en rouge
+    if (itemObj && itemObj.rarity === 'legendary') {
+        embedColor = 16711680;
+    }
+
+    const payload = {
+        embeds: [{
+            title: `🔥 Nouvelle Enchère de Guilde : ${itemName}`,
+            description: `Pour participer à l'enchère allez sur votre espace membre ici : https://pacifik-guilde.vercel.app/`,
+            color: embedColor,
+            fields: [
+                { name: "Objet mis en jeu", value: itemName, inline: true },
+                { name: "Date de Clôture", value: formattedEnd, inline: true }
+            ],
+            footer: {
+                text: "Guilde Les Pacific"
+            },
+            timestamp: new Date().toISOString()
+        }]
+    };
+
+    try {
+        const response = await fetch(DISCORD_WEBHOOK_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error(`Code HTTP ${response.status}`);
+        console.log("Notification Discord d'enchère envoyée avec succès.");
+    } catch (err) {
+        console.error("Échec de l'envoi d'enchère sur Discord :", err);
     }
 }
 
@@ -1353,6 +1401,7 @@ async function loadAuctionsFromStorage() {
     }
 }
 
+// Création d'une nouvelle enchère par l'administrateur
 async function handleCreateAuction(event) {
     event.preventDefault();
     if (!supabaseClient) return;
@@ -1372,11 +1421,17 @@ async function handleCreateAuction(event) {
 
         if (error) throw error;
 
+        // Ajouter une notification historique de guilde
         await supabaseClient
             .from('notifications')
             .insert([{
                 message: `🔥 L'enchère aveugle pour "${itemName}" a démarré ! Misez avant le ${formatEventDate(endTime)}.`
             }]);
+
+        // Envoi de la notification Discord (Si activée globalement)
+        if (notificationsEnabled) {
+            await sendDiscordAuctionNotification(itemName, endTime);
+        }
 
         alert(`L'enchère pour "${itemName}" a été lancée.`);
         document.getElementById('create-auction-form').reset();
