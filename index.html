@@ -382,7 +382,40 @@
                             </div>
                         </form>
                     </div>
-                </div>
+
+                    <!-- PANNEAU CLASSEMENT DES MEMBRES -->
+                    <div class="bg-[#111622] border border-[#1e2638] rounded-2xl p-6 shadow-xl space-y-4 animate-fade-in">
+                        <h3 class="text-md font-bold text-white flex items-center gap-2 border-b border-[#1e2638] pb-3 uppercase tracking-wide">
+                            <i data-lucide="trophy" class="w-5 h-5 text-amber-500"></i>
+                            Classement des Actifs
+                        </h3>
+                        <div id="members-leaderboard-container" class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                            <!-- Rempli en JS -->
+                        </div>
+                    </div>
+                </div> <!-- Clôture de la colonne de gauche (1/3) -->
+
+                <!-- COMPOSITIONS DES ÉQUIPES & ENCHÈRES EN COURS (Colonne de droite 2/3) -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- ENCHÈRES ACTIVES -->
+                    <div id="members-auctions-view" class="hidden bg-[#111622] border border-[#1e2638] rounded-2xl p-6 shadow-xl space-y-4">
+                        <h3 class="text-md font-bold text-white flex items-center gap-2 border-b border-[#1e2638] pb-3 uppercase tracking-wide">
+                            <i data-lucide="gavel" class="w-5 h-5 text-amber-500 animate-pulse"></i>
+                            Enchères de Guilde Actives (Mises Aveugles)
+                        </h3>
+                        <div id="members-auctions-container" class="grid grid-cols-1 gap-4">
+                            <!-- Rempli en JS -->
+                        </div>
+                    </div>
+
+                    <!-- COMPOSITIONS D'ÉQUIPES -->
+                    <div class="bg-[#111622] border border-[#1e2638] rounded-2xl p-6 shadow-xl space-y-6">
+                        <h3 class="text-md font-bold text-white uppercase tracking-wide border-b border-[#1e2638] pb-3">Compositions d'équipes</h3>
+                        <div id="members-teams-view" class="grid grid-cols-1 gap-4">
+                            <!-- Rempli en JS -->
+                        </div>
+                    </div>
+                </div> <!-- Clôture de la colonne de droite (2/3) -->
             </div>
         </section>
 
