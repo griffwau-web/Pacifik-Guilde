@@ -2095,7 +2095,6 @@ async function loadMembersViewData() {
                             ${rankBadge}
                             <div class="truncate">
                                 <span class="block text-xs font-bold text-slate-200 truncate" title="${displayName}">${displayName}</span>
-                                <span class="block text-[9px] text-slate-500 truncate">${maskedEmail}</span>
                             </div>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
