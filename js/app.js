@@ -1430,82 +1430,7 @@ async function submitBlindBid(auctionId, bidAmountInputId) {
     }
 }
 
-async function calculateBeneficiaryByItemName(itemName) {
-    if (!itemName || !supabaseClient) return;
-    
-    try {
-        const { data: members, error } = await supabaseClient
-            .from('member_profiles')
-            .select('*');
-        
-        if (error) throw error;
-        
-        const candidates = members.map(m => {
-            const charName = m.character_name || maskEmail(m.email);
-            const wishlist = m.wishlist || [];
-            const hasWishlist = wishlist.some(item => item && item.toLowerCase().trim() === itemName.toLowerCase().trim());
-            const currentPoints = m.points || 0;
-            const score = (hasWishlist ? 100 : 0) + currentPoints;
-            
-            return {
-                char_name: charName,
-                email: m.email,
-                score: score,
-                hasWishlist: hasWishlist,
-                points: currentPoints
-            };
-        });
-        
-        candidates.sort((a, b) => b.score - a.score);
-        showPriorityModal(itemName, candidates);
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-function showPriorityModal(itemName, sortedMembers) {
-    const modal = document.getElementById('info-modal');
-    if (!modal) return;
-
-    document.getElementById('modal-player-name').innerText = `Priorités : ${itemName}`;
-    document.getElementById('modal-player-score').innerText = sortedMembers.length;
-    document.getElementById('modal-player-level').innerText = "Simulé";
-    document.getElementById('modal-submit-date').innerText = new Date().toLocaleDateString();
-
-    const answersList = document.getElementById('modal-answers-list');
-    answersList.innerHTML = `
-        <div class="p-3 bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl text-xs text-slate-400 mb-4 leading-relaxed font-sans">
-            Formule appliquée : <strong>Score Priorité = (Wishlist [Poids : 100] + Points d'activité [Poids : 1])</strong>.
-        </div>
-    `;
-
-    sortedMembers.forEach((m, idx) => {
-        const badge = m.hasWishlist 
-            ? `<span class="text-[10px] px-2 py-0.5 rounded bg-red-950/40 text-red-400 border border-red-500/20 font-bold uppercase tracking-wider">Wishlist active (+100)</span>`
-            : `<span class="text-[10px] px-2 py-0.5 rounded bg-slate-950/40 text-slate-400 border border-slate-500/20 font-bold uppercase tracking-wider">Hors wishlist</span>`;
-
-        answersList.innerHTML += `
-            <div class="bg-[#161b26] border border-[#1e2638] p-3 rounded-xl flex items-center justify-between gap-4">
-                <div class="flex items-center gap-3">
-                    <span class="text-sm font-bold text-slate-400 font-sans">#${idx + 1}</span>
-                    <div>
-                        <span class="font-bold text-white text-sm block font-sans">${m.char_name}</span>
-                        <span class="text-[10px] text-slate-500 block font-sans">${maskEmail(m.email)}</span>
-                    </div>
-                </div>
-                <div class="text-right space-y-1">
-                    <span class="text-xs font-extrabold text-amber-500 block font-sans">Score : ${m.score} pts</span>
-                    ${badge}
-                </div>
-            </div>
-        `;
-    });
-
-    modal.classList.remove('hidden');
-    lucide.createIcons();
-}
-
-// Résolution de l'enchère par l'administrateur
+// Résolution de l'enchère par l'administrateur (Basée uniquement sur les points réels)
 async function resolveAuction(auctionId) {
     if (!supabaseClient) return;
 
@@ -1534,16 +1459,13 @@ async function resolveAuction(auctionId) {
             const memberProfile = latestMembers.find(m => m.id.toLowerCase() === userId.toLowerCase());
             const currentActualPoints = memberProfile ? (memberProfile.points || 0) : 0;
 
+            // Ne comptabilise l'offre que si le joueur a réellement les points nécessaires
             if (bidInfo.amount <= currentActualPoints) {
-                const wishlist = memberProfile ? parseWishlistArray(memberProfile.wishlist) : ["", ""];
-                const hasWishlist = wishlist.some(item => item && cleanCompareString(item) === cleanCompareString(auction.item_name));
-
                 bidsArray.push({
                     userId: userId,
                     char_name: bidInfo.char_name,
                     amount: bidInfo.amount,
                     timestamp: bidInfo.timestamp,
-                    hasWishlist: hasWishlist,
                     profile: memberProfile
                 });
             }
@@ -1565,69 +1487,34 @@ async function resolveAuction(auctionId) {
             return;
         }
 
-        // 3. Application de la fusion Wishlist : Filtrer pour prioriser uniquement ceux l'ayant wishlisted
-        const wishlistBidders = bidsArray.filter(b => b.hasWishlist);
-        let finalCandidates = bidsArray;
-        let priorityMessage = "";
-
-        if (wishlistBidders.length > 0) {
-            finalCandidates = wishlistBidders;
-            priorityMessage = "🏆 Priorité de Wishlist active ! Seuls les offreurs l'ayant en wishlist sont éligibles.";
-        }
-
-        // 4. Trier les offreurs éligibles finaux (Montant puis Date)
-        finalCandidates.sort((a, b) => {
+        // 3. Trier les offreurs éligibles (Montant décroissant, puis Date la plus ancienne si égalité)
+        bidsArray.sort((a, b) => {
             if (b.amount !== a.amount) {
                 return b.amount - a.amount;
             }
             return new Date(a.timestamp) - new Date(b.timestamp);
         });
 
-        const winner = finalCandidates[0];
+        const winner = bidsArray[0];
 
-        if (priorityMessage) {
-            alert(priorityMessage);
-        }
-
-        if (!confirm(`Le vainqueur est "${winner.char_name}" avec une mise de ${winner.amount} pts (Wishlist Prioritaire).\nConfirmer et clôturer l'enchère ?`)) {
+        if (!confirm(`Le vainqueur est "${winner.char_name}" avec une mise de ${winner.amount} pts.\nConfirmer et clôturer l'enchère ?`)) {
             return;
         }
 
-        // 5. Débiter les points, nettoyer la wishlist et consommer 1 jeton de souhait
+        // 4. Débiter les points du vainqueur
         const newPointsTotal = winner.profile.points - winner.amount;
-        const winnerWishlist = parseWishlistArray(winner.profile.wishlist);
-        
-        let tokenSpent = false;
-        const cleanedWishlist = winnerWishlist.map(item => {
-            if (item && cleanCompareString(item) === cleanCompareString(auction.item_name)) {
-                tokenSpent = true; // Jeton consommé
-                return ""; // On vide l'emplacement
-            }
-            return item;
-        });
 
-        // Calcul du nouveau solde de jetons
-        const currentTokens = winner.profile.wish_tokens !== undefined && winner.profile.wish_tokens !== null ? winner.profile.wish_tokens : 2;
-        const newTokensTotal = tokenSpent ? Math.max(0, currentTokens - 1) : currentTokens;
-
-        const updatePayload = {
-            points: newPointsTotal,
-            wishlist: cleanedWishlist,
-            wish_tokens: newTokensTotal
-        };
-
-        // 6. Mise à jour unifiée en une seule transaction
         const { error: profileErr } = await supabaseClient
             .from('member_profiles')
-            .update(updatePayload)
+            .update({ points: newPointsTotal })
             .eq('id', winner.userId);
 
         if (profileErr) {
             console.error("Échec de mise à jour du profil du vainqueur :", profileErr);
-            throw new Error("Impossible de débiter les points ou de mettre à jour les souhaits.");
+            throw new Error("Impossible de débiter les points.");
         }
 
-        // 7. Mettre à jour l'enchère à résolue
+        // 5. Mettre à jour l'enchère à résolue
         const { error: resolveErr } = await supabaseClient
             .from('auctions')
             .update({
@@ -1640,7 +1527,7 @@ async function resolveAuction(auctionId) {
 
         if (resolveErr) throw resolveErr;
 
-        // 8. Publier la notification dans l'historique
+        // 6. Publier la notification dans l'historique
         await supabaseClient
             .from('notifications')
             .insert([{
@@ -2252,9 +2139,6 @@ async function loadDashboardData() {
                         ? `<div class="flex flex-col sm:flex-row gap-1.5 justify-center items-center">
                             <button onclick="resolveAuction('${auc.id}')" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-1 px-2.5 rounded text-xs transition flex items-center gap-1" title="Désigner le vainqueur éligible">
                                 <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Clôturer
-                            </button>
-                            <button onclick="calculateBeneficiaryByItemName('${cleanItemName}')" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-white px-2 py-1 rounded border border-blue-500/20 text-xs font-semibold transition flex items-center gap-1" title="Simuler l'ordre de priorité Wishlist + Points">
-                                <i data-lucide="calculator" class="w-3.5 h-3.5"></i> Priorités
                             </button>
                            </div>`
                         : `<span class="text-xs text-slate-500 italic">Terminé</span>`;
