@@ -591,7 +591,40 @@
                         </form>
                     </div>
                 </div>
-
+                <!-- BLOC CLÔTURE HEBDOMADAIRE (NOUVEAU) -->
+                <div class="bg-[#111622] border border-[#1e2638] rounded-xl p-5 shadow-lg space-y-4">
+                    <div class="flex flex-wrap justify-between items-center gap-4 border-b border-[#1e2638] pb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-emerald-500/10 text-emerald-400 p-2 rounded-lg">
+                                <i data-lucide="calendar" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-white uppercase tracking-wide">Clôture Hebdomadaire & Distribution des Points</h4>
+                                <p class="text-xs text-slate-400">Les points approuvés sont mis en attente et distribués manuellement en bloc à chaque fin de semaine (Cycle : Jeudi au Mercredi suivant).</p>
+                            </div>
+                        </div>
+                        <div>
+                            <button onclick="distributeWeeklyPoints()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition duration-150 flex items-center gap-1.5">
+                                <i data-lucide="check-circle" class="w-4 h-4"></i>
+                                Distribuer & Clôturer la Semaine
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        <div class="bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl p-4">
+                            <span class="block text-[10px] text-slate-500 uppercase font-bold">Semaine Actuelle (Guild Cycle)</span>
+                            <span id="weekly-cycle-dates" class="text-sm font-bold text-slate-200 mt-1 block">Calcul en cours...</span>
+                        </div>
+                        <div class="bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl p-4">
+                            <span class="block text-[10px] text-slate-500 uppercase font-bold">Preuves Approuvées en attente</span>
+                            <span id="weekly-pending-proofs-count" class="text-sm font-bold text-blue-400 mt-1 block">0</span>
+                        </div>
+                        <div class="bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl p-4">
+                            <span class="block text-[10px] text-slate-500 uppercase font-bold">Total Points à distribuer</span>
+                            <span id="weekly-pending-points-total" class="text-sm font-bold text-emerald-400 mt-1 block">0 pts</span>
+                        </div>
+                    </div>
+                </div>
                 <!-- BLOC-NOTES ADMIN (UNIQUEMENT SUR LE DASHBOARD) -->
                 <div class="bg-[#111622] border border-[#1e2638] rounded-xl p-5 shadow-lg space-y-4">
                     <div class="flex flex-wrap justify-between items-center gap-4 border-b border-[#1e2638] pb-3">
