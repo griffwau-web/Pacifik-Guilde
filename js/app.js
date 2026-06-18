@@ -3366,3 +3366,4 @@ async function validateTeamComposition(teamId) {
         alert("La composition a été verrouillée avec succès. Les membres peuvent désormais déposer leurs captures.");
         await loadDashboardData();
     }
+}
