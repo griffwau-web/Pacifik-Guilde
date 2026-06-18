@@ -2052,29 +2052,6 @@ async function loadMembersViewData() {
     lucide.createIcons();
 }
 
-// Ajoutez cette nouvelle fonction d'action d'administration
-async function resetMemberWishes(memberId, memberName) {
-    if (!supabaseClient) return;
-    
-    // Message de validation interactif pour parer à toute fausse manipulation
-    if (confirm(`Êtes-vous sûr de vouloir réinitialiser manuellement le quota de souhaits de "${memberName}" à 2 jetons pour ce mois-ci ?`)) {
-        try {
-            const { error } = await supabaseClient
-                .from('member_profiles')
-                .update({ wish_tokens: 2 })
-                .eq('id', memberId);
-
-            if (error) throw error;
-
-            alert(`Le quota de souhaits de "${memberName}" a été réinitialisé à 2 jetons avec succès.`);
-            await loadDashboardData();
-        } catch (err) {
-            console.error("Erreur de réinitialisation manuelle :", err);
-            alert("Une erreur est survenue lors de la réinitialisation.");
-        }
-    }
-}
-
 async function loadDashboardData() {
     try {
         await loadFormStatus();
@@ -2192,10 +2169,6 @@ async function loadDashboardData() {
                     if (m.email !== ADMIN_EMAIL) {
                         deleteButtonHtml = `
                             <div class="flex flex-wrap justify-center gap-1.5">
-                                <button onclick="resetMemberWishes('${m.id}', '${displayName}')" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-white px-2.5 py-1 rounded border border-blue-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Réinitialiser le quota à 2 jetons">
-                                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-                                    Reset Souhaits
-                                </button>
                                 <button onclick="deleteMemberAccount('${m.id}', '${displayName}')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-white px-2.5 py-1 rounded border border-red-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Supprimer le compte de la guilde">
                                     <i data-lucide="user-minus" class="w-3.5 h-3.5"></i>
                                     Supprimer
@@ -2214,7 +2187,6 @@ async function loadDashboardData() {
                             <td class="p-4"><span class="text-xs px-2.5 py-1 rounded bg-[#161b26] border border-[#252f44] text-slate-300 font-semibold flex items-center gap-1.5">${getWeaponIcon(m.weapon1)} ${m.weapon1 || '--'}</span></td>
                             <td class="p-4"><span class="text-xs px-2.5 py-1 rounded bg-[#161b26] border border-[#252f44] text-slate-300 font-semibold flex items-center gap-1.5">${getWeaponIcon(m.weapon2)} ${m.weapon2 || '--'}</span></td>
                             <td class="p-4 font-bold text-emerald-400">${m.points || 0} pts</td>
-                            <td class="p-4 text-center font-bold text-blue-400">${currentTokens} / 2</td>
                             <td class="p-4 text-center">
                                 ${deleteButtonHtml}
                             </td>
