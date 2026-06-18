@@ -26,7 +26,12 @@ let pointsConfig = {
     "PVP": 10,
     "Boss de guilde": 10,
     "Raid": 15,
-    "Épreuve dimensionnelle": 10
+    "Épreuve dimensionnelle": 10,
+    "Épreuve T6": 12,
+    "Épreuve T7": 14,
+    "Épreuve T8": 16,
+    "Épreuve T9": 18,
+    "Épreuve T10": 20
 };
 
 // Variables temporaires pour suppression
@@ -55,20 +60,21 @@ function cleanCompareString(str) {
         .trim();
 }
 
-// Calculateur de bonus de points pour les épreuves dimensionnelles (Tiers 1 à 10)
-function getDimensionalTierBonus(tierStr) {
-    if (!tierStr) return 0;
-    // Extraction du chiffre (ex: "Tier 8" -> 8)
-    const match = tierStr.match(/\d+/);
-    if (!match) return 0;
-    const tier = parseInt(match[0], 10);
-
-    if (tier >= 1 && tier <= 4) return 1;
-    if (tier >= 5 && tier <= 7) return 2;
-    if (tier === 8) return 3;
-    if (tier === 9) return 5;
-    if (tier === 10) return 10;
-    return 0;
+// Récupère la valeur en points d'une activité selon ses configurations
+function getActivityPointsValue(motif, dimensionalTier) {
+    if (motif === "Épreuve dimensionnelle") {
+        if (dimensionalTier) {
+            const match = dimensionalTier.match(/\d+/);
+            if (match) {
+                const tierNum = parseInt(match[0], 10);
+                if (tierNum >= 6 && tierNum <= 10) {
+                    return pointsConfig[`Épreuve T${tierNum}`] || (pointsConfig["Épreuve dimensionnelle"] || 10);
+                }
+            }
+        }
+        return pointsConfig["Épreuve dimensionnelle"] || 10; // Valeur par défaut pour T1 à T5
+    }
+    return pointsConfig[motif] || 10;
 }
 
 // Traduction des armes en icônes Questlog CDN
@@ -623,6 +629,12 @@ function loadPointsConfig() {
     document.getElementById('config-pts-pvp').value = pointsConfig["PVP"] || 10;
     document.getElementById('config-pts-boss').value = pointsConfig["Boss de guilde"] || 10;
     document.getElementById('config-pts-raid').value = pointsConfig["Raid"] || 15;
+    
+    document.getElementById('config-pts-epreuve-t6').value = pointsConfig["Épreuve T6"] || 12;
+    document.getElementById('config-pts-epreuve-t7').value = pointsConfig["Épreuve T7"] || 14;
+    document.getElementById('config-pts-epreuve-t8').value = pointsConfig["Épreuve T8"] || 16;
+    document.getElementById('config-pts-epreuve-t9').value = pointsConfig["Épreuve T9"] || 18;
+    document.getElementById('config-pts-epreuve-t10').value = pointsConfig["Épreuve T10"] || 20;
 }
 
 function enablePointsConfigEdit() {
@@ -630,6 +642,12 @@ function enablePointsConfigEdit() {
     document.getElementById('config-pts-pvp').disabled = false;
     document.getElementById('config-pts-boss').disabled = false;
     document.getElementById('config-pts-raid').disabled = false;
+    
+    document.getElementById('config-pts-epreuve-t6').disabled = false;
+    document.getElementById('config-pts-epreuve-t7').disabled = false;
+    document.getElementById('config-pts-epreuve-t8').disabled = false;
+    document.getElementById('config-pts-epreuve-t9').disabled = false;
+    document.getElementById('config-pts-epreuve-t10').disabled = false;
 
     document.getElementById('btn-edit-pts').classList.add('hidden');
     document.getElementById('btn-save-pts').classList.remove('hidden');
@@ -640,6 +658,12 @@ function savePointsConfig() {
     pointsConfig["PVP"] = parseInt(document.getElementById('config-pts-pvp').value, 10) || 10;
     pointsConfig["Boss de guilde"] = parseInt(document.getElementById('config-pts-boss').value, 10) || 10;
     pointsConfig["Raid"] = parseInt(document.getElementById('config-pts-raid').value, 10) || 15;
+    
+    pointsConfig["Épreuve T6"] = parseInt(document.getElementById('config-pts-epreuve-t6').value, 10) || 12;
+    pointsConfig["Épreuve T7"] = parseInt(document.getElementById('config-pts-epreuve-t7').value, 10) || 14;
+    pointsConfig["Épreuve T8"] = parseInt(document.getElementById('config-pts-epreuve-t8').value, 10) || 16;
+    pointsConfig["Épreuve T9"] = parseInt(document.getElementById('config-pts-epreuve-t9').value, 10) || 18;
+    pointsConfig["Épreuve T10"] = parseInt(document.getElementById('config-pts-epreuve-t10').value, 10) || 20;
 
     localStorage.setItem('lespacific_points_config', JSON.stringify(pointsConfig));
 
@@ -647,6 +671,12 @@ function savePointsConfig() {
     document.getElementById('config-pts-pvp').disabled = true;
     document.getElementById('config-pts-boss').disabled = true;
     document.getElementById('config-pts-raid').disabled = true;
+    
+    document.getElementById('config-pts-epreuve-t6').disabled = true;
+    document.getElementById('config-pts-epreuve-t7').disabled = true;
+    document.getElementById('config-pts-epreuve-t8').disabled = true;
+    document.getElementById('config-pts-epreuve-t9').disabled = true;
+    document.getElementById('config-pts-epreuve-t10').disabled = true;
 
     document.getElementById('btn-save-pts').classList.add('hidden');
     document.getElementById('btn-edit-pts').classList.remove('hidden');
@@ -1778,10 +1808,7 @@ async function loadMembersViewData() {
         let gsBadgeHtml = ""; 
 
         // Calcul dynamique des points attendus pour l'activité
-        let calculatedBase = pointsConfig[team.motif] || 10;
-        if (team.motif === "Épreuve dimensionnelle" && team.dimensionalTier) {
-            calculatedBase += getDimensionalTierBonus(team.dimensionalTier);
-        }
+        let calculatedBase = getActivityPointsValue(team.motif, team.dimensionalTier);
 
         const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
         const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
@@ -2264,12 +2291,7 @@ async function validateEvent(teamId) {
     const team = teamsData.find(t => t.id === teamId);
     if (!team) return;
 
-    let defaultPoints = pointsConfig[team.motif] || 10;
-
-    // Ajout automatique du bonus lié au Tier s'il s'agit d'une épreuve dimensionnelle
-    if (team.motif === "Épreuve dimensionnelle" && team.dimensionalTier) {
-        defaultPoints += getDimensionalTierBonus(team.dimensionalTier);
-    }
+   let defaultPoints = getActivityPointsValue(team.motif, team.dimensionalTier);
 
     const ptsInput = prompt("Saisissez la valeur de points d'activité à accorder aux membres sélectionnés :", defaultPoints);
     const points = parseInt(ptsInput, 10);
@@ -2690,10 +2712,7 @@ function renderTeamMaker() {
                 </div>
             `;
         } else {
-            let calculatedBase = pointsConfig[team.motif] || 10;
-            if (team.motif === "Épreuve dimensionnelle" && team.dimensionalTier) {
-                calculatedBase += getDimensionalTierBonus(team.dimensionalTier);
-            }
+            let calculatedBase = getActivityPointsValue(team.motif, team.dimensionalTier);
             validationButtonHtml = `
                 <button onclick="validateEvent('${team.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] transition flex items-center justify-center gap-1">
                     <i class="w-3.5 h-3.5" data-lucide="award"></i> Valider & Distribuer (${calculatedBase} pts)
