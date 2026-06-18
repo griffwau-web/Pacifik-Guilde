@@ -1681,18 +1681,33 @@ async function loadMembersViewData() {
     const membersTeamsView = document.getElementById('members-teams-view');
     membersTeamsView.innerHTML = "";
 
-    if (teamsData.length === 0) {
-        membersTeamsView.innerHTML = `<div class="col-span-full p-4 text-center text-slate-500">Aucune équipe n'est encore constituée par l'administrateur.</div>`;
+    // Identification du profil du membre connecté
+    const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
+    const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
+
+    // Filtrer les équipes visibles pour ce membre selon vos règles de gestion
+    const visibleTeams = teamsData.filter(team => {
+        // Étape de recrutement : visible par tous les membres
+        if (!team.composition_validated && !team.validated) {
+            return true;
+        }
+        // Étape de composition validée ou clôturée : visible UNIQUEMENT pour les participants de l'équipe
+        return isPlayerAssignedToTeam(displayName, team.id);
+    });
+
+    if (visibleTeams.length === 0) {
+        membersTeamsView.innerHTML = `
+            <div class="col-span-full p-6 text-center text-slate-500 bg-[#161b26]/30 border border-[#1e2638] rounded-xl select-none animate-fade-in">
+                Aucune activité en cours d'inscription ou disponible pour vous actuellement.
+            </div>
+        `;
     } else {
-        teamsData.forEach(team => {
+        visibleTeams.forEach(team => {
             let teamPlayersHtml = "";
             let applicationsPanelHtml = "";
             let gsBadgeHtml = ""; 
 
             let calculatedBase = getActivityPointsValue(team.motif, team.dimensionalTier);
-
-            const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
-            const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
             const isAssigned = isPlayerAssignedToTeam(displayName, team.id);
 
             // Gestion de l'affichage de validation & preuves côté membres
