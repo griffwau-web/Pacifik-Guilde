@@ -1727,9 +1727,12 @@ async function loadMembersViewData() {
                                         <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Voir la capture d'écran
                                     </a>
                                     ${proof.status === "rejected" ? `
-                                        <div class="flex gap-2 mt-2">
-                                            <input type="text" id="proof-input-${team.id}" placeholder="Nouveau lien de capture d'écran" class="bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-100 outline-none flex-grow">
-                                            <button onclick="submitEventProof('${team.id}', document.getElementById('proof-input-${team.id}').value)" class="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition">Renvoyer</button>
+                                        <div class="flex flex-col sm:flex-row gap-2 mt-2">
+                                            <input type="file" id="proof-file-${team.id}" accept="image/*" class="hidden" onchange="updateFileNameLabel('${team.id}')">
+                                            <label for="proof-file-${team.id}" class="flex-grow bg-[#0b0e14] border border-[#252f44] hover:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-400 cursor-pointer text-center truncate transition">
+                                                <span id="file-label-${team.id}"><i data-lucide="upload-cloud" class="w-3.5 h-3.5 inline-block mr-1"></i> Nouvelle capture...</span>
+                                            </label>
+                                            <button onclick="submitEventProofFile('${team.id}', 'proof-file-${team.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition shrink-0">Renvoyer</button>
                                         </div>
                                     ` : ""}
                                 </div>
@@ -1743,9 +1746,12 @@ async function loadMembersViewData() {
                                 </div>
                                 <div class="p-3 bg-[#0b0e14]/60 border border-[#252f44] rounded-lg space-y-2 animate-fade-in">
                                     <span class="block text-[11px] text-slate-300 font-semibold uppercase tracking-wider">Déposer votre preuve de réussite :</span>
-                                    <div class="flex gap-2">
-                                        <input type="text" id="proof-input-${team.id}" placeholder="Lien de votre capture d'écran (Discord, Imgur, etc.)" class="bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-100 outline-none flex-grow">
-                                        <button onclick="submitEventProof('${team.id}', document.getElementById('proof-input-${team.id}').value)" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition">Envoyer</button>
+                                    <div class="flex flex-col sm:flex-row gap-2">
+                                        <input type="file" id="proof-file-${team.id}" accept="image/*" class="hidden" onchange="updateFileNameLabel('${team.id}')">
+                                        <label for="proof-file-${team.id}" class="flex-grow bg-[#0b0e14] border border-[#252f44] hover:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-400 cursor-pointer text-center truncate transition">
+                                            <span id="file-label-${team.id}"><i data-lucide="upload-cloud" class="w-3.5 h-3.5 inline-block mr-1"></i> Sélectionner une capture...</span>
+                                        </label>
+                                        <button onclick="submitEventProofFile('${team.id}', 'proof-file-${team.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition shrink-0">Envoyer</button>
                                     </div>
                                 </div>
                             </div>
@@ -3256,10 +3262,113 @@ async function updateProofStatus(teamId, playerName, newStatus) {
     if (teamIndex !== -1) {
         const team = teamsData[teamIndex];
         if (team.proofs && team.proofs[playerName]) {
+            
+            // Si rejeté, suppression immédiate de l'image sur Supabase Storage
+            if (newStatus === "rejected" && team.proofs[playerName].storagePath) {
+                try {
+                    await supabaseClient
+                        .storage
+                        .from('proofs')
+                        .remove([team.proofs[playerName].storagePath]);
+                    
+                    // On nettoie la référence locale du chemin temporaire
+                    delete team.proofs[playerName].storagePath;
+                } catch (err) {
+                    console.warn("Échec de suppression de l'image rejetée du serveur de stockage.", err);
+                }
+            }
+
             team.proofs[playerName].status = newStatus;
             await saveTeamsState();
             await loadDashboardData();
         }
+    }
+}
+
+// Permet de mettre à jour visuellement le label du bouton d'importation avec le nom du fichier sélectionné
+function updateFileNameLabel(teamId) {
+    const input = document.getElementById(`proof-file-${teamId}`);
+    const label = document.getElementById(`file-label-${teamId}`);
+    if (input && input.files.length > 0 && label) {
+        label.innerHTML = `<i data-lucide="image" class="w-3.5 h-3.5 inline-block mr-1 text-blue-400"></i> ${input.files[0].name}`;
+        lucide.createIcons();
+    }
+}
+
+// Gère l'envoi de la capture d'écran directement dans le bucket Storage Supabase
+async function submitEventProofFile(teamId, fileInputId) {
+    const fileInput = document.getElementById(fileInputId);
+    if (!fileInput || fileInput.files.length === 0) {
+        alert("Veuillez d'abord sélectionner une capture d'écran.");
+        return;
+    }
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) return;
+
+    const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
+    const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
+    const file = fileInput.files[0];
+
+    // Vérification de sécurité sur le type de fichier
+    if (!file.type.startsWith('image/')) {
+        alert("Seuls les fichiers d'image (PNG, JPG, etc.) sont acceptés.");
+        return;
+    }
+
+    // Bouton de chargement visuel temporaire
+    const submitBtn = fileInput.closest('.animate-fade-in').querySelector('button');
+    const originalBtnText = submitBtn.innerText;
+    submitBtn.disabled = true;
+    submitBtn.innerText = "Envoi...";
+
+    try {
+        const fileExt = file.name.split('.').pop();
+        // Création d'un chemin unique pour l'image
+        const storagePath = `${teamId}_${displayName.replace(/\s+/g, '_')}_${Date.now()}.${fileExt}`;
+
+        // Envoi du fichier sur Supabase Storage dans le bucket 'proofs'
+        const { data: uploadData, error: uploadError } = await supabaseClient
+            .storage
+            .from('proofs')
+            .upload(storagePath, file, { cacheControl: '3600', upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        // Récupération de l'URL publique de l'image
+        const { data: { publicUrl } } = supabaseClient
+            .storage
+            .from('proofs')
+            .getPublicUrl(storagePath);
+
+        const teamIndex = teamsData.findIndex(t => t.id === teamId);
+        if (teamIndex !== -1) {
+            const team = teamsData[teamIndex];
+            if (!team.proofs) {
+                team.proofs = {};
+            }
+
+            const pts = getActivityPointsValue(team.motif, team.dimensionalTier);
+
+            // Enregistrement de la preuve avec son chemin de stockage pour pouvoir la supprimer plus tard
+            team.proofs[displayName] = {
+                url: publicUrl,
+                storagePath: storagePath, // Référence indispensable pour la suppression temporaire
+                status: "pending",
+                points: pts,
+                submittedAt: new Date().toISOString()
+            };
+
+            await saveTeamsState();
+            alert("Votre capture d'écran a été déposée avec succès ! Elle est en attente de vérification.");
+            await loadMembersViewData();
+        }
+    } catch (err) {
+        console.error("Erreur lors de l'importation de l'image :", err);
+        alert("Impossible d'envoyer l'image sur le serveur.");
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = originalBtnText;
     }
 }
 
@@ -3271,6 +3380,7 @@ async function distributeWeeklyPoints() {
 
     const approvedPointsByPlayer = {}; // Regroupement : { "NomJoueur": points }
     const proofsToUpdate = [];
+    const storagePathsToDelete = []; // Contiendra la liste des captures à supprimer de Supabase
 
     // Analyse de l'ensemble des activités non encore clôturées
     teamsData.forEach(team => {
@@ -3282,6 +3392,10 @@ async function distributeWeeklyPoints() {
                     }
                     approvedPointsByPlayer[playerName] += proof.points || 0;
                     proofsToUpdate.push({ teamId: team.id, playerName });
+                    
+                    if (proof.storagePath) {
+                        storagePathsToDelete.push(proof.storagePath);
+                    }
                 }
             });
         }
@@ -3309,17 +3423,30 @@ async function distributeWeeklyPoints() {
 
         await Promise.all(updates);
 
-        // Marquage des preuves comme distribuées
+        // Nettoyage temporaire : Suppression des captures du serveur Supabase Storage
+        if (storagePathsToDelete.length > 0) {
+            try {
+                await supabaseClient
+                    .storage
+                    .from('proofs')
+                    .remove(storagePathsToDelete);
+            } catch (storageErr) {
+                console.warn("Certaines images n'ont pas pu être purgées du stockage.", storageErr);
+            }
+        }
+
+        // Marquage des preuves comme distribuées (et suppression de la référence du chemin de stockage vide)
         proofsToUpdate.forEach(({ teamId, playerName }) => {
             const team = teamsData.find(t => t.id === teamId);
             if (team && team.proofs && team.proofs[playerName]) {
                 team.proofs[playerName].status = "distributed";
+                delete team.proofs[playerName].storagePath;
             }
         });
 
         // Fermeture automatique des activités dont l'intégralité des preuves a été traitée
         teamsData.forEach(team => {
-            if (team.completed && !team.validated) {
+            if (team.composition_validated && !team.validated) {
                 let assignedPlayers = [];
                 if (team.motif === "Raid") {
                     if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
