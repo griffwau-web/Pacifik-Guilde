@@ -517,6 +517,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         notificationsEnabled = true;
     }
     updateNotifToggleButton();
+    setupAdminNotesListeners();
     
     // Écouteur d'état d'authentification Supabase (Gère la connexion et l'abonnement RLS en temps réel)
     if (supabaseClient) {
@@ -2082,6 +2083,7 @@ async function loadMembersViewData() {
 async function loadDashboardData() {
     try {
         await loadFormStatus();
+        await loadAdminNotes();
         const { data: players, error } = await supabaseClient
             .from('players')
             .select('*')
@@ -3021,5 +3023,98 @@ function renderCharts(distribution, topPlayers) {
                 }
             }
         }
+    });
+}
+
+let notesAutoSaveTimeout = null;
+
+// Charger les notes administratives partagées
+async function loadAdminNotes() {
+    const textarea = document.getElementById('admin-notes-textarea');
+    if (!textarea) return;
+
+    // Chargement initial depuis le cache local pour éviter les latences de chargement
+    const cachedNotes = localStorage.getItem('lespacific_admin_notes') || "";
+    textarea.value = cachedNotes;
+
+    if (supabaseClient) {
+        try {
+            const { data, error } = await supabaseClient
+                .from('guild_teams')
+                .select('data')
+                .eq('id', 3)
+                .single();
+
+            if (data && data.data) {
+                const fetchedNotes = data.data.notes || "";
+                textarea.value = fetchedNotes;
+                localStorage.setItem('lespacific_admin_notes', fetchedNotes);
+            }
+        } catch (err) {
+            console.log("Lecture des notes d'administration Supabase indisponible, utilisation du cache.");
+        }
+    }
+}
+
+// Enregistrement manuel ou automatique des notes administratives
+async function saveAdminNotes() {
+    const textarea = document.getElementById('admin-notes-textarea');
+    const statusSpan = document.getElementById('notes-status');
+    if (!textarea) return;
+
+    const notesText = textarea.value;
+    localStorage.setItem('lespacific_admin_notes', notesText);
+
+    if (statusSpan) {
+        statusSpan.innerText = "Sauvegarde en cours...";
+        statusSpan.className = "text-[10px] text-amber-400 italic animate-pulse";
+    }
+
+    if (supabaseClient) {
+        try {
+            const { error } = await supabaseClient
+                .from('guild_teams')
+                .upsert({ id: 3, data: { notes: notesText } });
+
+            if (error) throw error;
+
+            if (statusSpan) {
+                statusSpan.innerText = "Notes sauvegardées !";
+                statusSpan.className = "text-[10px] text-emerald-400 italic font-semibold";
+                setTimeout(() => {
+                    statusSpan.innerText = "À jour";
+                    statusSpan.className = "text-[10px] text-slate-500 italic";
+                }, 3000);
+            }
+        } catch (err) {
+            console.error("Échec de synchronisation des notes :", err);
+            if (statusSpan) {
+                statusSpan.innerText = "Erreur synchro (sauvegarde locale uniquement)";
+                statusSpan.className = "text-[10px] text-red-400 italic font-semibold";
+            }
+        }
+    } else {
+        if (statusSpan) {
+            statusSpan.innerText = "Sauvegardé localement";
+            statusSpan.className = "text-[10px] text-amber-500 italic";
+        }
+    }
+}
+
+// Configurer les écouteurs pour la sauvegarde automatique au clavier
+function setupAdminNotesListeners() {
+    const textarea = document.getElementById('admin-notes-textarea');
+    if (!textarea) return;
+
+    textarea.addEventListener('input', () => {
+        const statusSpan = document.getElementById('notes-status');
+        if (statusSpan) {
+            statusSpan.innerText = "Modifications en cours...";
+            statusSpan.className = "text-[10px] text-slate-400 italic";
+        }
+        
+        clearTimeout(notesAutoSaveTimeout);
+        // Lancer la sauvegarde automatique si l'utilisateur arrête de taper pendant 2 secondes
+        notesAutoSaveTimeout = setTimeout(saveAdminNotes, 2000);
     });
 }
