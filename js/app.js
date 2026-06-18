@@ -2536,6 +2536,7 @@ async function renameTeam(teamId, newName) {
 }
 
 function renderTeamMaker() {
+    // 1. Nettoyage de sécurité des listes de joueurs (Membres désinscrits)
     if (allDatabaseMembers && allDatabaseMembers.length > 0) {
         teamsData.forEach(team => {
             if (team.players) {
@@ -2560,7 +2561,9 @@ function renderTeamMaker() {
     if (!teamsContainer) return;
     teamsContainer.innerHTML = "";
 
+    // 2. Boucle principale de génération des cartes d'activité
     teamsData.forEach(team => {
+        // Préparation du volet des postulants
         let appsHtml = "";
         if (team.applications && team.applications.length > 0) {
             team.applications.forEach(app => {
@@ -2590,22 +2593,29 @@ function renderTeamMaker() {
             appsHtml = `<div class="p-3 text-center text-slate-600 text-xs italic select-none">Aucun postulant</div>`;
         }
 
+        // Configuration du bouton d'action selon l'étape de validation de l'activité
         let validationButtonHtml = "";
         if (team.validated) {
             validationButtonHtml = `
                 <div class="text-[10px] bg-emerald-950/20 border border-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg font-bold flex items-center justify-center gap-1">
-                    <i class="w-3.5 h-3.5" data-lucide="check"></i> Validé (+${team.distributedPoints || 10} pts)
+                    <i class="w-3.5 h-3.5" data-lucide="check"></i> Validé & Points distribués
+                </div>
+            `;
+        } else if (team.completed) {
+            validationButtonHtml = `
+                <div class="text-[10px] bg-amber-950/20 border border-amber-500/20 text-amber-400 px-3 py-1.5 rounded-lg font-bold flex items-center justify-center gap-1">
+                    <i class="w-3.5 h-3.5" data-lucide="clock"></i> En attente des preuves membres
                 </div>
             `;
         } else {
-            let calculatedBase = getActivityPointsValue(team.motif, team.dimensionalTier);
             validationButtonHtml = `
-                <button onclick="validateEvent('${team.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] transition flex items-center justify-center gap-1">
-                    <i class="w-3.5 h-3.5" data-lucide="award"></i> Valider & Distribuer (${calculatedBase} pts)
+                <button onclick="markEventAsCompleted('${team.id}')" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] transition flex items-center justify-center gap-1">
+                    <i class="w-3.5 h-3.5" data-lucide="check-square"></i> Marquer Terminé
                 </button>
             `;
         }
 
+        // Préparation du badge de GearScore requis
         let gsBadgeHtml = "";
         if (team.gearScoreLimit && team.gearScoreLimit > 0) {
             gsBadgeHtml = `
@@ -2615,6 +2625,66 @@ function renderTeamMaker() {
             `;
         }
 
+        // Génération du tableau de contrôle des captures d'écran des membres
+        let proofsReviewHtml = "";
+        if (team.completed && !team.validated) {
+            let assignedPlayers = [];
+            if (team.motif === "Raid") {
+                if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
+                if (team.playersB) assignedPlayers = assignedPlayers.concat(team.playersB);
+            } else {
+                if (team.players) assignedPlayers = assignedPlayers.concat(team.players);
+            }
+            assignedPlayers = assignedPlayers.filter(p => p && p !== "");
+
+            let proofsRows = "";
+            assignedPlayers.forEach(p => {
+                const proof = team.proofs ? team.proofs[p] : null;
+                if (proof) {
+                    let actionButtons = "";
+                    if (proof.status === "pending") {
+                        actionButtons = `
+                            <div class="flex gap-1">
+                                <button onclick="updateProofStatus('${team.id}', '${p.replace(/'/g, "\\'")}', 'approved')" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2 py-1 rounded transition">Approuver</button>
+                                <button onclick="updateProofStatus('${team.id}', '${p.replace(/'/g, "\\'")}', 'rejected')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 text-[10px] px-2 py-1 rounded border border-red-500/20 transition">Rejeter</button>
+                            </div>
+                        `;
+                    } else if (proof.status === "approved") {
+                        actionButtons = `<span class="text-[10px] text-blue-400 font-bold flex items-center gap-0.5"><i data-lucide="check" class="w-3 h-3"></i> Approuvé (En attente clôture)</span>`;
+                    } else if (proof.status === "distributed") {
+                        actionButtons = `<span class="text-[10px] text-emerald-400 font-bold flex items-center gap-0.5"><i data-lucide="check-circle" class="w-3 h-3"></i> Points distribués</span>`;
+                    } else {
+                        actionButtons = `<span class="text-[10px] text-red-400 font-bold">Rejeté</span>`;
+                    }
+
+                    proofsRows += `
+                        <div class="flex justify-between items-center bg-[#111622] p-2 rounded-lg border border-[#1e2638] text-xs">
+                            <div class="flex flex-col">
+                                <span class="font-bold text-white">${p}</span>
+                                <a href="${proof.url}" target="_blank" class="text-[10px] text-blue-400 hover:underline flex items-center gap-0.5 mt-0.5"><i data-lucide="image" class="w-3 h-3"></i> Voir la preuve</a>
+                            </div>
+                            <div>${actionButtons}</div>
+                        </div>
+                    `;
+                } else {
+                    proofsRows += `
+                        <div class="flex justify-between items-center bg-[#111622]/40 p-2 rounded-lg border border-[#1e2638]/60 text-xs italic text-slate-500">
+                            <span>${p}</span>
+                            <span>Pas de preuve</span>
+                        </div>
+                    `;
+                }
+            });
+
+            proofsReviewHtml = `
+                <div class="mt-4 p-3 bg-[#0b0e14]/60 border border-[#1e2638] rounded-xl space-y-2">
+                    <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Contrôle des Preuves (${assignedPlayers.length}) :</span>
+                    <div class="space-y-1.5 max-h-[180px] overflow-y-auto">${proofsRows}</div>
+                </div>
+            `;
+        }
+
+        // 3. Déclinaison de l'affichage selon le type d'activité (Raid de 12 ou Groupe de 6)
         if (team.motif === "Raid") {
             let slotsAHtml = "";
             let slotsBHtml = "";
@@ -2693,6 +2763,7 @@ function renderTeamMaker() {
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${slotsBHtml}</div>
                         </div>
                     </div>
+                    ${proofsReviewHtml}
                 </div>
             `;
         } else {
@@ -2761,7 +2832,7 @@ function renderTeamMaker() {
                                 ${gsBadgeHtml}
                             </div>
                             <div class="flex flex-col gap-2 max-h-[220px] overflow-y-auto">
-                                ${appsHtml}
+                                    ${appsHtml}
                             </div>
                         </div>
                         
@@ -2773,6 +2844,7 @@ function renderTeamMaker() {
                             <div class="space-y-1.5">${teamSlotsHtml}</div>
                         </div>
                     </div>
+                    ${proofsReviewHtml}
                 </div>
             `;
         }
@@ -3001,4 +3073,178 @@ function setupAdminNotesListeners() {
         // Lancer la sauvegarde automatique si l'utilisateur arrête de taper pendant 2 secondes
         notesAutoSaveTimeout = setTimeout(saveAdminNotes, 2000);
     });
+}
+
+// Calcule l'intervalle de la semaine de guilde (Jeudi au Mercredi suivant) pour une date donnée
+function getGuildWeekRange(dateVal) {
+    const d = new Date(dateVal);
+    const day = d.getDay(); // 0: Dimanche, 1: Lundi, ..., 4: Jeudi, 5: Vendredi, 6: Samedi
+    
+    // Décalage pour remonter au jeudi précédent (offset 0 si jeudi)
+    let offset = day - 4;
+    if (offset < 0) {
+        offset += 7;
+    }
+    
+    const start = new Date(d);
+    start.setDate(d.getDate() - offset);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+
+    return { start, end };
+}
+
+// Soumission d'un lien de capture d'écran par un membre
+async function submitEventProof(teamId, proofUrl) {
+    if (!proofUrl || proofUrl.trim() === "") {
+        alert("Veuillez renseigner un lien de capture d'écran valide.");
+        return;
+    }
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) return;
+
+    const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
+    const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
+
+    const teamIndex = teamsData.findIndex(t => t.id === teamId);
+    if (teamIndex !== -1) {
+        const team = teamsData[teamIndex];
+        if (!team.proofs) {
+            team.proofs = {};
+        }
+        
+        const pts = getActivityPointsValue(team.motif, team.dimensionalTier);
+        
+        team.proofs[displayName] = {
+            url: proofUrl.trim(),
+            status: "pending",
+            points: pts,
+            submittedAt: new Date().toISOString()
+        };
+        
+        await saveTeamsState();
+        alert("Votre preuve a été transmise. Elle est en attente de vérification par un administrateur.");
+        await loadMembersViewData();
+    }
+}
+
+// Passage d'un événement au statut terminé
+async function markEventAsCompleted(teamId) {
+    if (!confirm("Voulez-vous marquer cette activité comme terminée ? Les inscriptions seront closes et les membres affectés pourront soumettre leurs preuves.")) {
+        return;
+    }
+    const teamIndex = teamsData.findIndex(t => t.id === teamId);
+    if (teamIndex !== -1) {
+        teamsData[teamIndex].completed = true;
+        await saveTeamsState();
+        alert("L'activité a été marquée comme terminée.");
+        await loadDashboardData();
+    }
+}
+
+// Validation (Approbation / Rejet) d'une preuve d'activité par l'administrateur
+async function updateProofStatus(teamId, playerName, newStatus) {
+    const teamIndex = teamsData.findIndex(t => t.id === teamId);
+    if (teamIndex !== -1) {
+        const team = teamsData[teamIndex];
+        if (team.proofs && team.proofs[playerName]) {
+            team.proofs[playerName].status = newStatus;
+            await saveTeamsState();
+            await loadDashboardData();
+        }
+    }
+}
+
+// Clôture et distribution groupée de tous les points approuvés de la semaine
+async function distributeWeeklyPoints() {
+    if (!confirm("Voulez-vous procéder à la distribution de tous les points approuvés ? Cette action mettra à jour définitivement le solde des membres actifs.")) {
+        return;
+    }
+
+    const approvedPointsByPlayer = {}; // Regroupement : { "NomJoueur": points }
+    const proofsToUpdate = [];
+
+    // Analyse de l'ensemble des activités non encore clôturées
+    teamsData.forEach(team => {
+        if (team.proofs) {
+            Object.entries(team.proofs).forEach(([playerName, proof]) => {
+                if (proof.status === "approved") {
+                    if (!approvedPointsByPlayer[playerName]) {
+                        approvedPointsByPlayer[playerName] = 0;
+                    }
+                    approvedPointsByPlayer[playerName] += proof.points || 0;
+                    proofsToUpdate.push({ teamId: team.id, playerName });
+                }
+            });
+        }
+    });
+
+    const playersToCredit = Object.keys(approvedPointsByPlayer);
+    if (playersToCredit.length === 0) {
+        alert("Aucun point approuvé n'est actuellement en attente de distribution.");
+        return;
+    }
+
+    try {
+        // Envoi des requêtes de mise à jour des points
+        const updates = playersToCredit.map(async (playerName) => {
+            const dbMember = allDatabaseMembers.find(m => (m.character_name || m.email) === playerName);
+            if (dbMember) {
+                const currentPoints = dbMember.points || 0;
+                const additionalPoints = approvedPointsByPlayer[playerName];
+                return supabaseClient
+                    .from('member_profiles')
+                    .update({ points: currentPoints + additionalPoints })
+                    .eq('id', dbMember.id);
+            }
+        });
+
+        await Promise.all(updates);
+
+        // Marquage des preuves comme distribuées
+        proofsToUpdate.forEach(({ teamId, playerName }) => {
+            const team = teamsData.find(t => t.id === teamId);
+            if (team && team.proofs && team.proofs[playerName]) {
+                team.proofs[playerName].status = "distributed";
+            }
+        });
+
+        // Fermeture automatique des activités dont l'intégralité des preuves a été traitée
+        teamsData.forEach(team => {
+            if (team.completed && !team.validated) {
+                let assignedPlayers = [];
+                if (team.motif === "Raid") {
+                    if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
+                    if (team.playersB) assignedPlayers = assignedPlayers.concat(team.playersB);
+                } else {
+                    if (team.players) assignedPlayers = assignedPlayers.concat(team.players);
+                }
+                assignedPlayers = assignedPlayers.filter(p => p && p !== "");
+
+                if (assignedPlayers.length > 0) {
+                    let allHandled = true;
+                    assignedPlayers.forEach(p => {
+                        const proof = team.proofs ? team.proofs[p] : null;
+                        if (!proof || (proof.status !== "distributed" && proof.status !== "rejected")) {
+                            allHandled = false;
+                        }
+                    });
+                    if (allHandled) {
+                        team.validated = true;
+                        team.distributedPoints = getActivityPointsValue(team.motif, team.dimensionalTier);
+                    }
+                }
+            }
+        });
+
+        await saveTeamsState();
+        alert("La distribution hebdomadaire des points approuvés a été effectuée.");
+        await loadDashboardData();
+    } catch (err) {
+        console.error("Échec lors de la distribution :", err);
+        alert("Une erreur est survenue durant le traitement de distribution.");
+    }
 }
