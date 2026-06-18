@@ -592,6 +592,28 @@
                     </div>
                 </div>
 
+                <!-- BLOC-NOTES ADMIN (UNIQUEMENT SUR LE DASHBOARD) -->
+                <div class="bg-[#111622] border border-[#1e2638] rounded-xl p-5 shadow-lg space-y-4">
+                    <div class="flex flex-wrap justify-between items-center gap-4 border-b border-[#1e2638] pb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-amber-500/10 text-amber-500 p-2 rounded-lg">
+                                <i data-lucide="sticky-note" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-white uppercase tracking-wide">Bloc-notes Admin</h4>
+                                <p class="text-xs text-slate-400">Notes de gestion partagées entre les administrateurs (Sauvegarde automatique active).</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="notes-status" class="text-[10px] text-slate-500 italic">À jour</span>
+                            <button onclick="saveAdminNotes()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5">
+                                <i data-lucide="save" class="w-3.5 h-3.5"></i> Sauvegarder
+                            </button>
+                        </div>
+                    </div>
+                    <textarea id="admin-notes-textarea" placeholder="Rédigez vos notes de gestion partagées ici (objectifs de la semaine, priorités de recrutement, consignes officiers...)..." class="w-full h-40 bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-xl p-4 text-slate-100 text-xs outline-none transition resize-none"></textarea>
+                </div>
+
                 <!-- SECTION COMPTES DES MEMBRES DE LA GUILDE -->
                 <div class="bg-[#111622] border border-[#1e2638] rounded-xl overflow-hidden shadow-lg">
                     <div class="p-5 border-b border-[#1e2638] flex flex-wrap justify-between items-center gap-4">
