@@ -1608,7 +1608,6 @@ async function loadMembersViewData() {
             const itemObj = findItemByName(auc.item_name);
             const iconHtml = itemObj ? getItemIconHTML(itemObj) : `<div class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-500/20 bg-[#0b0e14]/40 text-slate-400 shrink-0"><i data-lucide="help-circle" class="w-4 h-4"></i></div>`;
 
-            // Extraction et tri des offres des autres joueurs
             const otherBids = Object.entries(bidsMap)
                 .filter(([userId]) => userId !== session.user.id)
                 .map(([_, bid]) => ({
@@ -1616,9 +1615,8 @@ async function loadMembersViewData() {
                     amount: bid.amount,
                     timestamp: bid.timestamp
                 }))
-                .sort((a, b) => b.amount - a.amount); // Tri de l'offre la plus haute à la plus basse
+                .sort((a, b) => b.amount - a.amount);
 
-            // Génération du HTML pour la liste des autres propositions
             let otherBidsListHtml = "";
             if (otherBids.length > 0) {
                 otherBidsListHtml = `
@@ -1649,7 +1647,6 @@ async function loadMembersViewData() {
 
             return `
                 <div class="bg-[#161b26] border border-[#1e2638] rounded-xl p-4 flex flex-col gap-2 animate-fade-in">
-                    <!-- Ligne principale : Infos de l'objet et Formulaire de mise -->
                     <div class="flex flex-wrap justify-between items-center gap-4">
                         <div class="flex items-center gap-3">
                             ${iconHtml}
@@ -1673,8 +1670,6 @@ async function loadMembersViewData() {
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Ligne secondaire : Affichage des propositions des autres joueurs -->
                     ${otherBidsListHtml}
                 </div>
             `;
@@ -1689,31 +1684,85 @@ async function loadMembersViewData() {
     if (teamsData.length === 0) {
         membersTeamsView.innerHTML = `<div class="col-span-full p-4 text-center text-slate-500">Aucune équipe n'est encore constituée par l'administrateur.</div>`;
     } else {
-// Dans loadMembersViewData, remplacez le début de la boucle "teamsData.forEach(team => {" par :
-    teamsData.forEach(team => {
-        let teamPlayersHtml = "";
-        let applicationsPanelHtml = "";
-        let gsBadgeHtml = ""; 
+        teamsData.forEach(team => {
+            let teamPlayersHtml = "";
+            let applicationsPanelHtml = "";
+            let gsBadgeHtml = ""; 
 
-        // Calcul dynamique des points attendus pour l'activité
-        let calculatedBase = getActivityPointsValue(team.motif, team.dimensionalTier);
+            let calculatedBase = getActivityPointsValue(team.motif, team.dimensionalTier);
 
-        const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
-        const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
-        const isAssigned = isPlayerAssignedToTeam(displayName, team.id);
+            const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
+            const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
+            const isAssigned = isPlayerAssignedToTeam(displayName, team.id);
 
+            // Gestion de l'affichage de validation & preuves côté membres
             if (team.validated) {
                 applicationsPanelHtml = `
                     <div class="mt-4 p-2.5 bg-emerald-950/20 border border-emerald-500/20 rounded-xl text-center text-xs text-emerald-400 font-bold select-none flex items-center justify-center gap-1.5">
                         <i data-lucide="check-circle" class="w-4 h-4"></i>
-                        Activité validée (Points distribués : +${team.distributedPoints || 10} pts)
+                        Activité clôturée (Points distribués : +${team.distributedPoints || 10} pts)
                     </div>
                 `;
+            } else if (team.composition_validated) {
+                if (isAssigned) {
+                    const proof = team.proofs ? team.proofs[displayName] : null;
+                    if (proof) {
+                        let statusLabel = "";
+                        if (proof.status === "pending") statusLabel = `<span class="text-amber-400 font-bold">En attente de validation par l'admin</span>`;
+                        else if (proof.status === "approved") statusLabel = `<span class="text-blue-400 font-bold">Approuvée (Mise en attente clôture hebdomadaire)</span>`;
+                        else if (proof.status === "distributed") statusLabel = `<span class="text-emerald-400 font-bold">Points distribués (+${proof.points} pts)</span>`;
+                        else statusLabel = `<span class="text-red-400 font-bold">Rejetée</span>`;
+
+                        applicationsPanelHtml = `
+                            <div class="mt-4 p-3 bg-emerald-950/10 border border-emerald-500/20 rounded-xl space-y-3">
+                                <div class="p-2.5 bg-emerald-950/20 border border-emerald-500/20 rounded-lg text-center text-xs text-emerald-400 font-bold flex items-center justify-center gap-1.5 select-none">
+                                    <i data-lucide="shield-check" class="w-4 h-4"></i> Composition validée
+                                </div>
+                                <div class="p-3 bg-[#0b0e14]/60 border border-[#252f44] rounded-lg space-y-2 animate-fade-in">
+                                    <div class="flex justify-between items-center text-xs">
+                                        <span class="text-slate-400">Preuve envoyée :</span>
+                                        ${statusLabel}
+                                    </div>
+                                    <a href="${proof.url}" target="_blank" class="text-[11px] text-blue-400 hover:underline truncate block max-w-full flex items-center gap-1">
+                                        <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Voir la capture d'écran
+                                    </a>
+                                    ${proof.status === "rejected" ? `
+                                        <div class="flex gap-2 mt-2">
+                                            <input type="text" id="proof-input-${team.id}" placeholder="Nouveau lien de capture d'écran" class="bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-100 outline-none flex-grow">
+                                            <button onclick="submitEventProof('${team.id}', document.getElementById('proof-input-${team.id}').value)" class="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition">Renvoyer</button>
+                                        </div>
+                                    ` : ""}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        applicationsPanelHtml = `
+                            <div class="mt-4 p-3 bg-emerald-950/10 border border-emerald-500/20 rounded-xl space-y-3">
+                                <div class="p-2.5 bg-emerald-950/20 border border-emerald-500/20 rounded-lg text-center text-xs text-emerald-400 font-bold flex items-center justify-center gap-1.5 select-none">
+                                    <i data-lucide="shield-check" class="w-4 h-4"></i> Composition validée
+                                </div>
+                                <div class="p-3 bg-[#0b0e14]/60 border border-[#252f44] rounded-lg space-y-2 animate-fade-in">
+                                    <span class="block text-[11px] text-slate-300 font-semibold uppercase tracking-wider">Déposer votre preuve de réussite :</span>
+                                    <div class="flex gap-2">
+                                        <input type="text" id="proof-input-${team.id}" placeholder="Lien de votre capture d'écran (Discord, Imgur, etc.)" class="bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-100 outline-none flex-grow">
+                                        <button onclick="submitEventProof('${team.id}', document.getElementById('proof-input-${team.id}').value)" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition">Envoyer</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    applicationsPanelHtml = `
+                        <div class="mt-4 p-2.5 bg-red-950/20 border border-red-500/20 rounded-xl text-center text-xs text-red-400 font-bold select-none flex items-center justify-center gap-1.5">
+                            <i data-lucide="lock" class="w-4 h-4"></i> Inscriptions fermées (Composition validée)
+                        </div>
+                    `;
+                }
             } else if (isAssigned) {
                 applicationsPanelHtml = `
                     <div class="mt-4 p-2.5 bg-blue-950/20 border border-blue-500/20 rounded-xl text-center text-xs text-blue-400 font-bold select-none flex items-center justify-center gap-1.5">
                         <i data-lucide="shield-check" class="w-4 h-4"></i>
-                        Vous êtes déjà assigné à cette composition
+                        Vous êtes assigné à cette composition (En attente de validation admin)
                     </div>
                 `;
             } else {
@@ -1883,7 +1932,7 @@ async function loadMembersViewData() {
                         `;
                     } else {
                         teamPlayersHtml += `
-                            <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-700 text-xs select-none">
+                            <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-600 text-xs select-none">
                                 Vide
                             </div>
                         `;
@@ -1891,10 +1940,13 @@ async function loadMembersViewData() {
                 }
 
                 membersTeamsView.innerHTML += `
-                    <div class="bg-[#161b26]/50 border border-[#1e2638] rounded-xl p-5 space-y-4 animate-fade-in">
-                        <div class="border-b border-[#1e2638] pb-2 flex items-center justify-between flex-wrap gap-2">
-                            <h4 class="font-bold text-sm text-slate-200">${team.name}</h4>
-                            <span class="text-[9px] px-2 py-0.5 rounded border ${badgeColor} font-bold uppercase tracking-wider">${labelText}</span>
+                    <div class="col-span-full bg-[#161b26]/50 border border-[#1e2638] rounded-xl p-5 space-y-4 animate-fade-in">
+                        <div class="flex justify-between items-center border-b border-[#1e2638] pb-3 flex-wrap gap-2">
+                            <div class="flex items-center gap-3">
+                                <span class="text-[9px] px-2 py-0.5 rounded border ${badgeColor} font-bold uppercase tracking-wider">${labelText}</span>
+                                <span class="font-bold text-sm text-slate-200">${team.name}</span>
+                                <span class="text-xs text-slate-500">${formatEventDate(team.date)}</span>
+                            </div>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
@@ -1909,7 +1961,7 @@ async function loadMembersViewData() {
                                 <div class="space-y-1.5">${teamPlayersHtml}</div>
                             </div>
                         </div>
-                       ${applicationsPanelHtml}
+                        ${applicationsPanelHtml}
                         <div class="flex justify-between items-center text-[10px] text-slate-500 mt-2 border-t border-[#1e2638] pt-2">
                             <span>Prévu le : ${formatEventDate(team.date)} | Valeur : ${calculatedBase} pts</span>
                         </div>
@@ -1918,6 +1970,49 @@ async function loadMembersViewData() {
             }
         });
     }
+
+    const leaderboardContainer = document.getElementById('members-leaderboard-container');
+    if (leaderboardContainer) {
+        const sortedMembers = [...allDatabaseMembers].sort((a, b) => {
+            const ptsA = a.points || 0;
+            const ptsB = b.points || 0;
+            return ptsB - ptsA;
+        });
+
+        if (sortedMembers.length === 0) {
+            leaderboardContainer.innerHTML = `<span class="text-xs text-slate-500 italic block text-center">Aucun membre enregistré</span>`;
+        } else {
+            leaderboardContainer.innerHTML = sortedMembers.map((m, idx) => {
+                const maskedEmail = maskEmail(m.email);
+                const displayName = m.character_name || maskedEmail;
+                const points = m.points || 0;
+                
+                let rankBadge = `<span class="text-xs text-slate-500 font-bold shrink-0 w-6">#${idx + 1}</span>`;
+                if (idx === 0) rankBadge = `<span class="text-base shrink-0 w-6" title="1er">🥇</span>`;
+                else if (idx === 1) rankBadge = `<span class="text-base shrink-0 w-6" title="2ème">🥈</span>`;
+                else if (idx === 2) rankBadge = `<span class="text-base shrink-0 w-6" title="3ème">🥉</span>`;
+
+                const weaponsHtml = m.weapon1 ? getWeaponIcon(m.weapon1) + getWeaponIcon(m.weapon2) : "";
+
+                return `
+                    <div class="flex items-center justify-between gap-3 p-2 bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl hover:border-blue-500/20 transition">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            ${rankBadge}
+                            <div class="truncate">
+                                <span class="block text-xs font-bold text-slate-200 truncate" title="${displayName}">${displayName}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <div class="flex items-center gap-0.5">${weaponsHtml}</div>
+                            <span class="text-xs font-bold text-emerald-400">${points} pts</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+    lucide.createIcons();
+}
     // ==========================================
     // RENDU DU CLASSEMENT DES MEMBRES (LEADERBOARD)
     // ==========================================
@@ -2455,16 +2550,22 @@ async function dropToTeam(event, teamId) {
 
         const teamIndex = teamsData.findIndex(t => t.id === teamId);
         if (teamIndex !== -1) {
-            if (!teamsData[teamIndex].players) teamsData[teamIndex].players = [];
-            if (teamsData[teamIndex].players.includes(playerName)) return;
+            const team = teamsData[teamIndex];
+            if (team.composition_validated || team.validated) {
+                alert("Action refusée : La composition de cette équipe est verrouillée.");
+                return;
+            }
 
-            if (teamsData[teamIndex].players.length >= 6) {
+            if (!team.players) team.players = [];
+            if (team.players.includes(playerName)) return;
+
+            if (team.players.length >= 6) {
                 alert("Cette équipe est pleine.");
                 return;
             }
 
             removePlayerFromCurrentTeam(playerName, teamId); 
-            teamsData[teamIndex].players.push(playerName);
+            team.players.push(playerName);
             await saveTeamsState();
             renderTeamMaker();
         }
@@ -2487,18 +2588,24 @@ async function dropToRaidGroup(event, teamId, groupLetter) {
 
         const teamIndex = teamsData.findIndex(t => t.id === teamId);
         if (teamIndex !== -1) {
+            const team = teamsData[teamIndex];
+            if (team.composition_validated || team.validated) {
+                alert("Action refusée : La composition de ce raid est verrouillée.");
+                return;
+            }
+
             const groupKey = groupLetter === 'A' ? 'playersA' : 'playersB';
-            if (!teamsData[teamIndex][groupKey]) teamsData[teamIndex][groupKey] = [];
+            if (!team[groupKey]) team[groupKey] = [];
 
-            if (teamsData[teamIndex][groupKey].includes(playerName)) return;
+            if (team[groupKey].includes(playerName)) return;
 
-            if (teamsData[teamIndex][groupKey].length >= 6) {
+            if (team[groupKey].length >= 6) {
                 alert(`Le Groupe ${groupLetter} est complet.`);
                 return;
             }
 
             removePlayerFromCurrentTeam(playerName, teamId); 
-            teamsData[teamIndex][groupKey].push(playerName);
+            team[groupKey].push(playerName);
             await saveTeamsState();
             renderTeamMaker();
         }
@@ -2519,9 +2626,18 @@ async function dropToPool(event, teamId) {
             return;
         }
 
-        removePlayerFromCurrentTeam(playerName, teamId); 
-        await saveTeamsState();
-        renderTeamMaker();
+        const teamIndex = teamsData.findIndex(t => t.id === teamId);
+        if (teamIndex !== -1) {
+            const team = teamsData[teamIndex];
+            if (team.composition_validated || team.validated) {
+                alert("Action refusée : La composition de cette équipe est verrouillée.");
+                return;
+            }
+
+            removePlayerFromCurrentTeam(playerName, teamId); 
+            await saveTeamsState();
+            renderTeamMaker();
+        }
     } catch (err) {
         console.error("Erreur dropToPool :", err);
     }
@@ -2593,7 +2709,6 @@ function renderTeamMaker() {
             appsHtml = `<div class="p-3 text-center text-slate-600 text-xs italic select-none">Aucun postulant</div>`;
         }
 
-        // Configuration du bouton d'action selon l'étape de validation de l'activité
         let validationButtonHtml = "";
         if (team.validated) {
             validationButtonHtml = `
@@ -2601,16 +2716,16 @@ function renderTeamMaker() {
                     <i class="w-3.5 h-3.5" data-lucide="check"></i> Validé & Points distribués
                 </div>
             `;
-        } else if (team.completed) {
+        } else if (team.composition_validated) {
             validationButtonHtml = `
-                <div class="text-[10px] bg-amber-950/20 border border-amber-500/20 text-amber-400 px-3 py-1.5 rounded-lg font-bold flex items-center justify-center gap-1">
-                    <i class="w-3.5 h-3.5" data-lucide="clock"></i> En attente des preuves membres
+                <div class="text-[10px] bg-blue-950/20 border border-blue-500/20 text-blue-400 px-3 py-1.5 rounded-lg font-bold flex items-center justify-center gap-1 select-none">
+                    <i class="w-3.5 h-3.5" data-lucide="shield-check"></i> Composition validée (Preuves membres)
                 </div>
             `;
         } else {
             validationButtonHtml = `
-                <button onclick="markEventAsCompleted('${team.id}')" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] transition flex items-center justify-center gap-1">
-                    <i class="w-3.5 h-3.5" data-lucide="check-square"></i> Marquer Terminé
+                <button onclick="validateTeamComposition('${team.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] transition flex items-center justify-center gap-1">
+                    <i class="w-3.5 h-3.5" data-lucide="shield-alert"></i> Valider la composition
                 </button>
             `;
         }
@@ -2627,7 +2742,7 @@ function renderTeamMaker() {
 
         // Génération du tableau de contrôle des captures d'écran des membres
         let proofsReviewHtml = "";
-        if (team.completed && !team.validated) {
+        if (team.composition_validated && !team.validated) {
             let assignedPlayers = [];
             if (team.motif === "Raid") {
                 if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
@@ -2645,7 +2760,9 @@ function renderTeamMaker() {
                     if (proof.status === "pending") {
                         actionButtons = `
                             <div class="flex gap-1">
-                                <button onclick="updateProofStatus('${team.id}', '${p.replace(/'/g, "\\'")}', 'approved')" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2 py-1 rounded transition">Approuver</button>
+                                <button onclick="updateProofStatus('${team.id}', '${p.replace(/'/g, "\\'")}', 'approved')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] px-2 py-1 rounded font-bold transition flex items-center gap-0.5">
+                                    <i data-lucide="check" class="w-3 h-3"></i> Valider
+                                </button>
                                 <button onclick="updateProofStatus('${team.id}', '${p.replace(/'/g, "\\'")}', 'rejected')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 text-[10px] px-2 py-1 rounded border border-red-500/20 transition">Rejeter</button>
                             </div>
                         `;
@@ -2658,7 +2775,7 @@ function renderTeamMaker() {
                     }
 
                     proofsRows += `
-                        <div class="flex justify-between items-center bg-[#111622] p-2 rounded-lg border border-[#1e2638] text-xs">
+                        <div class="flex justify-between items-center bg-[#111622] p-2 rounded-lg border border-[#1e2638] text-xs animate-fade-in">
                             <div class="flex flex-col">
                                 <span class="font-bold text-white">${p}</span>
                                 <a href="${proof.url}" target="_blank" class="text-[10px] text-blue-400 hover:underline flex items-center gap-0.5 mt-0.5"><i data-lucide="image" class="w-3 h-3"></i> Voir la preuve</a>
@@ -2668,17 +2785,17 @@ function renderTeamMaker() {
                     `;
                 } else {
                     proofsRows += `
-                        <div class="flex justify-between items-center bg-[#111622]/40 p-2 rounded-lg border border-[#1e2638]/60 text-xs italic text-slate-500">
+                        <div class="flex justify-between items-center bg-[#111622]/40 p-2 rounded-lg border border-[#1e2638]/60 text-xs italic text-slate-500 select-none animate-fade-in">
                             <span>${p}</span>
-                            <span>Pas de preuve</span>
+                            <span>Pas de preuve soumise</span>
                         </div>
                     `;
                 }
             });
 
             proofsReviewHtml = `
-                <div class="mt-4 p-3 bg-[#0b0e14]/60 border border-[#1e2638] rounded-xl space-y-2">
-                    <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Contrôle des Preuves (${assignedPlayers.length}) :</span>
+                <div class="mt-4 p-3 bg-[#0b0e14]/60 border border-[#1e2638] rounded-xl space-y-2 animate-fade-in">
+                    <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider select-none">Validation de la réussite de l'activité (${assignedPlayers.length}) :</span>
                     <div class="space-y-1.5 max-h-[180px] overflow-y-auto">${proofsRows}</div>
                 </div>
             `;
@@ -3246,5 +3363,19 @@ async function distributeWeeklyPoints() {
     } catch (err) {
         console.error("Échec lors de la distribution :", err);
         alert("Une erreur est survenue durant le traitement de distribution.");
+    }
+}
+
+// Validation de la composition de l'équipe par l'administrateur
+async function validateTeamComposition(teamId) {
+    if (!confirm("Voulez-vous valider la composition de cette équipe ? Les inscriptions seront verrouillées et les membres pourront déposer leurs preuves.")) {
+        return;
+    }
+    const teamIndex = teamsData.findIndex(t => t.id === teamId);
+    if (teamIndex !== -1) {
+        teamsData[teamIndex].composition_validated = true;
+        await saveTeamsState();
+        alert("La composition a été verrouillée avec succès. Les membres peuvent désormais déposer leurs captures.");
+        await loadDashboardData();
     }
 }
