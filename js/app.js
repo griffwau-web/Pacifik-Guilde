@@ -547,13 +547,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// Lecture de l'activation du formulaire
+// Lecture de l'activation du formulaire et des notifications globales
 async function loadFormStatus() {
     const stored = localStorage.getItem('lespacific_form_active');
     if (stored !== null) {
         isFormActive = (stored === 'true');
     }
     updateFormStatusUI();
+
+    const storedNotif = localStorage.getItem('lespacific_notif_enabled');
+    if (storedNotif !== null) {
+        notificationsEnabled = (storedNotif === 'true');
+    }
+    updateNotifToggleButton();
 
     if (supabaseClient) {
         try {
@@ -566,6 +572,12 @@ async function loadFormStatus() {
                 isFormActive = data.data.formActive;
                 localStorage.setItem('lespacific_form_active', isFormActive);
                 updateFormStatusUI();
+
+                if (data.data.notificationsEnabled !== undefined) {
+                    notificationsEnabled = data.data.notificationsEnabled;
+                    localStorage.setItem('lespacific_notif_enabled', notificationsEnabled);
+                    updateNotifToggleButton();
+                }
             }
         } catch (err) {
             console.log("Lecture de configuration Supabase indisponible, utilisation du cache.");
@@ -581,9 +593,19 @@ async function toggleFormStatus() {
 
     if (supabaseClient) {
         try {
+            const { data } = await supabaseClient
+                .from('guild_teams')
+                .select('data')
+                .eq('id', 2)
+                .single();
+            
+            const settings = data && data.data ? data.data : {};
+            settings.formActive = isFormActive;
+            settings.notificationsEnabled = notificationsEnabled;
+
             await supabaseClient
                 .from('guild_teams')
-                .upsert({ id: 2, data: { formActive: isFormActive } });
+                .upsert({ id: 2, data: settings });
         } catch (err) {
             console.error("Échec de synchronisation du formulaire :", err);
         }
@@ -686,10 +708,31 @@ function savePointsConfig() {
     lucide.createIcons();
 }
 
-function toggleNotifications() {
+// Basculement de l'activation des notifications
+async function toggleNotifications() {
     notificationsEnabled = !notificationsEnabled;
     localStorage.setItem('lespacific_notif_enabled', notificationsEnabled);
     updateNotifToggleButton();
+
+    if (supabaseClient) {
+        try {
+            const { data } = await supabaseClient
+                .from('guild_teams')
+                .select('data')
+                .eq('id', 2)
+                .single();
+            
+            const settings = data && data.data ? data.data : {};
+            settings.notificationsEnabled = notificationsEnabled;
+            settings.formActive = isFormActive;
+
+            await supabaseClient
+                .from('guild_teams')
+                .upsert({ id: 2, data: settings });
+        } catch (err) {
+            console.error("Échec de synchronisation des notifications globales :", err);
+        }
+    }
 }
 
 function updateNotifToggleButton() {
