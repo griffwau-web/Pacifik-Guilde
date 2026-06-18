@@ -2427,6 +2427,19 @@ async function submitAddEventForm(event) {
         dimensionalTier = document.getElementById('event-dimensional-tier').value;
     }
 
+    // Récupération de l'identité de l'auteur de l'événement pour les logs d'historique
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    let creatorName = "un membre";
+    if (session) {
+        const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
+        creatorName = myProfile ? (myProfile.character_name || myProfile.character_name) : "un membre"; 
+        if (creatorName === "un membre" && session.user.email === ADMIN_EMAIL) {
+            creatorName = "l'administrateur";
+        } else if (creatorName === "un membre") {
+            creatorName = maskEmail(session.user.email);
+        }
+    }
+
     if (motif === "Boss de guilde") {
         const totalActiveMembers = allDatabaseMembers ? allDatabaseMembers.length : 0;
         let numGroups = Math.ceil(totalActiveMembers / 6);
@@ -2464,7 +2477,7 @@ async function submitAddEventForm(event) {
                 await supabaseClient
                     .from('notifications')
                     .insert([{ 
-                        message: `Nouvelle activité créée : "${name}" (${motif})${groupsNotice} prévue le ${formatEventDate(dateVal)}${extraNotice} !`,
+                        message: `Nouvelle activité créée par ${creatorName} : "${name}" (${motif})${groupsNotice} prévue le ${formatEventDate(dateVal)}${extraNotice} !`,
                         event_id: `event-${baseId}-1`
                     }]);
             } catch (err) {
@@ -2507,7 +2520,7 @@ async function submitAddEventForm(event) {
                 await supabaseClient
                     .from('notifications')
                     .insert([{ 
-                        message: `Nouvelle activité créée : "${name}" (${motifText}) prévue le ${formatEventDate(dateVal)}${extraNotice} !`,
+                        message: `Nouvelle activité créée par ${creatorName} : "${name}" (${motifText}) prévue le ${formatEventDate(dateVal)}${extraNotice} !`,
                         event_id: newEvent.id
                     }]);
             } catch (err) {
@@ -2517,7 +2530,14 @@ async function submitAddEventForm(event) {
     }
 
     closeAddEventModal();
-    renderTeamMaker();
+    
+    // Rafraîchir l'affichage de manière contextuelle selon l'onglet actif de l'utilisateur
+    const dashboardSection = document.getElementById('view-dashboard');
+    if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
+        await loadDashboardData();
+    } else {
+        await loadMembersViewData();
+    }
 }
 
 function removePlayerFromAllTeams(playerName) {
