@@ -409,8 +409,14 @@
                     </div>
 
                     <!-- COMPOSITIONS D'ÉQUIPES -->
-                    <div class="bg-[#111622] border border-[#1e2638] rounded-2xl p-6 shadow-xl space-y-6">
-                        <h3 class="text-md font-bold text-white uppercase tracking-wide border-b border-[#1e2638] pb-3">Compositions d'équipes</h3>
+                    <div class="bg-[#111622] border border-[#1e2638] rounded-xl p-6 shadow-xl space-y-6">
+                        <div class="flex justify-between items-center border-b border-[#1e2638] pb-3 flex-wrap gap-2">
+                            <h3 class="text-md font-bold text-white uppercase tracking-wide">Compositions d'équipes</h3>
+                            <button onclick="openAddEventModal()" class="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                                Créer une équipe / événement
+                            </button>
+                        </div>
                         <div id="members-teams-view" class="grid grid-cols-1 gap-4">
                             <!-- Rempli en JS -->
                         </div>
