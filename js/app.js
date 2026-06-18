@@ -120,7 +120,7 @@ function getItemIconHTML(item) {
             </div>`;
 }
 
-// Ajoutez cette fonction dans la liste de vos fonctions :
+// Vérification de la réinitialisation mensuelle des souhaits
 async function checkMonthlyWishReset() {
     if (!supabaseClient) return;
     const now = new Date();
@@ -171,7 +171,7 @@ async function checkMonthlyWishReset() {
     }
 }
 
-// Trouver un équipement par son nom (avec comparaison de texte sécurisée)
+// Trouver un équipement par son nom
 function findItemByName(name) {
     if (!name) return null;
     const cleanSearchName = cleanCompareString(name);
@@ -2013,59 +2013,47 @@ async function loadMembersViewData() {
     }
     lucide.createIcons();
 }
-    // ==========================================
-    // RENDU DU CLASSEMENT DES MEMBRES (LEADERBOARD)
-    // ==========================================
-    const leaderboardContainer = document.getElementById('members-leaderboard-container');
-    if (leaderboardContainer) {
-        // Trier la liste locale des membres par ordre décroissant de points
-        const sortedMembers = [...allDatabaseMembers].sort((a, b) => {
-            const ptsA = a.points || 0;
-            const ptsB = b.points || 0;
-            return ptsB - ptsA;
-        });
-
-        if (sortedMembers.length === 0) {
-            leaderboardContainer.innerHTML = `<span class="text-xs text-slate-500 italic block text-center">Aucun membre enregistré</span>`;
-        } else {
-            leaderboardContainer.innerHTML = sortedMembers.map((m, idx) => {
-                const maskedEmail = maskEmail(m.email);
-                const displayName = m.character_name || maskedEmail;
-                const points = m.points || 0;
-                
-                // Attribution visuelle du rang (emojis pour le podium, # sinon)
-                let rankBadge = `<span class="text-xs text-slate-500 font-bold shrink-0 w-6">#${idx + 1}</span>`;
-                if (idx === 0) rankBadge = `<span class="text-base shrink-0 w-6" title="1er">🥇</span>`;
-                else if (idx === 1) rankBadge = `<span class="text-base shrink-0 w-6" title="2ème">🥈</span>`;
-                else if (idx === 2) rankBadge = `<span class="text-base shrink-0 w-6" title="3ème">🥉</span>`;
-
-                // Chargement des icônes d'armes configurées par le membre
-                const weaponsHtml = m.weapon1 ? getWeaponIcon(m.weapon1) + getWeaponIcon(m.weapon2) : "";
-
-                return `
-                    <div class="flex items-center justify-between gap-3 p-2 bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl hover:border-blue-500/20 transition">
-                        <div class="flex items-center gap-2.5 min-w-0">
-                            ${rankBadge}
-                            <div class="truncate">
-                                <span class="block text-xs font-bold text-slate-200 truncate" title="${displayName}">${displayName}</span>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                            <div class="flex items-center gap-0.5">${weaponsHtml}</div>
-                            <span class="text-xs font-bold text-emerald-400">${points} pts</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-    }
-    lucide.createIcons();
-}
 
 async function loadDashboardData() {
     try {
         await loadFormStatus();
         await loadAdminNotes();
+        
+        // Calcul et affichage du cycle de la semaine de guilde (Jeudi au Mercredi)
+        const { start, end } = getGuildWeekRange(new Date());
+        const dateOpts = { day: '2-digit', month: '2-digit' };
+        const dateRangeStr = `Du Jeudi ${start.toLocaleDateString('fr-FR', dateOpts)} au Mercredi ${end.toLocaleDateString('fr-FR', dateOpts)}`;
+        
+        const weeklyCycleDatesEl = document.getElementById('weekly-cycle-dates');
+        if (weeklyCycleDatesEl) {
+            weeklyCycleDatesEl.innerText = dateRangeStr;
+        }
+
+        // Comptabilisation des preuves approuvées en attente
+        let pendingProofsCount = 0;
+        let pendingPointsTotal = 0;
+
+        teamsData.forEach(team => {
+            if (team.proofs) {
+                Object.values(team.proofs).forEach(proof => {
+                    if (proof.status === "approved") {
+                        pendingProofsCount++;
+                        pendingPointsTotal += proof.points || 0;
+                    }
+                });
+            }
+        });
+
+        const weeklyPendingProofsEl = document.getElementById('weekly-pending-proofs-count');
+        if (weeklyPendingProofsEl) {
+            weeklyPendingProofsEl.innerText = pendingProofsCount;
+        }
+
+        const weeklyPendingPointsEl = document.getElementById('weekly-pending-points-total');
+        if (weeklyPendingPointsEl) {
+            weeklyPendingPointsEl.innerText = `${pendingPointsTotal} pts`;
+        }
+        
         const { data: players, error } = await supabaseClient
             .from('players')
             .select('*')
@@ -3378,4 +3366,3 @@ async function validateTeamComposition(teamId) {
         alert("La composition a été verrouillée avec succès. Les membres peuvent désormais déposer leurs captures.");
         await loadDashboardData();
     }
-}
