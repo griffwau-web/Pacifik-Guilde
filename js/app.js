@@ -2470,7 +2470,7 @@ async function submitAddEventForm(event) {
         dimensionalTier = document.getElementById('event-dimensional-tier').value;
     }
 
-    // Récupération de l'identité de l'auteur de l'événement pour les logs d'historique
+    // Récupération de l'identité de l'auteur de l'événement
     const { data: { session } } = await supabaseClient.auth.getSession();
     let creatorName = "un membre";
     if (session) {
@@ -2482,6 +2482,9 @@ async function submitAddEventForm(event) {
             creatorName = maskEmail(session.user.email);
         }
     }
+
+    const isMemberCreator = session && session.user.email !== ADMIN_EMAIL;
+    const motifText = dimensionalTier ? `${motif} (${dimensionalTier})` : (raidDifficulty ? `${motif} (${raidDifficulty})` : motif);
 
     if (motif === "Boss de guilde") {
         const totalActiveMembers = allDatabaseMembers ? allDatabaseMembers.length : 0;
@@ -2508,7 +2511,10 @@ async function submitAddEventForm(event) {
 
         await saveTeamsState();
 
-        if (notificationsEnabled) {
+        // Aiguillage de la notification Discord selon le créateur
+        if (isMemberCreator) {
+            await sendDiscordMemberCreationNotification(name, dateVal, motifText, gsLimit, creatorName);
+        } else if (notificationsEnabled) {
             const notificationName = numGroups > 1 ? `${name} (${numGroups} Groupes)` : name;
             await sendDiscordNotification(notificationName, dateVal, motif, gsLimit);
         }
@@ -2546,7 +2552,10 @@ async function submitAddEventForm(event) {
         teamsData.push(newEvent);
         await saveTeamsState();
 
-        if (notificationsEnabled) {
+        // Aiguillage de la notification Discord selon le créateur
+        if (isMemberCreator) {
+            await sendDiscordMemberCreationNotification(name, dateVal, motifText, gsLimit, creatorName);
+        } else if (notificationsEnabled) {
             let motifLabel = motif;
             if (motif === 'Raid' && raidDifficulty) {
                 motifLabel = `${motif} (${raidDifficulty})`;
@@ -2559,7 +2568,6 @@ async function submitAddEventForm(event) {
         if (supabaseClient) {
             try {
                 const extraNotice = gsLimit > 0 ? ` (Requis: ${gsLimit} GS)` : "";
-                const motifText = dimensionalTier ? `${motif} (${dimensionalTier})` : (raidDifficulty ? `${motif} (${raidDifficulty})` : motif);
                 await supabaseClient
                     .from('notifications')
                     .insert([{ 
@@ -2571,6 +2579,17 @@ async function submitAddEventForm(event) {
             }
         }
     }
+
+    closeAddEventModal();
+    
+    // Rafraîchir l'affichage de manière contextuelle
+    const dashboardSection = document.getElementById('view-dashboard');
+    if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
+        await loadDashboardData();
+    } else {
+        await loadMembersViewData();
+    }
+}
 
     closeAddEventModal();
     
@@ -3570,5 +3589,49 @@ async function validateTeamComposition(teamId) {
         await saveTeamsState();
         alert("La composition a été verrouillée avec succès. Les membres peuvent désormais déposer leurs captures.");
         await loadDashboardData();
+    }
+}
+
+// Envoi d'une notification de création d'activité par un membre (destinée aux administrateurs)
+async function sendDiscordMemberCreationNotification(name, dateVal, motif, gsLimit, creatorName) {
+    const MEMBER_CREATION_WEBHOOK_URL = "https://discord.com/api/webhooks/1517403890666963044/RjfSDjTpKUAy0lcj8vVt7h3199FdgvnQ5sJkNoSthHkGnxe7u70jjRLC15zP0s9dtKrs";
+    
+    const formattedDate = formatEventDate(dateVal) || "Date non spécifiée";
+    const gsLabel = gsLimit > 0 ? `${gsLimit} GS` : "Aucun";
+
+    // Structuration du payload avec mentions textuelles dans le content pour déclencher les notifications Discord
+    const payload = {
+        content: "⚠️ Attention @Gardiens de Guilde, @Conseiller de Guilde, @Chef de Guilde ! Une nouvelle équipe a été créée par un membre et nécessite votre validation.",
+        embeds: [{
+            title: `📋 Nouvelle activité créée par un membre : ${name}`,
+            description: `L'activité **${name}** a été planifiée par le membre **${creatorName}**.\nUn administrateur doit valider la composition de cette équipe sur le Dashboard d'administration.`,
+            color: 16753920, // Orange / Ambre
+            fields: [
+                { name: "Créateur", value: creatorName, inline: true },
+                { name: "Activité / Type", value: motif, inline: true },
+                { name: "GearScore Requis", value: gsLabel, inline: true },
+                { name: "Date & Heure", value: formattedDate, inline: false },
+                { name: "Lien du Dashboard", value: "https://pacifik-guilde.vercel.app", inline: false }
+            ],
+            footer: {
+                text: "Guilde Les Pacific"
+            },
+            timestamp: new Date().toISOString()
+        }]
+    };
+
+    try {
+        const response = await fetch(MEMBER_CREATION_WEBHOOK_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error(`Code HTTP ${response.status}`);
+        console.log("Notification d'activité membre transmise sur le webhook administrateurs.");
+    } catch (err) {
+        console.error("Échec de l'envoi de la notification membre :", err);
     }
 }
