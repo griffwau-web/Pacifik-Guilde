@@ -2593,6 +2593,17 @@ async function submitAddEventForm(event) {
 
     closeAddEventModal();
     
+    // Rafraîchir l'affichage de manière contextuelle
+    const dashboardSection = document.getElementById('view-dashboard');
+    if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
+        await loadDashboardData();
+    } else {
+        await loadMembersViewData();
+    }
+}
+
+    closeAddEventModal();
+    
     // Rafraîchir l'affichage de manière contextuelle selon l'onglet actif de l'utilisateur
     const dashboardSection = document.getElementById('view-dashboard');
     if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
