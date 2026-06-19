@@ -2527,7 +2527,78 @@ async function submitAddEventForm(event) {
 
         if (supabaseClient) {
             try {
-                const
+                const extraNotice = gsLimit > 0 ? ` (Requis: ${gsLimit} GS)` : "";
+                const groupsNotice = numGroups > 1 ? ` (${numGroups} groupes créés)` : "";
+                await supabaseClient
+                    .from('notifications')
+                    .insert([{ 
+                        message: `Nouvelle activité créée par ${creatorName} : "${name}" (${motif})${groupsNotice} prévue le ${formatEventDate(dateVal)}${extraNotice} !`,
+                        event_id: `event-${baseId}-1`
+                    }]);
+            } catch (err) {
+                console.error("Échec de création de la notification :", err);
+            }
+        }
+    } else {
+        const newEvent = {
+            id: "event-" + Date.now(),
+            name: name,
+            date: dateVal,
+            motif: motif,
+            raidDifficulty: raidDifficulty, 
+            dimensionalTier: dimensionalTier,
+            gearScoreLimit: gsLimit, 
+            players: [],
+            playersA: [],
+            playersB: [],
+            applications: [],
+            validated: false
+        };
+
+        teamsData.push(newEvent);
+        await saveTeamsState();
+
+        // 1. Alerte d'administration (Uniquement si le créateur est un membre)
+        if (isMemberCreator) {
+            await sendDiscordMemberCreationNotification(name, dateVal, motifText, gsLimit, creatorName);
+        }
+        
+        // 2. Annonce publique pour les inscriptions (Si les notifications sont activées globalement)
+        if (notificationsEnabled) {
+            let motifLabel = motif;
+            if (motif === 'Raid' && raidDifficulty) {
+                motifLabel = `${motif} (${raidDifficulty})`;
+            } else if (motif === 'Épreuve dimensionnelle' && dimensionalTier) {
+                motifLabel = `${motif} (${dimensionalTier})`;
+            }
+            await sendDiscordNotification(name, dateVal, motifLabel, gsLimit);
+        }
+
+        if (supabaseClient) {
+            try {
+                const extraNotice = gsLimit > 0 ? ` (Requis: ${gsLimit} GS)` : "";
+                await supabaseClient
+                    .from('notifications')
+                    .insert([{ 
+                        message: `Nouvelle activité créée par ${creatorName} : "${name}" (${motifText}) prévue le ${formatEventDate(dateVal)}${extraNotice} !`,
+                        event_id: newEvent.id
+                    }]);
+            } catch (err) {
+                console.error("Échec de création de la notification :", err);
+            }
+        }
+    }
+
+    closeAddEventModal();
+    
+    // Rafraîchir l'affichage de manière contextuelle selon l'onglet actif de l'utilisateur
+    const dashboardSection = document.getElementById('view-dashboard');
+    if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
+        await loadDashboardData();
+    } else {
+        await loadMembersViewData();
+    }
+}
 
 async function dropToRaidGroup(event, teamId, groupLetter) {
     event.preventDefault();
