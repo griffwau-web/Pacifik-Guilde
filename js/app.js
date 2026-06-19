@@ -11,6 +11,7 @@ const ADMIN_WEBHOOK_URL = "https://discord.com/api/webhooks/1517403890666963044/
 const DISCORD_ROLE_GARDIENS_ID = "1373212021306167369"; // Remplacez ces chiffres fictifs par le vôtre
 const DISCORD_ROLE_CONSEILLER_ID = "1373211423827693619"; // Remplacez ces chiffres fictifs par le vôtre
 const DISCORD_ROLE_CHEF_ID = "1373208588796956814"; // Remplacez ces chiffres fictifs par le vôtre
+const DISCORD_ROLE_MEMBRE_ID = "429892301272383489"; // Remplacez ces chiffres fictifs par le vôtre
 
 // LISTE DES ARMES DU JEU
 const WEAPONS_LIST = ["Arbalète", "Bâton", "Épée bouclier", "Espadon", "Dague", "Orbe", "Lance", "Arc", "Grimoire", "Gantelet"];
@@ -273,7 +274,7 @@ function maskEmail(email) {
     return maskedMailbox + "@" + maskedDomain;
 }
 
-// Envoi de la notification d'événement sur Discord via Webhook
+// Envoi de la notification d'événement sur Discord via Webhook (Webhook Public de Guilde)
 async function sendDiscordNotification(name, dateVal, motif, gsLimit) {
     if (!DISCORD_WEBHOOK_URL || DISCORD_WEBHOOK_URL.trim() === "" || DISCORD_WEBHOOK_URL.includes("VOTRE_WEBHOOK")) {
         console.log("Notification Discord ignorée : Aucun Webhook configuré.");
@@ -301,7 +302,11 @@ async function sendDiscordNotification(name, dateVal, motif, gsLimit) {
     const eventDate = formatEventDate(dateVal) && formatEventDate(dateVal).trim() !== "" ? formatEventDate(dateVal) : "Date non spécifiée";
     const eventMotif = motif && motif.trim() !== "" ? motif : "Non spécifié";
 
+    // Traduction de l'ID du rôle Membre en mention active
+    const tagMembre = DISCORD_ROLE_MEMBRE_ID ? `<@&${DISCORD_ROLE_MEMBRE_ID}>` : "@Membre";
+
     const payload = {
+        content: `📢 Nouvelle activité disponible ! ${tagMembre} inscrivez-vous !`,
         embeds: [{
             title: `🚀 Nouvelle Activité : ${eventName}`,
             description: `Pour Postuler dans l'équipe allez sur votre espace membre ici : https://pacifik-guilde.vercel.app/`,
