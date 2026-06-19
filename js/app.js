@@ -7,6 +7,11 @@ const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/151578238549544563
 // URL DU WEBHOOK DISCORD PRIVÉ ADMIN (Pour les alertes de validation des compositions créées par les membres)
 const ADMIN_WEBHOOK_URL = "https://discord.com/api/webhooks/1517403890666963044/RjfSDjTpKUAy0lcj8vVt7h3199FdgvnQ5sJkNoSthHkGnxe7u70jjRLC15zP0s9dtKrs"; 
 
+// ID DES ROLES DISCORD À TAGUER (À remplacer par vos vrais identifiants numériques obtenus à l'étape 1)
+const DISCORD_ROLE_GARDIENS_ID = "1373212021306167369"; // Remplacez ces chiffres fictifs par le vôtre
+const DISCORD_ROLE_CONSEILLER_ID = "1373211423827693619"; // Remplacez ces chiffres fictifs par le vôtre
+const DISCORD_ROLE_CHEF_ID = "1373208588796956814"; // Remplacez ces chiffres fictifs par le vôtre
+
 // LISTE DES ARMES DU JEU
 const WEAPONS_LIST = ["Arbalète", "Bâton", "Épée bouclier", "Espadon", "Dague", "Orbe", "Lance", "Arc", "Grimoire", "Gantelet"];
 
@@ -3532,8 +3537,13 @@ async function sendDiscordMemberCreationNotification(name, dateVal, motif, gsLim
     const formattedDate = formatEventDate(dateVal) || "Date non spécifiée";
     const gsLabel = gsLimit > 0 ? `${gsLimit} GS` : "Aucun";
 
+    // Traduction automatique des ID de rôles en mentions actives de Discord (<@&ID>)
+    const tagGardiens = DISCORD_ROLE_GARDIENS_ID ? `<@&${DISCORD_ROLE_GARDIENS_ID}>` : "@Gardiens de Guilde";
+    const tagConseiller = DISCORD_ROLE_CONSEILLER_ID ? `<@&${DISCORD_ROLE_CONSEILLER_ID}>` : "@Conseiller de Guilde";
+    const tagChef = DISCORD_ROLE_CHEF_ID ? `<@&${DISCORD_ROLE_CHEF_ID}>` : "@Chef de Guilde";
+
     const payload = {
-        content: "⚠️ Attention @Gardiens de Guilde, @Conseiller de Guilde, @Chef de Guilde ! Une nouvelle équipe a été créée par un membre et nécessite votre validation.",
+        content: `⚠️ Attention ${tagGardiens}, ${tagConseiller}, ${tagChef} ! Une nouvelle équipe a été créée par un membre et nécessite votre validation.`,
         embeds: [{
             title: `📋 Nouvelle activité créée par un membre : ${name}`,
             description: `L'activité **${name}** a été planifiée par le membre **${creatorName}**.\nUn administrateur doit valider la composition de cette équipe sur le Dashboard d'administration.`,
