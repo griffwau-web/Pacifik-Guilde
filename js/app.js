@@ -31,11 +31,14 @@ let teamsData = [];
 let auctionsData = []; 
 
 // Configuration par défaut des barèmes de points d'activité
+// Configuration par défaut des barèmes de points d'activité
 let pointsConfig = {
     "PVP": 10,
     "Boss de guilde": 10,
-    "Raid": 15,
-    "Épreuve dimensionnelle": 10,
+    "Raid Normal": 15,
+    "Raid Hardcore": 20,
+    "Raid Nightmare": 25,
+    "Épreuve dimensionnelle": 0,
     "Épreuve T6": 12,
     "Épreuve T7": 14,
     "Épreuve T8": 16,
@@ -70,7 +73,7 @@ function cleanCompareString(str) {
 }
 
 // Récupère la valeur en points d'une activité selon ses configurations
-function getActivityPointsValue(motif, dimensionalTier) {
+function getActivityPointsValue(motif, dimensionalTier, raidDifficulty) {
     if (motif === "Épreuve dimensionnelle") {
         if (dimensionalTier) {
             const match = dimensionalTier.match(/\d+/);
@@ -83,9 +86,14 @@ function getActivityPointsValue(motif, dimensionalTier) {
         }
         return pointsConfig["Épreuve dimensionnelle"] || 10; // Valeur par défaut pour T1 à T5
     }
+    if (motif === "Raid") {
+        if (raidDifficulty) {
+            return pointsConfig[raidDifficulty] || (pointsConfig["Raid Normal"] || 15);
+        }
+        return pointsConfig["Raid Normal"] || 15;
+    }
     return pointsConfig[motif] || 10;
 }
-
 // Traduction des armes en icônes Questlog CDN
 function getWeaponIcon(weaponName) {
     const mapping = {
@@ -664,7 +672,10 @@ function loadPointsConfig() {
     document.getElementById('config-pts-epreuve').value = pointsConfig["Épreuve dimensionnelle"] || 10;
     document.getElementById('config-pts-pvp').value = pointsConfig["PVP"] || 10;
     document.getElementById('config-pts-boss').value = pointsConfig["Boss de guilde"] || 10;
-    document.getElementById('config-pts-raid').value = pointsConfig["Raid"] || 15;
+    
+    document.getElementById('config-pts-raid-normal').value = pointsConfig["Raid Normal"] || 15;
+    document.getElementById('config-pts-raid-hardcore').value = pointsConfig["Raid Hardcore"] || 20;
+    document.getElementById('config-pts-raid-nightmare').value = pointsConfig["Raid Nightmare"] || 25;
     
     document.getElementById('config-pts-epreuve-t6').value = pointsConfig["Épreuve T6"] || 12;
     document.getElementById('config-pts-epreuve-t7').value = pointsConfig["Épreuve T7"] || 14;
@@ -677,7 +688,10 @@ function enablePointsConfigEdit() {
     document.getElementById('config-pts-epreuve').disabled = false;
     document.getElementById('config-pts-pvp').disabled = false;
     document.getElementById('config-pts-boss').disabled = false;
-    document.getElementById('config-pts-raid').disabled = false;
+    
+    document.getElementById('config-pts-raid-normal').disabled = false;
+    document.getElementById('config-pts-raid-hardcore').disabled = false;
+    document.getElementById('config-pts-raid-nightmare').disabled = false;
     
     document.getElementById('config-pts-epreuve-t6').disabled = false;
     document.getElementById('config-pts-epreuve-t7').disabled = false;
@@ -693,7 +707,10 @@ function savePointsConfig() {
     pointsConfig["Épreuve dimensionnelle"] = parseInt(document.getElementById('config-pts-epreuve').value, 10) || 10;
     pointsConfig["PVP"] = parseInt(document.getElementById('config-pts-pvp').value, 10) || 10;
     pointsConfig["Boss de guilde"] = parseInt(document.getElementById('config-pts-boss').value, 10) || 10;
-    pointsConfig["Raid"] = parseInt(document.getElementById('config-pts-raid').value, 10) || 15;
+    
+    pointsConfig["Raid Normal"] = parseInt(document.getElementById('config-pts-raid-normal').value, 10) || 15;
+    pointsConfig["Raid Hardcore"] = parseInt(document.getElementById('config-pts-raid-hardcore').value, 10) || 20;
+    pointsConfig["Raid Nightmare"] = parseInt(document.getElementById('config-pts-raid-nightmare').value, 10) || 25;
     
     pointsConfig["Épreuve T6"] = parseInt(document.getElementById('config-pts-epreuve-t6').value, 10) || 12;
     pointsConfig["Épreuve T7"] = parseInt(document.getElementById('config-pts-epreuve-t7').value, 10) || 14;
@@ -706,7 +723,10 @@ function savePointsConfig() {
     document.getElementById('config-pts-epreuve').disabled = true;
     document.getElementById('config-pts-pvp').disabled = true;
     document.getElementById('config-pts-boss').disabled = true;
-    document.getElementById('config-pts-raid').disabled = true;
+    
+    document.getElementById('config-pts-raid-normal').disabled = true;
+    document.getElementById('config-pts-raid-hardcore').disabled = true;
+    document.getElementById('config-pts-raid-nightmare').disabled = true;
     
     document.getElementById('config-pts-epreuve-t6').disabled = true;
     document.getElementById('config-pts-epreuve-t7').disabled = true;
@@ -1763,7 +1783,7 @@ async function loadMembersViewData() {
             let applicationsPanelHtml = "";
             let gsBadgeHtml = ""; 
 
-            let calculatedBase = getActivityPointsValue(team.motif, team.dimensionalTier);
+            let calculatedBase = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
             const isAssigned = isPlayerAssignedToTeam(displayName, team.id);
 
             // Gestion de l'affichage de validation & preuves côté membres
@@ -2337,7 +2357,7 @@ async function validateEvent(teamId) {
     const team = teamsData.find(t => t.id === teamId);
     if (!team) return;
 
-   let defaultPoints = getActivityPointsValue(team.motif, team.dimensionalTier);
+ let defaultPoints = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
 
     const ptsInput = prompt("Saisissez la valeur de points d'activité à accorder aux membres sélectionnés :", defaultPoints);
     const points = parseInt(ptsInput, 10);
@@ -3269,7 +3289,7 @@ async function submitEventProof(teamId, proofUrl) {
             team.proofs = {};
         }
         
-        const pts = getActivityPointsValue(team.motif, team.dimensionalTier);
+        const pts = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
         
         team.proofs[displayName] = {
             url: proofUrl.trim(),
@@ -3390,7 +3410,7 @@ async function submitEventProofFile(teamId, fileInputId) {
                 team.proofs = {};
             }
 
-            const pts = getActivityPointsValue(team.motif, team.dimensionalTier);
+            const pts = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
 
             // Enregistrement de la preuve avec son chemin de stockage pour pouvoir la supprimer plus tard
             team.proofs[displayName] = {
@@ -3508,7 +3528,7 @@ async function distributeWeeklyPoints() {
                     });
                     if (allHandled) {
                         team.validated = true;
-                        team.distributedPoints = getActivityPointsValue(team.motif, team.dimensionalTier);
+                        team.distributedPoints = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
                     }
                 }
             }
