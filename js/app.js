@@ -4,6 +4,9 @@ const ADMIN_EMAIL = "admin@lespacifik.com";
 // URL DE WEBHOOK DISCORD
 const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1515782385495445635/gnRrDhehmiMB6YQhxwBbWilITRpENcdjVDRW7Yj_hAOZqE29ETLbkgqtMrfA0iM3gVXE"; 
 
+// URL DU WEBHOOK DISCORD PRIVÉ ADMIN (Pour les alertes de validation des compositions créées par les membres)
+const ADMIN_WEBHOOK_URL = "https://discord.com/api/webhooks/1517403890666963044/RjfSDjTpKUAy0lcj8vVt7h3199FdgvnQ5sJkNoSthHkGnxe7u70jjRLC15zP0s9dtKrs"; 
+
 // LISTE DES ARMES DU JEU
 const WEAPONS_LIST = ["Arbalète", "Bâton", "Épée bouclier", "Espadon", "Dague", "Orbe", "Lance", "Arc", "Grimoire", "Gantelet"];
 
@@ -3455,12 +3458,9 @@ async function validateTeamComposition(teamId) {
 
 // Envoi d'une notification de création d'activité par un membre (destinée aux administrateurs)
 async function sendDiscordMemberCreationNotification(name, dateVal, motif, gsLimit, creatorName) {
-    const MEMBER_CREATION_WEBHOOK_URL = "https://discord.com/api/webhooks/1517403890666963044/RjfSDjTpKUAy0lcj8vVt7h3199FdgvnQ5sJkNoSthHkGnxe7u70jjRLC15zP0s9dtKrs";
-    
     const formattedDate = formatEventDate(dateVal) || "Date non spécifiée";
     const gsLabel = gsLimit > 0 ? `${gsLimit} GS` : "Aucun";
 
-    // Structuration du payload avec mentions textuelles dans le content pour déclencher les notifications Discord
     const payload = {
         content: "⚠️ Attention @Gardiens de Guilde, @Conseiller de Guilde, @Chef de Guilde ! Une nouvelle équipe a été créée par un membre et nécessite votre validation.",
         embeds: [{
@@ -3482,7 +3482,8 @@ async function sendDiscordMemberCreationNotification(name, dateVal, motif, gsLim
     };
 
     try {
-        const response = await fetch(MEMBER_CREATION_WEBHOOK_URL, {
+        // Envoi de la requête HTTP sur l'adresse du webhook d'administration uniquement
+        const response = await fetch(ADMIN_WEBHOOK_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
