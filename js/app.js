@@ -569,6 +569,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Lecture de l'activation du formulaire et des notifications globales
+// Lecture de l'activation du formulaire et des configurations globales (Formulaire, Notifications, Points)
 async function loadFormStatus() {
     const stored = localStorage.getItem('lespacific_form_active');
     if (stored !== null) {
@@ -598,6 +599,13 @@ async function loadFormStatus() {
                     notificationsEnabled = data.data.notificationsEnabled;
                     localStorage.setItem('lespacific_notif_enabled', notificationsEnabled);
                     updateNotifToggleButton();
+                }
+
+                // Récupération et application globale du barème de points d'activité
+                if (data.data.pointsConfig !== undefined) {
+                    pointsConfig = data.data.pointsConfig;
+                    localStorage.setItem('lespacific_points_config', JSON.stringify(pointsConfig));
+                    applyPointsConfigToUI();
                 }
             }
         } catch (err) {
@@ -664,26 +672,14 @@ function updateFormStatusUI() {
 }
 
 // Lecture des configurations de points
+// Lecture des configurations de points depuis le cache
 function loadPointsConfig() {
     const stored = localStorage.getItem('lespacific_points_config');
     if (stored) {
         pointsConfig = JSON.parse(stored);
     }
-    document.getElementById('config-pts-epreuve').value = pointsConfig["Épreuve dimensionnelle"] || 10;
-    document.getElementById('config-pts-pvp').value = pointsConfig["PVP"] || 10;
-    document.getElementById('config-pts-boss').value = pointsConfig["Boss de guilde"] || 10;
-    
-    document.getElementById('config-pts-raid-normal').value = pointsConfig["Raid Normal"] || 15;
-    document.getElementById('config-pts-raid-hardcore').value = pointsConfig["Raid Hardcore"] || 20;
-    document.getElementById('config-pts-raid-nightmare').value = pointsConfig["Raid Nightmare"] || 25;
-    
-    document.getElementById('config-pts-epreuve-t6').value = pointsConfig["Épreuve T6"] || 12;
-    document.getElementById('config-pts-epreuve-t7').value = pointsConfig["Épreuve T7"] || 14;
-    document.getElementById('config-pts-epreuve-t8').value = pointsConfig["Épreuve T8"] || 16;
-    document.getElementById('config-pts-epreuve-t9').value = pointsConfig["Épreuve T9"] || 18;
-    document.getElementById('config-pts-epreuve-t10').value = pointsConfig["Épreuve T10"] || 20;
+    applyPointsConfigToUI();
 }
-
 function enablePointsConfigEdit() {
     document.getElementById('config-pts-epreuve').disabled = false;
     document.getElementById('config-pts-pvp').disabled = false;
@@ -703,7 +699,8 @@ function enablePointsConfigEdit() {
     document.getElementById('btn-save-pts').classList.remove('hidden');
 }
 
-function savePointsConfig() {
+// Sauvegarde les configurations de points dans le stockage local et sur Supabase
+async function savePointsConfig() {
     pointsConfig["Épreuve dimensionnelle"] = parseInt(document.getElementById('config-pts-epreuve').value, 10) || 10;
     pointsConfig["PVP"] = parseInt(document.getElementById('config-pts-pvp').value, 10) || 10;
     pointsConfig["Boss de guilde"] = parseInt(document.getElementById('config-pts-boss').value, 10) || 10;
@@ -736,6 +733,28 @@ function savePointsConfig() {
 
     document.getElementById('btn-save-pts').classList.add('hidden');
     document.getElementById('btn-edit-pts').classList.remove('hidden');
+
+    // Sauvegarde et synchronisation globale sur Supabase
+    if (supabaseClient) {
+        try {
+            const { data } = await supabaseClient
+                .from('guild_teams')
+                .select('data')
+                .eq('id', 2)
+                .single();
+            
+            const settings = data && data.data ? data.data : {};
+            settings.pointsConfig = pointsConfig;
+            settings.formActive = isFormActive;
+            settings.notificationsEnabled = notificationsEnabled;
+
+            await supabaseClient
+                .from('guild_teams')
+                .upsert({ id: 2, data: settings });
+        } catch (err) {
+            console.error("Échec de synchronisation des points globaux :", err);
+        }
+    }
 
     alert("Configuration du barème de points sauvegardée.");
     lucide.createIcons();
@@ -3602,4 +3621,24 @@ async function sendDiscordMemberCreationNotification(name, dateVal, motif, gsLim
     } catch (err) {
         console.error("Échec de l'envoi de la notification membre :", err);
     }
+}
+
+// Applique visuellement les valeurs du barème de points aux champs de saisie (Dashboard Admin)
+function applyPointsConfigToUI() {
+    const inputEpreuve = document.getElementById('config-pts-epreuve');
+    if (!inputEpreuve) return; // Permet de ne pas exécuter si on n'est pas sur le Dashboard Admin
+
+    inputEpreuve.value = pointsConfig["Épreuve dimensionnelle"] || 10;
+    document.getElementById('config-pts-pvp').value = pointsConfig["PVP"] || 10;
+    document.getElementById('config-pts-boss').value = pointsConfig["Boss de guilde"] || 10;
+    
+    document.getElementById('config-pts-raid-normal').value = pointsConfig["Raid Normal"] || 15;
+    document.getElementById('config-pts-raid-hardcore').value = pointsConfig["Raid Hardcore"] || 20;
+    document.getElementById('config-pts-raid-nightmare').value = pointsConfig["Raid Nightmare"] || 25;
+    
+    document.getElementById('config-pts-epreuve-t6').value = pointsConfig["Épreuve T6"] || 12;
+    document.getElementById('config-pts-epreuve-t7').value = pointsConfig["Épreuve T7"] || 14;
+    document.getElementById('config-pts-epreuve-t8').value = pointsConfig["Épreuve T8"] || 16;
+    document.getElementById('config-pts-epreuve-t9').value = pointsConfig["Épreuve T9"] || 18;
+    document.getElementById('config-pts-epreuve-t10').value = pointsConfig["Épreuve T10"] || 20;
 }
