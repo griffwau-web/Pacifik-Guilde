@@ -952,6 +952,34 @@
         </div>
     </div>
 
+    <!-- FENÊTRE MODALE GLOBALE : ALERTES, CONFIRMATIONS ET SAISIES CUSTOMS (CHARTE PACIFIK) -->
+    <div id="custom-dialog-modal" class="hidden fixed inset-0 z-[100] overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-[#111622] border border-[#1e2638] rounded-2xl max-w-sm w-full p-6 shadow-2xl relative space-y-6 text-center animate-fade-in">
+            <!-- Container d'icône dynamique -->
+            <div id="dialog-icon-container" class="p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto border transition-colors duration-150">
+                <i id="dialog-icon" data-lucide="info" class="w-6 h-6"></i>
+            </div>
+            <!-- Titre et Message -->
+            <div class="space-y-2">
+                <h3 id="dialog-title" class="text-sm font-bold text-white uppercase tracking-wider">Titre</h3>
+                <p id="dialog-message" class="text-xs text-slate-400 leading-relaxed">Message</p>
+            </div>
+            <!-- Zone d'input (pour les Prompts) -->
+            <div id="dialog-input-container" class="hidden">
+                <input type="text" id="dialog-input" class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-xl px-4 py-2 text-slate-100 outline-none text-xs transition">
+            </div>
+            <!-- Zone des boutons -->
+            <div class="flex gap-3" id="dialog-buttons-container">
+                <button id="dialog-btn-cancel" class="w-full bg-[#161b26] hover:bg-[#1f2635] text-slate-300 font-semibold py-2.5 rounded-xl border border-[#252f44] text-xs transition">
+                    Annuler
+                </button>
+                <button id="dialog-btn-confirm" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition">
+                    Valider
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- FOOTER -->
     <footer class="bg-[#0c1017] border-t border-[#1e2638] py-4 text-center text-xs text-slate-500">
         © 2026 Guilde Les Pacific. Développé pour le Dashboard de Gestion.
