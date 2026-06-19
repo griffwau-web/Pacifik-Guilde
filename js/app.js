@@ -1094,7 +1094,7 @@ async function handleLoginSubmit(event) {
 }
 
 async function handleLogout() {
-    if (confirm("Fermer la session actuelle ?")) {
+    if (await showCustomConfirm("Fermer la session actuelle ?", "Se déconnecter")) {
         await supabaseClient.auth.signOut();
         updateUIVisibility(null);
         switchView('form');
@@ -1123,7 +1123,7 @@ async function generateInviteLink() {
 }
 
 async function deleteTeam(teamId) {
-    if (confirm("Voulez-vous supprimer cet événement ?")) {
+    if (await showCustomConfirm("Voulez-vous supprimer cet événement ?", "Supprimer l'événement", true)) {
         teamsData = teamsData.filter(t => t.id !== teamId);
         await saveTeamsState();
 
@@ -1143,7 +1143,7 @@ async function deleteTeam(teamId) {
 }
 
 async function clearAllNotifications() {
-    if (confirm("Voulez-vous supprimer définitivement l'intégralité de l'historique des notifications ?")) {
+    if (await showCustomConfirm("Voulez-vous supprimer définitivement l'intégralité de l'historique des notifications ?", "Purger l'historique", true)) {
         if (supabaseClient) {
             try {
                 const { error } = await supabaseClient
@@ -1488,7 +1488,7 @@ async function submitBlindBid(auctionId, bidAmountInputId) {
         return;
     }
 
-    if (!confirm(`Confirmer votre mise secrète de ${bidAmount} points ?`)) {
+    if (!(await showCustomConfirm(`Confirmer votre mise secrète de ${bidAmount} points ?`, "Miser sur l'enchère"))) {
         return;
     }
 
@@ -1594,7 +1594,7 @@ async function resolveAuction(auctionId) {
 
         const winner = bidsArray[0];
 
-        if (!confirm(`Le vainqueur est "${winner.char_name}" avec une mise de ${winner.amount} pts.\nConfirmer et clôturer l'enchère ?`)) {
+        if (!(await showCustomConfirm(`Le vainqueur est "${winner.char_name}" avec une mise de ${winner.amount} pts.\nConfirmer et clôturer l'enchère ?`, "Clôturer l'enchère"))) {
             return;
         }
 
@@ -2378,9 +2378,11 @@ async function validateEvent(teamId) {
     const team = teamsData.find(t => t.id === teamId);
     if (!team) return;
 
- let defaultPoints = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
+    let defaultPoints = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
 
-    const ptsInput = prompt("Saisissez la valeur de points d'activité à accorder aux membres sélectionnés :", defaultPoints);
+    const ptsInput = await showCustomPrompt("Saisissez la valeur de points d'activité à accorder aux membres sélectionnés :", defaultPoints, "Distribuer des points");
+    if (ptsInput === null) return; // Annulé
+    
     const points = parseInt(ptsInput, 10);
 
     if (isNaN(points) || points <= 0) {
@@ -2388,7 +2390,7 @@ async function validateEvent(teamId) {
         return;
     }
 
-    if (confirm(`Vous allez distribuer définitivement +${points} points aux participants. Continuer ?`)) {
+    if (await showCustomConfirm(`Vous allez distribuer définitivement +${points} points aux participants. Continuer ?`, "Confirmation de distribution")) {
         let assignedPlayers = [];
         if (team.motif === "Raid") {
             if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
@@ -2431,7 +2433,7 @@ async function validateEvent(teamId) {
 }
 
 async function deleteMemberAccount(memberId, memberName) {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer définitivement le compte de "${memberName}" ?`)) {
+    if (await showCustomConfirm(`Êtes-vous sûr de vouloir supprimer définitivement le compte de "${memberName}" ?`, "Supprimer le membre", true)) {
         try {
             const { error } = await supabaseClient.rpc('delete_user_by_admin', { target_user_id: memberId });
             if (error) throw error;
@@ -3327,7 +3329,7 @@ async function submitEventProof(teamId, proofUrl) {
 
 // Passage d'un événement au statut terminé
 async function markEventAsCompleted(teamId) {
-    if (!confirm("Voulez-vous marquer cette activité comme terminée ? Les inscriptions seront closes et les membres affectés pourront soumettre leurs preuves.")) {
+    if (!(await showCustomConfirm("Voulez-vous marquer cette activité comme terminée ? Les inscriptions seront closes et les membres affectés pourront soumettre leurs preuves.", "Marquer comme terminé"))) {
         return;
     }
     const teamIndex = teamsData.findIndex(t => t.id === teamId);
@@ -3457,7 +3459,7 @@ async function submitEventProofFile(teamId, fileInputId) {
 
 // Clôture et distribution groupée de tous les points approuvés de la semaine
 async function distributeWeeklyPoints() {
-    if (!confirm("Voulez-vous procéder à la distribution de tous les points approuvés ? Cette action mettra à jour définitivement le solde des membres actifs.")) {
+    if (!(await showCustomConfirm("Voulez-vous procéder à la distribution de tous les points approuvés ? Cette action mettra à jour définitivement le solde des membres actifs.", "Clôturer la semaine"))) {
         return;
     }
 
@@ -3566,7 +3568,7 @@ async function distributeWeeklyPoints() {
 
 // Validation de la composition de l'équipe par l'administrateur
 async function validateTeamComposition(teamId) {
-    if (!confirm("Voulez-vous valider la composition de cette équipe ? Les inscriptions seront verrouillées et les membres pourront déposer leurs preuves.")) {
+    if (!(await showCustomConfirm("Voulez-vous valider la composition de cette équipe ? Les inscriptions seront verrouillées et les membres pourront déposer leurs preuves.", "Valider la composition"))) {
         return;
     }
     const teamIndex = teamsData.findIndex(t => t.id === teamId);
@@ -3649,4 +3651,133 @@ function applyPointsConfigToUI() {
 function parsePointsValue(valueStr, defaultValue = 10) {
     const parsed = parseInt(valueStr, 10);
     return isNaN(parsed) ? defaultValue : parsed;
+}
+
+// Affiche une boîte d'alerte stylisée (Surcharge de la fonction native window.alert)
+function showCustomAlert(message, title = "Notification Pacifique") {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('custom-dialog-modal');
+        const titleEl = document.getElementById('dialog-title');
+        const msgEl = document.getElementById('dialog-message');
+        const iconContainer = document.getElementById('dialog-icon-container');
+        const icon = document.getElementById('dialog-icon');
+        const inputContainer = document.getElementById('dialog-input-container');
+        const btnCancel = document.getElementById('dialog-btn-cancel');
+        const btnConfirm = document.getElementById('dialog-btn-confirm');
+
+        if (!modal) return resolve();
+
+        titleEl.innerText = title;
+        msgEl.innerText = message;
+        
+        icon.setAttribute('data-lucide', 'info');
+        iconContainer.className = "p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto border border-blue-500/20 bg-blue-500/10 text-blue-400";
+        
+        inputContainer.classList.add('hidden');
+        btnCancel.classList.add('hidden'); // Pas de bouton annuler sur une alerte simple
+        btnConfirm.innerText = "OK";
+        btnConfirm.className = "w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition";
+
+        modal.classList.remove('hidden');
+        lucide.createIcons();
+
+        btnConfirm.onclick = () => {
+            modal.classList.add('hidden');
+            resolve();
+        };
+    });
+}
+
+// Surcharge de la fonction native de navigateur window.alert pour qu'elle utilise la modale automatiquement
+window.alert = function(message) {
+    showCustomAlert(message, "Notification Pacifique");
+};
+
+// Affiche une boîte de confirmation stylisée (Remplace confirm())
+function showCustomConfirm(message, title = "Confirmation", isDanger = false) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('custom-dialog-modal');
+        const titleEl = document.getElementById('dialog-title');
+        const msgEl = document.getElementById('dialog-message');
+        const iconContainer = document.getElementById('dialog-icon-container');
+        const icon = document.getElementById('dialog-icon');
+        const inputContainer = document.getElementById('dialog-input-container');
+        const btnCancel = document.getElementById('dialog-btn-cancel');
+        const btnConfirm = document.getElementById('dialog-btn-confirm');
+
+        if (!modal) return resolve(false);
+
+        titleEl.innerText = title;
+        msgEl.innerText = message;
+        
+        if (isDanger) {
+            icon.setAttribute('data-lucide', 'alert-triangle');
+            iconContainer.className = "p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto border border-red-500/20 bg-red-500/10 text-red-400";
+            btnConfirm.className = "w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl text-xs transition";
+        } else {
+            icon.setAttribute('data-lucide', 'help-circle');
+            iconContainer.className = "p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto border border-amber-500/20 bg-amber-500/10 text-amber-400";
+            btnConfirm.className = "w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition";
+        }
+
+        inputContainer.classList.add('hidden');
+        btnCancel.classList.remove('hidden');
+        btnConfirm.innerText = "Confirmer";
+
+        modal.classList.remove('hidden');
+        lucide.createIcons();
+
+        btnConfirm.onclick = () => {
+            modal.classList.add('hidden');
+            resolve(true);
+        };
+
+        btnCancel.onclick = () => {
+            modal.classList.add('hidden');
+            resolve(false);
+        };
+    });
+}
+
+// Affiche une boîte de saisie textuelle stylisée (Remplace prompt())
+function showCustomPrompt(message, defaultValue = "", title = "Saisie") {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('custom-dialog-modal');
+        const titleEl = document.getElementById('dialog-title');
+        const msgEl = document.getElementById('dialog-message');
+        const iconContainer = document.getElementById('dialog-icon-container');
+        const icon = document.getElementById('dialog-icon');
+        const inputContainer = document.getElementById('dialog-input-container');
+        const input = document.getElementById('dialog-input');
+        const btnCancel = document.getElementById('dialog-btn-cancel');
+        const btnConfirm = document.getElementById('dialog-btn-confirm');
+
+        if (!modal) return resolve(null);
+
+        titleEl.innerText = title;
+        msgEl.innerText = message;
+        
+        icon.setAttribute('data-lucide', 'edit-2');
+        iconContainer.className = "p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto border border-blue-500/20 bg-blue-500/10 text-blue-400";
+        
+        inputContainer.classList.remove('hidden');
+        input.value = defaultValue;
+        btnCancel.classList.remove('hidden');
+        btnConfirm.innerText = "Valider";
+        btnConfirm.className = "w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition";
+
+        modal.classList.remove('hidden');
+        lucide.createIcons();
+
+        btnConfirm.onclick = () => {
+            const val = input.value;
+            modal.classList.add('hidden');
+            resolve(val);
+        };
+
+        btnCancel.onclick = () => {
+            modal.classList.add('hidden');
+            resolve(null);
+        };
+    });
 }
