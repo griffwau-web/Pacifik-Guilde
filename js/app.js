@@ -2511,148 +2511,20 @@ async function submitAddEventForm(event) {
 
         await saveTeamsState();
 
-        // Aiguillage de la notification Discord selon le créateur
+        // 1. Alerte d'administration (Uniquement si le créateur est un membre)
         if (isMemberCreator) {
             await sendDiscordMemberCreationNotification(name, dateVal, motifText, gsLimit, creatorName);
-        } else if (notificationsEnabled) {
+        }
+        
+        // 2. Annonce publique pour les inscriptions (Si les notifications sont activées globalement)
+        if (notificationsEnabled) {
             const notificationName = numGroups > 1 ? `${name} (${numGroups} Groupes)` : name;
             await sendDiscordNotification(notificationName, dateVal, motif, gsLimit);
         }
 
         if (supabaseClient) {
             try {
-                const extraNotice = gsLimit > 0 ? ` (Requis: ${gsLimit} GS)` : "";
-                const groupsNotice = numGroups > 1 ? ` (${numGroups} groupes créés)` : "";
-                await supabaseClient
-                    .from('notifications')
-                    .insert([{ 
-                        message: `Nouvelle activité créée par ${creatorName} : "${name}" (${motif})${groupsNotice} prévue le ${formatEventDate(dateVal)}${extraNotice} !`,
-                        event_id: `event-${baseId}-1`
-                    }]);
-            } catch (err) {
-                console.error("Échec de création de la notification :", err);
-            }
-        }
-    } else {
-        const newEvent = {
-            id: "event-" + Date.now(),
-            name: name,
-            date: dateVal,
-            motif: motif,
-            raidDifficulty: raidDifficulty, 
-            dimensionalTier: dimensionalTier,
-            gearScoreLimit: gsLimit, 
-            players: [],
-            playersA: [],
-            playersB: [],
-            applications: [],
-            validated: false
-        };
-
-        teamsData.push(newEvent);
-        await saveTeamsState();
-
-        // Aiguillage de la notification Discord selon le créateur
-        if (isMemberCreator) {
-            await sendDiscordMemberCreationNotification(name, dateVal, motifText, gsLimit, creatorName);
-        } else if (notificationsEnabled) {
-            let motifLabel = motif;
-            if (motif === 'Raid' && raidDifficulty) {
-                motifLabel = `${motif} (${raidDifficulty})`;
-            } else if (motif === 'Épreuve dimensionnelle' && dimensionalTier) {
-                motifLabel = `${motif} (${dimensionalTier})`;
-            }
-            await sendDiscordNotification(name, dateVal, motifLabel, gsLimit);
-        }
-
-        if (supabaseClient) {
-            try {
-                const extraNotice = gsLimit > 0 ? ` (Requis: ${gsLimit} GS)` : "";
-                await supabaseClient
-                    .from('notifications')
-                    .insert([{ 
-                        message: `Nouvelle activité créée par ${creatorName} : "${name}" (${motifText}) prévue le ${formatEventDate(dateVal)}${extraNotice} !`,
-                        event_id: newEvent.id
-                    }]);
-            } catch (err) {
-                console.error("Échec de création de la notification :", err);
-            }
-        }
-    }
-
-    closeAddEventModal();
-    
-    // Rafraîchir l'affichage de manière contextuelle selon l'onglet actif de l'utilisateur
-    const dashboardSection = document.getElementById('view-dashboard');
-    if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
-        await loadDashboardData();
-    } else {
-        await loadMembersViewData();
-    }
-}
-
-function removePlayerFromAllTeams(playerName) {
-    teamsData.forEach(team => {
-        if (team.players) team.players = team.players.filter(p => p !== playerName);
-        if (team.playersA) team.playersA = team.playersA.filter(p => p !== playerName);
-        if (team.playersB) team.playersB = team.playersB.filter(p => p !== playerName);
-    });
-}
-
-function removePlayerFromCurrentTeam(playerName, teamId) {
-    const team = teamsData.find(t => t.id === teamId);
-    if (!team) return;
-    if (team.players) team.players = team.players.filter(p => p !== playerName);
-    if (team.playersA) team.playersA = team.playersA.filter(p => p !== playerName);
-    if (team.playersB) team.playersB = team.playersB.filter(p => p !== playerName);
-}
-
-function dragPlayer(event, playerName, teamId) {
-    const dragData = { playerName, teamId };
-    event.dataTransfer.setData("application/json", JSON.stringify(dragData));
-}
-
-function allowDrop(event) {
-    event.preventDefault();
-}
-
-async function dropToTeam(event, teamId) {
-    event.preventDefault();
-    try {
-        const dataStr = event.dataTransfer.getData("application/json");
-        if (!dataStr) return;
-        const { playerName, teamId: sourceTeamId } = JSON.parse(dataStr);
-
-        if (sourceTeamId !== teamId) {
-            alert("Vous ne pouvez glisser-déposer un joueur que dans le cadre de sa propre activité.");
-            return;
-        }
-
-        const teamIndex = teamsData.findIndex(t => t.id === teamId);
-        if (teamIndex !== -1) {
-            const team = teamsData[teamIndex];
-            if (team.composition_validated || team.validated) {
-                alert("Action refusée : La composition de cette équipe est verrouillée.");
-                return;
-            }
-
-            if (!team.players) team.players = [];
-            if (team.players.includes(playerName)) return;
-
-            if (team.players.length >= 6) {
-                alert("Cette équipe est pleine.");
-                return;
-            }
-
-            removePlayerFromCurrentTeam(playerName, teamId); 
-            team.players.push(playerName);
-            await saveTeamsState();
-            renderTeamMaker();
-        }
-    } catch (err) {
-        console.error("Erreur dropToTeam :", err);
-    }
-}
+                const
 
 async function dropToRaidGroup(event, teamId, groupLetter) {
     event.preventDefault();
