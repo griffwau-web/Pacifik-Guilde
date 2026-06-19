@@ -80,20 +80,21 @@ function getActivityPointsValue(motif, dimensionalTier, raidDifficulty) {
             if (match) {
                 const tierNum = parseInt(match[0], 10);
                 if (tierNum >= 6 && tierNum <= 10) {
-                    return pointsConfig[`Épreuve T${tierNum}`] || (pointsConfig["Épreuve dimensionnelle"] || 10);
+                    return pointsConfig[`Épreuve T${tierNum}`] ?? pointsConfig["Épreuve dimensionnelle"] ?? 10;
                 }
             }
         }
-        return pointsConfig["Épreuve dimensionnelle"] || 10; // Valeur par défaut pour T1 à T5
+        return pointsConfig["Épreuve dimensionnelle"] ?? 10; // Valeur par défaut pour T1 à T5
     }
     if (motif === "Raid") {
         if (raidDifficulty) {
-            return pointsConfig[raidDifficulty] || (pointsConfig["Raid Normal"] || 15);
+            return pointsConfig[raidDifficulty] ?? pointsConfig["Raid Normal"] ?? 15;
         }
-        return pointsConfig["Raid Normal"] || 15;
+        return pointsConfig["Raid Normal"] ?? 15;
     }
-    return pointsConfig[motif] || 10;
+    return pointsConfig[motif] ?? 10;
 }
+
 // Traduction des armes en icônes Questlog CDN
 function getWeaponIcon(weaponName) {
     const mapping = {
@@ -700,20 +701,21 @@ function enablePointsConfigEdit() {
 }
 
 // Sauvegarde les configurations de points dans le stockage local et sur Supabase
+// Sauvegarde les configurations de points dans le stockage local et sur Supabase
 async function savePointsConfig() {
-    pointsConfig["Épreuve dimensionnelle"] = parseInt(document.getElementById('config-pts-epreuve').value, 10) || 10;
-    pointsConfig["PVP"] = parseInt(document.getElementById('config-pts-pvp').value, 10) || 10;
-    pointsConfig["Boss de guilde"] = parseInt(document.getElementById('config-pts-boss').value, 10) || 10;
+    pointsConfig["Épreuve dimensionnelle"] = parsePointsValue(document.getElementById('config-pts-epreuve').value, 10);
+    pointsConfig["PVP"] = parsePointsValue(document.getElementById('config-pts-pvp').value, 10);
+    pointsConfig["Boss de guilde"] = parsePointsValue(document.getElementById('config-pts-boss').value, 10);
     
-    pointsConfig["Raid Normal"] = parseInt(document.getElementById('config-pts-raid-normal').value, 10) || 15;
-    pointsConfig["Raid Hardcore"] = parseInt(document.getElementById('config-pts-raid-hardcore').value, 10) || 20;
-    pointsConfig["Raid Nightmare"] = parseInt(document.getElementById('config-pts-raid-nightmare').value, 10) || 25;
+    pointsConfig["Raid Normal"] = parsePointsValue(document.getElementById('config-pts-raid-normal').value, 15);
+    pointsConfig["Raid Hardcore"] = parsePointsValue(document.getElementById('config-pts-raid-hardcore').value, 20);
+    pointsConfig["Raid Nightmare"] = parsePointsValue(document.getElementById('config-pts-raid-nightmare').value, 25);
     
-    pointsConfig["Épreuve T6"] = parseInt(document.getElementById('config-pts-epreuve-t6').value, 10) || 12;
-    pointsConfig["Épreuve T7"] = parseInt(document.getElementById('config-pts-epreuve-t7').value, 10) || 14;
-    pointsConfig["Épreuve T8"] = parseInt(document.getElementById('config-pts-epreuve-t8').value, 10) || 16;
-    pointsConfig["Épreuve T9"] = parseInt(document.getElementById('config-pts-epreuve-t9').value, 10) || 18;
-    pointsConfig["Épreuve T10"] = parseInt(document.getElementById('config-pts-epreuve-t10').value, 10) || 20;
+    pointsConfig["Épreuve T6"] = parsePointsValue(document.getElementById('config-pts-epreuve-t6').value, 12);
+    pointsConfig["Épreuve T7"] = parsePointsValue(document.getElementById('config-pts-epreuve-t7').value, 14);
+    pointsConfig["Épreuve T8"] = parsePointsValue(document.getElementById('config-pts-epreuve-t8').value, 16);
+    pointsConfig["Épreuve T9"] = parsePointsValue(document.getElementById('config-pts-epreuve-t9').value, 18);
+    pointsConfig["Épreuve T10"] = parsePointsValue(document.getElementById('config-pts-epreuve-t10').value, 20);
 
     localStorage.setItem('lespacific_points_config', JSON.stringify(pointsConfig));
 
@@ -3628,17 +3630,23 @@ function applyPointsConfigToUI() {
     const inputEpreuve = document.getElementById('config-pts-epreuve');
     if (!inputEpreuve) return; // Permet de ne pas exécuter si on n'est pas sur le Dashboard Admin
 
-    inputEpreuve.value = pointsConfig["Épreuve dimensionnelle"] || 10;
-    document.getElementById('config-pts-pvp').value = pointsConfig["PVP"] || 10;
-    document.getElementById('config-pts-boss').value = pointsConfig["Boss de guilde"] || 10;
+    inputEpreuve.value = pointsConfig["Épreuve dimensionnelle"] ?? 10;
+    document.getElementById('config-pts-pvp').value = pointsConfig["PVP"] ?? 10;
+    document.getElementById('config-pts-boss').value = pointsConfig["Boss de guilde"] ?? 10;
     
-    document.getElementById('config-pts-raid-normal').value = pointsConfig["Raid Normal"] || 15;
-    document.getElementById('config-pts-raid-hardcore').value = pointsConfig["Raid Hardcore"] || 20;
-    document.getElementById('config-pts-raid-nightmare').value = pointsConfig["Raid Nightmare"] || 25;
+    document.getElementById('config-pts-raid-normal').value = pointsConfig["Raid Normal"] ?? 15;
+    document.getElementById('config-pts-raid-hardcore').value = pointsConfig["Raid Hardcore"] ?? 20;
+    document.getElementById('config-pts-raid-nightmare').value = pointsConfig["Raid Nightmare"] ?? 25;
     
-    document.getElementById('config-pts-epreuve-t6').value = pointsConfig["Épreuve T6"] || 12;
-    document.getElementById('config-pts-epreuve-t7').value = pointsConfig["Épreuve T7"] || 14;
-    document.getElementById('config-pts-epreuve-t8').value = pointsConfig["Épreuve T8"] || 16;
-    document.getElementById('config-pts-epreuve-t9').value = pointsConfig["Épreuve T9"] || 18;
-    document.getElementById('config-pts-epreuve-t10').value = pointsConfig["Épreuve T10"] || 20;
+    document.getElementById('config-pts-epreuve-t6').value = pointsConfig["Épreuve T6"] ?? 12;
+    document.getElementById('config-pts-epreuve-t7').value = pointsConfig["Épreuve T7"] ?? 14;
+    document.getElementById('config-pts-epreuve-t8').value = pointsConfig["Épreuve T8"] ?? 16;
+    document.getElementById('config-pts-epreuve-t9').value = pointsConfig["Épreuve T9"] ?? 18;
+    document.getElementById('config-pts-epreuve-t10').value = pointsConfig["Épreuve T10"] ?? 20;
+}
+
+// Analyse la saisie de points en acceptant la valeur 0 sans appliquer la valeur par défaut
+function parsePointsValue(valueStr, defaultValue = 10) {
+    const parsed = parseInt(valueStr, 10);
+    return isNaN(parsed) ? defaultValue : parsed;
 }
