@@ -334,7 +334,7 @@
                 </ul>
             </div>
 
-            <div class="bg-[#111622] border border-[#1e2638] rounded-2xl p-6 shadow-xl space-y-4">
+            <div class="bg-[#111622] border border-[#1e2638] rounded-2xl p-6 shadow-xl flex flex-wrap justify-between items-center gap-4">
                 <div class="flex items-center gap-3">
                     <div class="bg-blue-600/10 text-blue-400 p-2.5 rounded-lg border border-blue-500/20">
                         <i data-lucide="shield-check" class="w-6 h-6"></i>
@@ -343,6 +343,13 @@
                         <h2 class="text-xl font-bold text-white">Espace Membre Pacifique</h2>
                         <p class="text-xs text-slate-400">Bienvenue, <span id="member-display-email" class="text-blue-400 font-bold">--</span>.</p>
                     </div>
+                </div>
+                <!-- Solde de points du membre connecté -->
+                <div class="text-right">
+                    <span class="block text-[10px] text-slate-500 uppercase font-bold tracking-wider">Mon Activité</span>
+                    <span class="text-md font-extrabold text-emerald-400 flex items-center gap-1.5 justify-end mt-0.5 select-none">
+                        Points : <span id="member-display-points" class="font-black text-lg">0</span>
+                    </span>
                 </div>
             </div>
 
