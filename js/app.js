@@ -2681,15 +2681,6 @@ async function submitAddEventForm(event) {
         await loadMembersViewData();
     }
 }
-
-function removePlayerFromAllTeams(playerName) {
-    teamsData.forEach(team => {
-        if (team.players) team.players = team.players.filter(p => p !== playerName);
-        if (team.playersA) team.playersA = team.playersA.filter(p => p !== playerName);
-        if (team.playersB) team.playersB = team.playersB.filter(p => p !== playerName);
-    });
-}
-
 function removePlayerFromCurrentTeam(playerName, teamId) {
     const team = teamsData.find(t => t.id === teamId);
     if (!team) return;
