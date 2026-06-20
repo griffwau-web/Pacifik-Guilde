@@ -1645,6 +1645,15 @@ async function resolveAuction(auctionId) {
     }
 }
 
+// Calcule et affiche le texte du temps restant pour une enchère
+function getRemainingTimeText(endTimeStr) {
+    const diff = new Date(endTimeStr) - new Date();
+    if (diff <= 0) return "En attente de clôture";
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `Temps restant : ${hours}h ${minutes}m`;
+}
+
 // Chargement de l'Espace Membre
 async function loadMembersViewData() {
     const { data: { session } } = await supabaseClient.auth.getSession();
