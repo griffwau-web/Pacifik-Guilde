@@ -141,7 +141,7 @@ function getItemIconHTML(item) {
             </div>`;
 }
 
-// Vérification de la réinitialisation mensuelle des souhaits
+// Vérification de la réinitialisation mensuelle des souhaits et des paliers de d'épreuves
 async function checkMonthlyWishReset() {
     if (!supabaseClient) return;
     const now = new Date();
@@ -160,7 +160,7 @@ async function checkMonthlyWishReset() {
             const lastReset = settings.lastWishReset || "";
 
             if (lastReset !== currentMonthKey) {
-                console.log(`Changement de mois détecté (${currentMonthKey}). Restauration des jetons de souhaits...`);
+                console.log(`Changement de mois détecté (${currentMonthKey}). Restauration des jetons de souhaits et réinitialisation des paliers d'épreuves...`);
 
                 const { data: members, error: fetchErr } = await supabaseClient
                     .from('member_profiles')
@@ -172,7 +172,10 @@ async function checkMonthlyWishReset() {
                     const resetPromises = members.map(m => 
                         supabaseClient
                             .from('member_profiles')
-                            .update({ wish_tokens: 2 })
+                            .update({ 
+                                wish_tokens: 2,
+                                highest_tier: 0 // Réinitialise la progression d'épreuves pour le nouveau mois
+                            })
                             .eq('id', m.id)
                     );
                     await Promise.all(resetPromises);
@@ -184,7 +187,7 @@ async function checkMonthlyWishReset() {
                     .update({ data: settings })
                     .eq('id', 2);
 
-                console.log("Restauration mensuelle automatique des souhaits effectuée.");
+                console.log("Restauration mensuelle automatique effectuée.");
             }
         }
     } catch (err) {
@@ -3582,65 +3585,120 @@ async function submitEventProofFile(teamId, fileInputId) {
     }
 }
 
-// Clôture et distribution groupée de tous les points approuvés de la semaine
+// Clôture et distribution groupée de tous les points approuvés de la semaine (avec règle de progression non-cumulative)
 async function distributeWeeklyPoints() {
     if (!(await showCustomConfirm("Voulez-vous procéder à la distribution de tous les points approuvés ? Cette action mettra à jour définitivement le solde des membres actifs.", "Clôturer la semaine"))) {
         return;
     }
 
     const approvedPointsByPlayer = {}; // Regroupement : { "NomJoueur": points }
+    const highestTierByPlayer = {}; // Regroupement : { "NomJoueur": nouveauPalierMax }
     const proofsToUpdate = [];
     const storagePathsToDelete = []; // Contiendra la liste des captures à supprimer de Supabase
 
-    // Analyse de l'ensemble des activités non encore clôturées
+    // 1. Regrouper toutes les activités approuvées par joueur pour cette semaine
+    const playerApprovedActivities = {}; // Structure : { "NomJoueur": [ { team, proof } ] }
+
     teamsData.forEach(team => {
         if (team.proofs) {
-            // Calcul du montant réel (avec application de la règle des 50%)
-            const realPoints = getCalculatedTeamPoints(team);
-            
             Object.entries(team.proofs).forEach(([playerName, proof]) => {
                 if (proof.status === "approved") {
-                    if (!approvedPointsByPlayer[playerName]) {
-                        approvedPointsByPlayer[playerName] = 0;
+                    if (!playerApprovedActivities[playerName]) {
+                        playerApprovedActivities[playerName] = [];
                     }
-                    approvedPointsByPlayer[playerName] += realPoints;
-                    
-                    // Scelle la valeur de distribution finale dans l'objet de preuve
-                    proof.points = realPoints;
-                    
-                    proofsToUpdate.push({ teamId: team.id, playerName });
-                    
-                    if (proof.storagePath) {
-                        storagePathsToDelete.push(proof.storagePath);
-                    }
+                    playerApprovedActivities[playerName].push({ team, proof });
                 }
             });
         }
     });
 
-    const playersToCredit = Object.keys(approvedPointsByPlayer);
-    if (playersToCredit.length === 0) {
+    const playersToProcess = Object.keys(playerApprovedActivities);
+    if (playersToProcess.length === 0) {
         alert("Aucun point approuvé n'est actuellement en attente de distribution.");
         return;
     }
 
+    // 2. Traiter la progression de chaque joueur individuellement
+    playersToProcess.forEach(playerName => {
+        const dbMember = allDatabaseMembers.find(m => (m.character_name || m.email) === playerName);
+        const currentHighest = dbMember ? (dbMember.highest_tier || 0) : 0;
+        
+        let pointsToAward = 0;
+        let tempHighest = currentHighest;
+
+        const activities = playerApprovedActivities[playerName];
+
+        // Trier les activités pour traiter les épreuves dimensionnelles par ordre de palier croissant
+        activities.sort((a, b) => {
+            const tierA = a.team.motif === "Épreuve dimensionnelle" && a.team.dimensionalTier ? (parseInt(a.team.dimensionalTier.match(/\d+/)[0], 10) || 0) : 0;
+            const tierB = b.team.motif === "Épreuve dimensionnelle" && b.team.dimensionalTier ? (parseInt(b.team.dimensionalTier.match(/\d+/)[0], 10) || 0) : 0;
+            return tierA - tierB;
+        });
+
+        activities.forEach(({ team, proof }) => {
+            if (team.motif === "Épreuve dimensionnelle") {
+                const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
+                const tierNum = match ? parseInt(match[0], 10) : 0;
+
+                if (tierNum > tempHighest) {
+                    // Calcul des points réels pour l'activité courante (avec pénalité de présence si applicable)
+                    const basePointsNew = getCalculatedTeamPoints(team);
+                    
+                    // Calcul de la valeur théorique du palier précédent pour soustraction
+                    const prevTierPoints = getTierBasePoints(tempHighest);
+                    
+                    // On attribue uniquement la différence de points
+                    const netPoints = Math.max(0, basePointsNew - prevTierPoints);
+                    pointsToAward += netPoints;
+                    
+                    // Mise à jour du record temporaire du joueur
+                    tempHighest = tierNum;
+                    proof.points = netPoints; // Enregistre la valeur nette finale attribuée à cette preuve
+                } else {
+                    // Si le palier est inférieur ou égal au record déjà validé ce mois-ci : aucun point n'est attribué
+                    proof.points = 0;
+                }
+            } else {
+                // Pour les autres motifs (Raid, PVP, Boss), les points s'additionnent normalement
+                const pts = getCalculatedTeamPoints(team);
+                pointsToAward += pts;
+                proof.points = pts;
+            }
+
+            proofsToUpdate.push({ teamId: team.id, playerName });
+            if (proof.storagePath) {
+                storagePathsToDelete.push(proof.storagePath);
+            }
+        });
+
+        if (pointsToAward > 0 || tempHighest > currentHighest) {
+            approvedPointsByPlayer[playerName] = pointsToAward;
+            highestTierByPlayer[playerName] = tempHighest;
+        }
+    });
+
     try {
-        // Envoi des requêtes de mise à jour des points
-        const updates = playersToCredit.map(async (playerName) => {
+        // 3. Envoi des requêtes de mise à jour des points et des paliers à Supabase
+        const updates = Object.keys(approvedPointsByPlayer).map(async (playerName) => {
             const dbMember = allDatabaseMembers.find(m => (m.character_name || m.email) === playerName);
             if (dbMember) {
                 const currentPoints = dbMember.points || 0;
-                const additionalPoints = approvedPointsByPlayer[playerName];
+                const additionalPoints = approvedPointsByPlayer[playerName] || 0;
+                const newHighestTier = highestTierByPlayer[playerName] ?? dbMember.highest_tier ?? 0;
+
                 return supabaseClient
                     .from('member_profiles')
-                    .update({ points: currentPoints + additionalPoints })
+                    .update({ 
+                        points: currentPoints + additionalPoints,
+                        highest_tier: newHighestTier
+                    })
                     .eq('id', dbMember.id);
             }
         });
 
         await Promise.all(updates);
 
-        // Nettoyage temporaire : Suppression des captures du serveur Supabase Storage
+        // Nettoyage temporaire : Suppression des captures du stockage Supabase
         if (storagePathsToDelete.length > 0) {
             try {
                 await supabaseClient
@@ -3652,7 +3710,7 @@ async function distributeWeeklyPoints() {
             }
         }
 
-        // Marquage des preuves comme distribuées (et suppression de la référence du chemin de stockage vide)
+        // Marquage des preuves comme distribuées dans notre cache local
         proofsToUpdate.forEach(({ teamId, playerName }) => {
             const team = teamsData.find(t => t.id === teamId);
             if (team && team.proofs && team.proofs[playerName]) {
@@ -3661,7 +3719,7 @@ async function distributeWeeklyPoints() {
             }
         });
 
-        // Fermeture automatique des activités dont l'intégralité des preuves a été traitée
+        // Fermeture automatique des activités dont toutes les preuves ont été traitées
         teamsData.forEach(team => {
             if (team.composition_validated && !team.validated) {
                 let assignedPlayers = [];
@@ -3683,7 +3741,6 @@ async function distributeWeeklyPoints() {
                     });
                     if (allHandled) {
                         team.validated = true;
-                        // On enregistre les points finaux réels et pénalisés de l'activité
                         team.distributedPoints = getCalculatedTeamPoints(team);
                     }
                 }
@@ -3947,3 +4004,12 @@ async function changeMembersPage(page) {
     membersCurrentPage = page;
     await loadDashboardData();
 }
+
+// Récupère les points de base d'un palier d'épreuve dimensionnelle spécifique
+function getTierBasePoints(tier) {
+    if (tier <= 0) return 0;
+    if (tier >= 1 && tier <= 5) return pointsConfig["Épreuve dimensionnelle"] ?? 10;
+    return pointsConfig[`Épreuve T${tier}`] ?? 10;
+}
+
+
