@@ -2151,49 +2151,6 @@ async function loadMembersViewData() {
     lucide.createIcons();
 }
 
-    const leaderboardContainer = document.getElementById('members-leaderboard-container');
-    if (leaderboardContainer) {
-        const sortedMembers = [...allDatabaseMembers].sort((a, b) => {
-            const ptsA = a.points || 0;
-            const ptsB = b.points || 0;
-            return ptsB - ptsA;
-        });
-
-        if (sortedMembers.length === 0) {
-            leaderboardContainer.innerHTML = `<span class="text-xs text-slate-500 italic block text-center">Aucun membre enregistré</span>`;
-        } else {
-            leaderboardContainer.innerHTML = sortedMembers.map((m, idx) => {
-                const maskedEmail = maskEmail(m.email);
-                const displayName = m.character_name || maskedEmail;
-                const points = m.points || 0;
-                
-                let rankBadge = `<span class="text-xs text-slate-500 font-bold shrink-0 w-6">#${idx + 1}</span>`;
-                if (idx === 0) rankBadge = `<span class="text-base shrink-0 w-6" title="1er">🥇</span>`;
-                else if (idx === 1) rankBadge = `<span class="text-base shrink-0 w-6" title="2ème">🥈</span>`;
-                else if (idx === 2) rankBadge = `<span class="text-base shrink-0 w-6" title="3ème">🥉</span>`;
-
-                const weaponsHtml = m.weapon1 ? getWeaponIcon(m.weapon1) + getWeaponIcon(m.weapon2) : "";
-
-                return `
-                    <div class="flex items-center justify-between gap-3 p-2 bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl hover:border-blue-500/20 transition">
-                        <div class="flex items-center gap-2.5 min-w-0">
-                            ${rankBadge}
-                            <div class="truncate">
-                                <span class="block text-xs font-bold text-slate-200 truncate" title="${displayName}">${displayName}</span>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                            <div class="flex items-center gap-0.5">${weaponsHtml}</div>
-                            <span class="text-xs font-bold text-emerald-400">${points} pts</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-    }
-    lucide.createIcons();
-}
-
 async function loadDashboardData() {
     try {
         await loadFormStatus();
