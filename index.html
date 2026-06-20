@@ -651,6 +651,13 @@
                             <span class="block text-[10px] text-slate-500 uppercase font-bold">Total Points à distribuer</span>
                             <span id="weekly-pending-points-total" class="text-sm font-bold text-emerald-400 mt-1 block">0 pts</span>
                         </div>
+                        <!-- Liste détaillée des points par joueur en attente -->
+                        <div id="weekly-pending-details-container" class="hidden border-t border-[#1e2638] pt-4 mt-2">
+                            <span class="block text-[10px] text-slate-500 uppercase font-bold mb-3 tracking-wider text-left select-none">Répartition des points en attente par membre :</span>
+                            <div id="weekly-pending-members-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto pr-1">
+                                <!-- Rempli dynamiquement en JS -->
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <!-- BLOC-NOTES ADMIN (UNIQUEMENT SUR LE DASHBOARD) -->
