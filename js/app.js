@@ -2373,7 +2373,7 @@ async function loadDashboardData() {
     }
 }
 
-// Attribution des points d'activité d'une équipe par l'admin (avec calcul de bonus de Tier)
+// Attribution des points d'activité d'une équipe par l'admin
 async function validateEvent(teamId) {
     const team = teamsData.find(t => t.id === teamId);
     if (!team) return;
@@ -2381,7 +2381,7 @@ async function validateEvent(teamId) {
     let defaultPoints = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
 
     const ptsInput = await showCustomPrompt("Saisissez la valeur de points d'activité à accorder aux membres sélectionnés :", defaultPoints, "Distribuer des points");
-    if (ptsInput === null) return; // Annulé
+    if (ptsInput === null) return; // Saisie annulée
     
     const points = parseInt(ptsInput, 10);
 
