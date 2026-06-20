@@ -4,11 +4,11 @@ const TL_ITEMS_DB = [
     // --- ÉQUIPEMENTS ÉPIQUE T1 ---
     // ==========================================
     // --- ARMES T1 ---
-    { name: "Crocs de fureur de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "dagger",questlogUrl: "" },
-    { name: "Toucher vulnérant de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "wand",questlogUrl: "" },
-    { name: "Œil omniscient de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "orb",questlogUrl: "" },
-    { name: "Arc de la mort hurlante de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "longbow",questlogUrl: "" },
-    { name: "Lame martiale du désespoir de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "greatsword",questlogUrl: "" },
+    { name: "Crocs de fureur de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "dagger",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/dagger_aa_t2_polymorph_001" },
+    { name: "Toucher vulnérant de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "wand",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/wand_aa_t2_polymorph_001" },
+    { name: "Œil omniscient de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "orb",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/orb_aa_t1_arch_001" },
+    { name: "Arc de la mort hurlante de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "longbow",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/bow_aa_t1_nomal_002" },
+    { name: "Lame martiale du désespoir de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "greatsword",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/sword2h_aa_t2_polymorph_001" },
 
     // ==========================================
     // --- ÉQUIPEMENTS ÉPIQUE T2 ---
@@ -45,10 +45,10 @@ const TL_ITEMS_DB = [
     { name: "Orbe d'Eletrum", rarity: "epic", tier: "T2", type: "weapon", icon: "orb", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/electrum_orb" },
     { name: "Sphère d'ombres", rarity: "epic", tier: "T2", type: "weapon", icon: "orb", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/sphere_of_shadows" },
     { name: "Crocs incendiaires de Tevent", rarity: "epic", tier: "T2", type: "weapon", icon: "dagger", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/dagger_aa_t2_polymorph_002" },
-    { name: "Toucher crématoire de Tevent", rarity: "epic", tier: "T2", type: "weapon", icon: "wand",questlogUrl: "" },
-    { name: "Œil de cendres de Tevent", rarity: "epic", tier: "T2", type: "weapon", icon: "orb",questlogUrl: "" },
-    { name: "Lame martiale incinératrice de Tevent", rarity: "epic", tier: "T2", type: "weapon", icon: "greatsword",questlogUrl: "" },
-    { name: "Arc de la mort brûlante de Tevent", rarity: "epic", tier: "T2", type: "weapon", icon: "longbow",questlogUrl: "" },
+    { name: "Toucher crématoire de Tevent", rarity: "epic", tier: "T2", type: "weapon", icon: "wand",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/wand_aa_t2_polymorph_003" },
+    { name: "Œil de cendres de Tevent", rarity: "epic", tier: "T2", type: "weapon", icon: "orb",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/orb_aa_t1_arch_002" },
+    { name: "Lame martiale incinératrice de Tevent", rarity: "epic", tier: "T2", type: "weapon", icon: "greatsword",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/sword2h_aa_t2_polymorph_002" },
+    { name: "Arc de la mort brûlante de Tevent", rarity: "epic", tier: "T2", type: "weapon", icon: "longbow",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/bow_aa_t1_nomal_009" },
 
     // --- ARMURES T2 ---
     { name: "Barbute du courroux de l'oubli", rarity: "epic", tier: "T2", type: "armor", icon: "shield", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/barbute_of_wrath_of_oblivion" },
