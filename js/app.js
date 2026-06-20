@@ -2061,6 +2061,100 @@ async function loadMembersViewData() {
                 for (let i = 0; i < 6; i++) {
                     const playerName = team.players ? team.players[i] : null;
                     if (playerName) {
+                        const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
+                        let iconsHtml = "";
+                        if (dbMember) {
+                            iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
+                        }
+                        teamPlayersHtml += `
+                            <div class="bg-[#111622] border border-[#252f44] p-2 rounded-lg flex items-center justify-between gap-1.5">
+                                <span class="font-bold text-white text-xs truncate max-w-[120px]">${playerName}</span>
+                                <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
+                            </div>
+                        `;
+                    } else {
+                        teamPlayersHtml += `
+                            <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-600 text-xs select-none">
+                                Vide
+                            </div>
+                        `;
+                    }
+                }
+
+                membersTeamsView.innerHTML += `
+                    <div class="col-span-full bg-[#161b26]/50 border border-[#1e2638] rounded-xl p-5 space-y-4 animate-fade-in">
+                        <div class="flex justify-between items-center border-b border-[#1e2638] pb-3 flex-wrap gap-2">
+                            <div class="flex items-center gap-3">
+                                <span class="text-[9px] px-2 py-0.5 rounded border ${badgeColor} font-bold uppercase tracking-wider">${labelText}</span>
+                                <span class="font-bold text-sm text-slate-200">${team.name}</span>
+                                <span class="text-xs text-slate-500">${formatEventDate(team.date)}</span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
+                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block border-b border-[#1e2638] pb-1.5">Postulants</span>
+                                <div class="flex flex-col gap-2 max-h-[180px] overflow-y-auto">${appsHtml}</div>
+                            </div>
+                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
+                                <div class="flex justify-between items-center border-b border-[#1e2638] pb-1.5">
+                                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Composition</span>
+                                    <span class="text-[10px] text-slate-500 font-bold">${team.players ? team.players.length : 0} / 6</span>
+                                </div>
+                                <div class="space-y-1.5">${teamPlayersHtml}</div>
+                            </div>
+                        </div>
+                        ${applicationsPanelHtml}
+                        <div class="flex justify-between items-center text-[10px] text-slate-500 mt-2 border-t border-[#1e2638] pt-2">
+                            <span>Prévu le : ${formatEventDate(team.date)} | Valeur : ${displayPoints} pts${penaltyWarning}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+    }
+
+    const leaderboardContainer = document.getElementById('members-leaderboard-container');
+    if (leaderboardContainer) {
+        const sortedMembers = [...allDatabaseMembers].sort((a, b) => {
+            const ptsA = a.points || 0;
+            const ptsB = b.points || 0;
+            return ptsB - ptsA;
+        });
+
+        if (sortedMembers.length === 0) {
+            leaderboardContainer.innerHTML = `<span class="text-xs text-slate-500 italic block text-center">Aucun membre enregistré</span>`;
+        } else {
+            leaderboardContainer.innerHTML = sortedMembers.map((m, idx) => {
+                const maskedEmail = maskEmail(m.email);
+                const displayName = m.character_name || maskedEmail;
+                const points = m.points || 0;
+                
+                let rankBadge = `<span class="text-xs text-slate-500 font-bold shrink-0 w-6">#${idx + 1}</span>`;
+                if (idx === 0) rankBadge = `<span class="text-base shrink-0 w-6" title="1er">🥇</span>`;
+                else if (idx === 1) rankBadge = `<span class="text-base shrink-0 w-6" title="2ème">🥈</span>`;
+                else if (idx === 2) rankBadge = `<span class="text-base shrink-0 w-6" title="3ème">🥉</span>`;
+
+                const weaponsHtml = m.weapon1 ? getWeaponIcon(m.weapon1) + getWeaponIcon(m.weapon2) : "";
+
+                return `
+                    <div class="flex items-center justify-between gap-3 p-2 bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl hover:border-blue-500/20 transition">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            ${rankBadge}
+                            <div class="truncate">
+                                <span class="block text-xs font-bold text-slate-200 truncate" title="${displayName}">${displayName}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <div class="flex items-center gap-0.5">${weaponsHtml}</div>
+                            <span class="text-xs font-bold text-emerald-400">${points} pts</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+    lucide.createIcons();
+}
 
 async function loadDashboardData() {
     try {
