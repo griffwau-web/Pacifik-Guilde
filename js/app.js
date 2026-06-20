@@ -1799,6 +1799,33 @@ async function loadMembersViewData() {
             let calculatedBase = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
             const isAssigned = isPlayerAssignedToTeam(displayName, team.id);
 
+            // Calcul de l'effectif réel pour l'application des pénalités
+            let participantCount = 0;
+            if (team.motif === "Raid") {
+                const playersA = team.playersA ? team.playersA.filter(p => p && p !== "") : [];
+                const playersB = team.playersB ? team.playersB.filter(p => p && p !== "") : [];
+                participantCount = playersA.length + playersB.length;
+            } else {
+                const players = team.players ? team.players.filter(p => p && p !== "") : [];
+                participantCount = players.length;
+            }
+
+            let displayPoints = calculatedBase;
+            let penaltyWarning = "";
+            if (team.composition_validated || team.validated) {
+                if (team.motif === "Raid") {
+                    if (participantCount < 6) {
+                        displayPoints = Math.round(calculatedBase / 2);
+                        penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif réduit < 50% : ${participantCount}/12 joueurs)</span>`;
+                    }
+                } else {
+                    if (participantCount < 3) {
+                        displayPoints = Math.round(calculatedBase / 2);
+                        penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif réduit < 50% : ${participantCount}/6 joueurs)</span>`;
+                    }
+                }
+            }
+
             // Gestion de l'affichage de validation & preuves côté membres
             if (team.validated) {
                 applicationsPanelHtml = `
@@ -2073,13 +2100,56 @@ async function loadMembersViewData() {
                         </div>
                         ${applicationsPanelHtml}
                         <div class="flex justify-between items-center text-[10px] text-slate-500 mt-2 border-t border-[#1e2638] pt-2">
-                            <span>Prévu le : ${formatEventDate(team.date)} | Valeur : ${calculatedBase} pts</span>
+                            <span>Prévu le : ${formatEventDate(team.date)} | Valeur : ${displayPoints} pts${penaltyWarning}</span>
                         </div>
                     </div>
                 `;
             }
         });
     }
+
+    const leaderboardContainer = document.getElementById('members-leaderboard-container');
+    if (leaderboardContainer) {
+        const sortedMembers = [...allDatabaseMembers].sort((a, b) => {
+            const ptsA = a.points || 0;
+            const ptsB = b.points || 0;
+            return ptsB - ptsA;
+        });
+
+        if (sortedMembers.length === 0) {
+            leaderboardContainer.innerHTML = `<span class="text-xs text-slate-500 italic block text-center">Aucun membre enregistré</span>`;
+        } else {
+            leaderboardContainer.innerHTML = sortedMembers.map((m, idx) => {
+                const maskedEmail = maskEmail(m.email);
+                const displayName = m.character_name || maskedEmail;
+                const points = m.points || 0;
+                
+                let rankBadge = `<span class="text-xs text-slate-500 font-bold shrink-0 w-6">#${idx + 1}</span>`;
+                if (idx === 0) rankBadge = `<span class="text-base shrink-0 w-6" title="1er">🥇</span>`;
+                else if (idx === 1) rankBadge = `<span class="text-base shrink-0 w-6" title="2ème">🥈</span>`;
+                else if (idx === 2) rankBadge = `<span class="text-base shrink-0 w-6" title="3ème">🥉</span>`;
+
+                const weaponsHtml = m.weapon1 ? getWeaponIcon(m.weapon1) + getWeaponIcon(m.weapon2) : "";
+
+                return `
+                    <div class="flex items-center justify-between gap-3 p-2 bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl hover:border-blue-500/20 transition">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            ${rankBadge}
+                            <div class="truncate">
+                                <span class="block text-xs font-bold text-slate-200 truncate" title="${displayName}">${displayName}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <div class="flex items-center gap-0.5">${weaponsHtml}</div>
+                            <span class="text-xs font-bold text-emerald-400">${points} pts</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+    lucide.createIcons();
+}
 
     const leaderboardContainer = document.getElementById('members-leaderboard-container');
     if (leaderboardContainer) {
