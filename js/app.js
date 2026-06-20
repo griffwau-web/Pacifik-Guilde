@@ -2203,20 +2203,49 @@ async function loadDashboardData() {
             weeklyCycleDatesEl.innerText = dateRangeStr;
         }
 
-        // Comptabilisation des preuves approuvées en attente avec application de la règle des 50%
+        // Comptabilisation des preuves approuvées en attente
         let pendingProofsCount = 0;
         let pendingPointsTotal = 0;
 
+        // Regrouper les activités approuvées de la semaine par joueur pour le calcul exact
+        const playerPendingActivities = {}; // Structure : { "NomJoueur": [ { team, proof } ] }
+
         teamsData.forEach(team => {
             if (team.proofs) {
-                const realPoints = getCalculatedTeamPoints(team);
-                Object.values(team.proofs).forEach(proof => {
+                Object.entries(team.proofs).forEach(([playerName, proof]) => {
                     if (proof.status === "approved") {
                         pendingProofsCount++;
-                        pendingPointsTotal += realPoints;
+                        if (!playerPendingActivities[playerName]) {
+                            playerPendingActivities[playerName] = [];
+                        }
+                        playerPendingActivities[playerName].push({ team, proof });
                     }
                 });
             }
+        });
+
+        // Calculer le total exact des points en attente par joueur (en ne gardant que l'épreuve la plus élevée de sa semaine)
+        Object.entries(playerPendingActivities).forEach(([playerName, activities]) => {
+            let weeklyHighestTierNum = 0;
+            let highestTierPoints = 0;
+            let nonDimensionalPoints = 0;
+
+            activities.forEach(({ team }) => {
+                const realPoints = getCalculatedTeamPoints(team);
+                if (team.motif === "Épreuve dimensionnelle") {
+                    const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
+                    const tierNum = match ? parseInt(match[0], 10) : 0;
+                    
+                    if (tierNum > weeklyHighestTierNum) {
+                        weeklyHighestTierNum = tierNum;
+                        highestTierPoints = realPoints; // Seuls les points de l'épreuve la plus haute sont retenus
+                    }
+                } else {
+                    nonDimensionalPoints += realPoints;
+                }
+            });
+
+            pendingPointsTotal += nonDimensionalPoints + highestTierPoints;
         });
 
         const weeklyPendingProofsEl = document.getElementById('weekly-pending-proofs-count');
@@ -2329,31 +2358,16 @@ async function loadDashboardData() {
         allDatabaseMembers = members; 
 
         const membersTableBody = document.getElementById('members-table-body');
-        const paginationContainer = document.getElementById('members-pagination-container');
-
         if (membersTableBody) {
             membersTableBody.innerHTML = "";
             if (members.length === 0) {
                 membersTableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">Aucun membre enregistré.</td></tr>`;
-                if (paginationContainer) paginationContainer.innerHTML = "";
             } else {
-                const totalMembers = members.length;
-                const totalPages = Math.ceil(totalMembers / membersPerPage);
-                
-                // Sécurité : ajuste la page courante si elle dépasse les limites réelles
-                if (membersCurrentPage > totalPages) {
-                    membersCurrentPage = Math.max(1, totalPages);
-                }
-
-                // Découpage du tableau pour n'afficher que les membres de la page active
-                const startIndex = (membersCurrentPage - 1) * membersPerPage;
-                const endIndex = startIndex + membersPerPage;
-                const paginatedMembers = members.slice(startIndex, endIndex);
-
-                paginatedMembers.forEach(m => {
+                members.forEach(m => {
                     let deleteButtonHtml = "";
                     const maskedEmail = maskEmail(m.email);
                     const displayName = m.character_name || maskedEmail;
+                    const currentTokens = m.wish_tokens !== undefined && m.wish_tokens !== null ? m.wish_tokens : 2;
         
                     if (m.email !== ADMIN_EMAIL) {
                         deleteButtonHtml = `
@@ -2382,54 +2396,6 @@ async function loadDashboardData() {
                         </tr>
                     `;
                 });
-
-                // Génération des boutons de pagination contextuels selon votre charte
-                if (paginationContainer) {
-                    if (totalPages <= 1) {
-                        paginationContainer.innerHTML = "";
-                    } else {
-                        let paginationHtml = "";
-                        
-                        // Condition Page 1 : "1 >"
-                        if (membersCurrentPage === 1) {
-                            paginationHtml = `
-                                <div class="flex items-center gap-3 text-xs font-bold select-none text-slate-400">
-                                    <span class="text-white bg-blue-600 px-2.5 py-1 rounded-md">1</span>
-                                    <button onclick="changeMembersPage(2)" class="hover:text-white transition px-2 py-1 bg-[#161b26] border border-[#252f44] rounded-md flex items-center justify-center">
-                                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
-                                    </button>
-                                </div>
-                            `;
-                        } 
-                        // Condition Page Intermédiaire : "< X >"
-                        else if (membersCurrentPage > 1 && membersCurrentPage < totalPages) {
-                            paginationHtml = `
-                                <div class="flex items-center gap-3 text-xs font-bold select-none text-slate-400">
-                                    <button onclick="changeMembersPage(${membersCurrentPage - 1})" class="hover:text-white transition px-2 py-1 bg-[#161b26] border border-[#252f44] rounded-md flex items-center justify-center">
-                                        <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
-                                    </button>
-                                    <span class="text-white bg-blue-600 px-2.5 py-1 rounded-md">${membersCurrentPage}</span>
-                                    <button onclick="changeMembersPage(${membersCurrentPage + 1})" class="hover:text-white transition px-2 py-1 bg-[#161b26] border border-[#252f44] rounded-md flex items-center justify-center">
-                                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
-                                    </button>
-                                </div>
-                            `;
-                        } 
-                        // Condition Dernière Page : "< X"
-                        else if (membersCurrentPage === totalPages) {
-                            paginationHtml = `
-                                <div class="flex items-center gap-3 text-xs font-bold select-none text-slate-400">
-                                    <button onclick="changeMembersPage(${membersCurrentPage - 1})" class="hover:text-white transition px-2 py-1 bg-[#161b26] border border-[#252f44] rounded-md flex items-center justify-center">
-                                        <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
-                                    </button>
-                                    <span class="text-white bg-blue-600 px-2.5 py-1 rounded-md">${membersCurrentPage}</span>
-                                </div>
-                            `;
-                        }
-
-                        paginationContainer.innerHTML = paginationHtml;
-                    }
-                }
             }
         }
 
@@ -2448,7 +2414,7 @@ async function loadDashboardData() {
                     const statusLabel = auc.status === 'resolved' 
                         ? `<span class="text-xs px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-500/30">Résolue</span>`
                         : (isExpired 
-                            ? `<span class="text-xs px-2 py-0.5 rounded bg-red-950/40 text-red-400 border border-red-900/30 animate-pulse">Expirée</span>`
+                            ? `<span class="text-xs px-2 py-0.5 rounded bg-red-950/40 text-red-400 border-red-900/30 animate-pulse">Expirée</span>`
                             : `<span class="text-xs px-2 py-0.5 rounded bg-blue-950/40 text-blue-400 border-blue-500/30">En cours</span>`
                         );
 
@@ -2492,7 +2458,6 @@ async function loadDashboardData() {
         switchView('login');
     }
 }
-
 // Attribution des points d'activité d'une équipe par l'admin
 async function validateEvent(teamId) {
     const team = teamsData.find(t => t.id === teamId);
@@ -3585,14 +3550,13 @@ async function submitEventProofFile(teamId, fileInputId) {
     }
 }
 
-// Clôture et distribution groupée de tous les points approuvés de la semaine (avec règle de progression non-cumulative)
+// Clôture et distribution groupée de tous les points approuvés de la semaine
 async function distributeWeeklyPoints() {
     if (!(await showCustomConfirm("Voulez-vous procéder à la distribution de tous les points approuvés ? Cette action mettra à jour définitivement le solde des membres actifs.", "Clôturer la semaine"))) {
         return;
     }
 
     const approvedPointsByPlayer = {}; // Regroupement : { "NomJoueur": points }
-    const highestTierByPlayer = {}; // Regroupement : { "NomJoueur": nouveauPalierMax }
     const proofsToUpdate = [];
     const storagePathsToDelete = []; // Contiendra la liste des captures à supprimer de Supabase
 
@@ -3618,50 +3582,32 @@ async function distributeWeeklyPoints() {
         return;
     }
 
-    // 2. Traiter la progression de chaque joueur individuellement
+    // 2. Traiter chaque joueur pour ne retenir que l'épreuve dimensionnelle la plus élevée de la semaine
     playersToProcess.forEach(playerName => {
-        const dbMember = allDatabaseMembers.find(m => (m.character_name || m.email) === playerName);
-        const currentHighest = dbMember ? (dbMember.highest_tier || 0) : 0;
-        
-        let pointsToAward = 0;
-        let tempHighest = currentHighest;
+        let weeklyHighestTierNum = 0;
+        let highestTierTeam = null;
+        let highestTierProof = null;
+        let nonDimensionalPoints = 0;
 
         const activities = playerApprovedActivities[playerName];
 
-        // Trier les activités pour traiter les épreuves dimensionnelles par ordre de palier croissant
-        activities.sort((a, b) => {
-            const tierA = a.team.motif === "Épreuve dimensionnelle" && a.team.dimensionalTier ? (parseInt(a.team.dimensionalTier.match(/\d+/)[0], 10) || 0) : 0;
-            const tierB = b.team.motif === "Épreuve dimensionnelle" && b.team.dimensionalTier ? (parseInt(b.team.dimensionalTier.match(/\d+/)[0], 10) || 0) : 0;
-            return tierA - tierB;
-        });
-
+        // Premier passage : identifier le plus haut tier d'épreuve de la semaine et initialiser les autres à 0
         activities.forEach(({ team, proof }) => {
             if (team.motif === "Épreuve dimensionnelle") {
                 const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
                 const tierNum = match ? parseInt(match[0], 10) : 0;
-
-                if (tierNum > tempHighest) {
-                    // Calcul des points réels pour l'activité courante (avec pénalité de présence si applicable)
-                    const basePointsNew = getCalculatedTeamPoints(team);
-                    
-                    // Calcul de la valeur théorique du palier précédent pour soustraction
-                    const prevTierPoints = getTierBasePoints(tempHighest);
-                    
-                    // On attribue uniquement la différence de points
-                    const netPoints = Math.max(0, basePointsNew - prevTierPoints);
-                    pointsToAward += netPoints;
-                    
-                    // Mise à jour du record temporaire du joueur
-                    tempHighest = tierNum;
-                    proof.points = netPoints; // Enregistre la valeur nette finale attribuée à cette preuve
-                } else {
-                    // Si le palier est inférieur ou égal au record déjà validé ce mois-ci : aucun point n'est attribué
-                    proof.points = 0;
+                
+                if (tierNum > weeklyHighestTierNum) {
+                    weeklyHighestTierNum = tierNum;
+                    highestTierTeam = team;
+                    highestTierProof = proof;
                 }
+                
+                // On initialise par défaut tous les points de preuves d'épreuves à 0 (les tiers inférieurs recevront 0)
+                proof.points = 0;
             } else {
-                // Pour les autres motifs (Raid, PVP, Boss), les points s'additionnent normalement
                 const pts = getCalculatedTeamPoints(team);
-                pointsToAward += pts;
+                nonDimensionalPoints += pts;
                 proof.points = pts;
             }
 
@@ -3671,34 +3617,33 @@ async function distributeWeeklyPoints() {
             }
         });
 
-        if (pointsToAward > 0 || tempHighest > currentHighest) {
-            approvedPointsByPlayer[playerName] = pointsToAward;
-            highestTierByPlayer[playerName] = tempHighest;
+        // Deuxième passage : attribuer les points réels uniquement pour le plus haut tier d'épreuve de la semaine
+        let dimensionalPointsToAward = 0;
+        if (weeklyHighestTierNum > 0 && highestTierTeam && highestTierProof) {
+            dimensionalPointsToAward = getCalculatedTeamPoints(highestTierTeam);
+            highestTierProof.points = dimensionalPointsToAward; // On affecte les points finaux à cette preuve
         }
+
+        approvedPointsByPlayer[playerName] = nonDimensionalPoints + dimensionalPointsToAward;
     });
 
     try {
-        // 3. Envoi des requêtes de mise à jour des points et des paliers à Supabase
-        const updates = Object.keys(approvedPointsByPlayer).map(async (playerName) => {
+        // Envoi des requêtes de mise à jour des points
+        const updates = playersToProcess.map(async (playerName) => {
             const dbMember = allDatabaseMembers.find(m => (m.character_name || m.email) === playerName);
             if (dbMember) {
                 const currentPoints = dbMember.points || 0;
                 const additionalPoints = approvedPointsByPlayer[playerName] || 0;
-                const newHighestTier = highestTierByPlayer[playerName] ?? dbMember.highest_tier ?? 0;
-
                 return supabaseClient
                     .from('member_profiles')
-                    .update({ 
-                        points: currentPoints + additionalPoints,
-                        highest_tier: newHighestTier
-                    })
+                    .update({ points: currentPoints + additionalPoints })
                     .eq('id', dbMember.id);
             }
         });
 
         await Promise.all(updates);
 
-        // Nettoyage temporaire : Suppression des captures du stockage Supabase
+        // Nettoyage temporaire : Suppression des captures du serveur Supabase Storage
         if (storagePathsToDelete.length > 0) {
             try {
                 await supabaseClient
@@ -3719,30 +3664,24 @@ async function distributeWeeklyPoints() {
             }
         });
 
-        // Fermeture automatique des activités dont toutes les preuves ont été traitées
+        // Fermeture définitive de l'activité
         teamsData.forEach(team => {
             if (team.composition_validated && !team.validated) {
-                let assignedPlayers = [];
-                if (team.motif === "Raid") {
-                    if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
-                    if (team.playersB) assignedPlayers = assignedPlayers.concat(team.playersB);
-                } else {
-                    if (team.players) assignedPlayers = assignedPlayers.concat(team.players);
-                }
-                assignedPlayers = assignedPlayers.filter(p => p && p !== "");
-
-                if (assignedPlayers.length > 0) {
-                    let allHandled = true;
-                    assignedPlayers.forEach(p => {
-                        const proof = team.proofs ? team.proofs[p] : null;
-                        if (!proof || (proof.status !== "distributed" && proof.status !== "rejected")) {
-                            allHandled = false;
-                        }
-                    });
-                    if (allHandled) {
-                        team.validated = true;
-                        team.distributedPoints = getCalculatedTeamPoints(team);
+                const hasDistributed = team.proofs && Object.values(team.proofs).some(p => p.status === "distributed");
+                if (hasDistributed) {
+                    team.validated = true;
+                    
+                    let assignedPlayers = [];
+                    if (team.motif === "Raid") {
+                        if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
+                        if (team.playersB) assignedPlayers = assignedPlayers.concat(team.playersB);
+                    } else {
+                        if (team.players) assignedPlayers = assignedPlayers.concat(team.players);
                     }
+                    assignedPlayers = assignedPlayers.filter(p => p && p !== "");
+                    
+                    // Calcul et stockage du montant final de points distribués
+                    team.distributedPoints = getCalculatedTeamPoints(team);
                 }
             }
         });
