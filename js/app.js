@@ -2286,20 +2286,22 @@ async function loadDashboardData() {
                     const weaponsHtml = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
                     
                     return `
-                        <div class="w-full flex items-center justify-between p-3 bg-[#111622] border border-[#1e2638] rounded-xl hover:border-slate-500/20 transition duration-150 shadow-md animate-fade-in" style="width: 100% !important; box-sizing: border-box !important;">
-                            <div class="flex items-center gap-3 min-w-0 flex-1">
-                                <!-- Encart armes isolé (sert d'avatar de classe) -->
-                                <div class="flex items-center gap-1 bg-[#0b0e14]/50 px-2 py-1.5 rounded-lg border border-[#252f44] shrink-0">
+                        <div class="flex items-center justify-between gap-3 p-3 bg-[#111622] border border-[#1e2638] rounded-xl hover:border-slate-500/20 transition shadow-md animate-fade-in" style="width: 100% !important; min-width: 260px !important; box-sizing: border-box !important; flex: 1 1 auto !important;">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <!-- Encart armes sur la gauche -->
+                                <div class="flex items-center gap-0.5 shrink-0 bg-[#0b0e14]/50 px-1.5 py-1 rounded-lg border border-[#252f44]">
                                     ${weaponsHtml ? weaponsHtml : '<i data-lucide="user" class="w-3.5 h-3.5 text-slate-500"></i>'}
                                 </div>
-                                <!-- Nom du joueur protégé contre l'écrasement -->
-                                <span class="text-xs font-bold text-slate-200 truncate pr-1" style="display: inline-block !important; min-width: 50px !important;" title="${playerName}">
-                                    ${playerName}
-                                </span>
+                                <!-- Nom du joueur au milieu -->
+                                <div class="truncate">
+                                    <span class="block text-xs font-bold text-slate-200 truncate pr-1" title="${playerName}">
+                                        ${playerName}
+                                    </span>
+                                </div>
                             </div>
-                            <!-- Badge de points indépendant à droite -->
-                            <div class="shrink-0 ml-2">
-                                <span class="inline-flex items-center px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-xs font-black font-mono select-none">
+                            <!-- Points sur la droite -->
+                            <div class="flex items-center shrink-0">
+                                <span class="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 font-mono select-none">
                                     +${points} pts
                                 </span>
                             </div>
