@@ -2645,6 +2645,69 @@ async function submitAddEventForm(event) {
     }
 }
 
+function removePlayerFromAllTeams(playerName) {
+    teamsData.forEach(team => {
+        if (team.players) team.players = team.players.filter(p => p !== playerName);
+        if (team.playersA) team.playersA = team.playersA.filter(p => p !== playerName);
+        if (team.playersB) team.playersB = team.playersB.filter(p => p !== playerName);
+    });
+}
+
+function removePlayerFromCurrentTeam(playerName, teamId) {
+    const team = teamsData.find(t => t.id === teamId);
+    if (!team) return;
+    if (team.players) team.players = team.players.filter(p => p !== playerName);
+    if (team.playersA) team.playersA = team.playersA.filter(p => p !== playerName);
+    if (team.playersB) team.playersB = team.playersB.filter(p => p !== playerName);
+}
+
+function dragPlayer(event, playerName, teamId) {
+    const dragData = { playerName, teamId };
+    event.dataTransfer.setData("application/json", JSON.stringify(dragData));
+}
+
+function allowDrop(event) {
+    event.preventDefault();
+}
+
+async function dropToTeam(event, teamId) {
+    event.preventDefault();
+    try {
+        const dataStr = event.dataTransfer.getData("application/json");
+        if (!dataStr) return;
+        const { playerName, teamId: sourceTeamId } = JSON.parse(dataStr);
+
+        if (sourceTeamId !== teamId) {
+            alert("Vous ne pouvez glisser-déposer un joueur que dans le cadre de sa propre activité.");
+            return;
+        }
+
+        const teamIndex = teamsData.findIndex(t => t.id === teamId);
+        if (teamIndex !== -1) {
+            const team = teamsData[teamIndex];
+            if (team.composition_validated || team.validated) {
+                alert("Action refusée : La composition de cette équipe est verrouillée.");
+                return;
+            }
+
+            if (!team.players) team.players = [];
+            if (team.players.includes(playerName)) return;
+
+            if (team.players.length >= 6) {
+                alert("Cette équipe est pleine.");
+                return;
+            }
+
+            removePlayerFromCurrentTeam(playerName, teamId); 
+            team.players.push(playerName);
+            await saveTeamsState();
+            renderTeamMaker();
+        }
+    } catch (err) {
+        console.error("Erreur dropToTeam :", err);
+    }
+}
+
 async function dropToRaidGroup(event, teamId, groupLetter) {
     event.preventDefault();
     try {
