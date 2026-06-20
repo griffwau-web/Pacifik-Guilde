@@ -1154,7 +1154,7 @@ async function clearAllNotifications() {
                 alert("Historique des notifications purgé.");
                 loadDashboardData();
             } catch (err) {
-                console.error("Échec de la purge :", err);
+                console.error("Échec de la badge de purge :", err);
             }
         }
     }
@@ -1481,7 +1481,7 @@ async function submitBlindBid(auctionId, bidAmountInputId) {
 
     const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
     const myPoints = myProfile ? (myProfile.points || 0) : 0;
-    const displayName = myProfile ? (myProfile.character_name || m.email) : session.user.email;
+    const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
 
     if (bidAmount > myPoints) {
         alert(`Mise impossible ! Vous ne possédez que ${myPoints} points d'activité.`);
@@ -1637,14 +1637,6 @@ async function resolveAuction(auctionId) {
         console.error("Erreur de clôture :", err);
         alert("Une erreur s'est produite lors de la validation : " + err.message);
     }
-}
-
-function getRemainingTimeText(endTimeStr) {
-    const diff = new Date(endTimeStr) - new Date();
-    if (diff <= 0) return "En attente de clôture";
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    return `Temps restant : ${hours}h ${minutes}m`;
 }
 
 // Chargement de l'Espace Membre
