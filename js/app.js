@@ -1799,7 +1799,7 @@ async function loadMembersViewData() {
             let calculatedBase = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
             const isAssigned = isPlayerAssignedToTeam(displayName, team.id);
 
-            // Calcul de l'effectif réel pour l'application des pénalités
+            // Calcul de l'effectif réel pour l'application des pénalités à l'affichage
             let participantCount = 0;
             if (team.motif === "Raid") {
                 const playersA = team.playersA ? team.playersA.filter(p => p && p !== "") : [];
@@ -1816,12 +1816,12 @@ async function loadMembersViewData() {
                 if (team.motif === "Raid") {
                     if (participantCount < 6) {
                         displayPoints = Math.round(calculatedBase / 2);
-                        penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif réduit < 50% : ${participantCount}/12 joueurs)</span>`;
+                        penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif < 50% : ${participantCount}/12 joueurs)</span>`;
                     }
                 } else {
                     if (participantCount < 3) {
                         displayPoints = Math.round(calculatedBase / 2);
-                        penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif réduit < 50% : ${participantCount}/6 joueurs)</span>`;
+                        penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif < 50% : ${participantCount}/6 joueurs)</span>`;
                     }
                 }
             }
@@ -2036,6 +2036,9 @@ async function loadMembersViewData() {
                             </div>
                         </div>
                         ${applicationsPanelHtml}
+                        <div class="flex justify-between items-center text-[10px] text-slate-500 mt-2 border-t border-[#1e2638] pt-2">
+                            <span>Prévu le : ${formatEventDate(team.date)} | Valeur : ${displayPoints} pts${penaltyWarning}</span>
+                        </div>
                     </div>
                 `;
             } else {
@@ -2166,16 +2169,17 @@ async function loadDashboardData() {
             weeklyCycleDatesEl.innerText = dateRangeStr;
         }
 
-        // Comptabilisation des preuves approuvées en attente
+        // Comptabilisation des preuves approuvées en attente avec application de la règle des 50%
         let pendingProofsCount = 0;
         let pendingPointsTotal = 0;
 
         teamsData.forEach(team => {
             if (team.proofs) {
+                const realPoints = getCalculatedTeamPoints(team);
                 Object.values(team.proofs).forEach(proof => {
                     if (proof.status === "approved") {
                         pendingProofsCount++;
-                        pendingPointsTotal += proof.points || 0;
+                        pendingPointsTotal += realPoints;
                     }
                 });
             }
@@ -3552,12 +3556,17 @@ async function distributeWeeklyPoints() {
     // Analyse de l'ensemble des activités non encore clôturées
     teamsData.forEach(team => {
         if (team.proofs) {
+            const realPoints = getCalculatedTeamPoints(team);
             Object.entries(team.proofs).forEach(([playerName, proof]) => {
                 if (proof.status === "approved") {
                     if (!approvedPointsByPlayer[playerName]) {
                         approvedPointsByPlayer[playerName] = 0;
                     }
-                    approvedPointsByPlayer[playerName] += proof.points || 0;
+                    approvedPointsByPlayer[playerName] += realPoints;
+                    
+                    // Scelle le montant de points réellement attribués dans l'historique
+                    proof.points = realPoints;
+                    
                     proofsToUpdate.push({ teamId: team.id, playerName });
                     
                     if (proof.storagePath) {
@@ -3633,7 +3642,8 @@ async function distributeWeeklyPoints() {
                     });
                     if (allHandled) {
                         team.validated = true;
-                        team.distributedPoints = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
+                        // On enregistre les points finaux réels et pénalisés de l'activité
+                        team.distributedPoints = getCalculatedTeamPoints(team);
                     }
                 }
             }
@@ -3862,4 +3872,31 @@ function showCustomPrompt(message, defaultValue = "", title = "Saisie") {
             resolve(null);
         };
     });
+}
+
+// Calcule les points réels d'une activité en appliquant la règle de pénalité de présence (moins de 50%)
+function getCalculatedTeamPoints(team) {
+    const basePoints = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
+    
+    let participantCount = 0;
+    if (team.motif === "Raid") {
+        const playersA = team.playersA ? team.playersA.filter(p => p && p !== "") : [];
+        const playersB = team.playersB ? team.playersB.filter(p => p && p !== "") : [];
+        participantCount = playersA.length + playersB.length;
+    } else {
+        const players = team.players ? team.players.filter(p => p && p !== "") : [];
+        participantCount = players.length;
+    }
+
+    // Règle de pénalité : si effectif < 50%, les points sont divisés par 2
+    if (team.motif === "Raid") {
+        if (participantCount < 6) {
+            return Math.round(basePoints / 2);
+        }
+    } else {
+        if (participantCount < 3) {
+            return Math.round(basePoints / 2);
+        }
+    }
+    return basePoints;
 }
