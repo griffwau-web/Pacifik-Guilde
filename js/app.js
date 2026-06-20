@@ -3756,20 +3756,6 @@ async function distributeWeeklyPoints() {
     }
 }
 
-// Validation de la composition de l'équipe par l'administrateur
-async function validateTeamComposition(teamId) {
-    if (!(await showCustomConfirm("Voulez-vous valider la composition de cette équipe ? Les inscriptions seront verrouillées et les membres pourront déposer leurs preuves.", "Valider la composition"))) {
-        return;
-    }
-    const teamIndex = teamsData.findIndex(t => t.id === teamId);
-    if (teamIndex !== -1) {
-        teamsData[teamIndex].composition_validated = true;
-        await saveTeamsState();
-        alert("La composition a été verrouillée avec succès. Les membres peuvent désormais déposer leurs captures.");
-        await loadDashboardData();
-    }
-}
-
 // Envoi d'une notification de création d'activité par un membre (destinée aux administrateurs)
 async function sendDiscordMemberCreationNotification(name, dateVal, motif, gsLimit, creatorName) {
     const formattedDate = formatEventDate(dateVal) || "Date non spécifiée";
