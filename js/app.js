@@ -1828,15 +1828,19 @@ async function loadMembersViewData() {
                 participantCount = players.length;
             }
 
-            // Calcul dynamique des points réels selon la règle de présence < 50%
-            const displayPoints = getCalculatedTeamPoints(team);
+            let displayPoints = calculatedBase;
             let penaltyWarning = "";
-
-            if (displayPoints < calculatedBase) {
+            if (team.composition_validated || team.validated) {
                 if (team.motif === "Raid") {
-                    penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif < 50% : ${participantCount}/12 joueurs)</span>`;
+                    if (participantCount < 6) {
+                        displayPoints = Math.round(calculatedBase / 2);
+                        penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif < 50% : ${participantCount}/12 joueurs)</span>`;
+                    }
                 } else {
-                    penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif < 50% : ${participantCount}/6 joueurs)</span>`;
+                    if (participantCount < 3) {
+                        displayPoints = Math.round(calculatedBase / 2);
+                        penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif < 50% : ${participantCount}/6 joueurs)</span>`;
+                    }
                 }
             }
 
@@ -1850,47 +1854,57 @@ async function loadMembersViewData() {
                 `;
             } else if (team.composition_validated) {
                 if (isAssigned) {
-                    const proof = team.proofs ? team.proofs[displayName] : null;
-                    if (proof) {
+                    // Trouver s'il existe une preuve d'équipe active (non rejetée)
+                    const teamProofsList = team.proofs ? Object.entries(team.proofs) : [];
+                    const activeProofEntry = teamProofsList.find(([_, p]) => p.status !== "rejected");
+                    const activeProof = activeProofEntry ? activeProofEntry[1] : null;
+                    const activeProofAuthor = activeProofEntry ? activeProofEntry[0] : null;
+
+                    if (activeProof) {
                         let statusLabel = "";
-                        if (proof.status === "pending") statusLabel = `<span class="text-amber-400 font-bold">En attente de validation par l'admin</span>`;
-                        else if (proof.status === "approved") statusLabel = `<span class="text-blue-400 font-bold">Approuvée (Mise en attente clôture hebdomadaire)</span>`;
-                        else if (proof.status === "distributed") statusLabel = `<span class="text-emerald-400 font-bold">Points distribués (+${proof.points} pts)</span>`;
-                        else statusLabel = `<span class="text-red-400 font-bold">Rejetée</span>`;
+                        if (activeProof.status === "pending") statusLabel = `<span class="text-amber-400 font-bold text-xs">Déposée par ${activeProofAuthor} (En attente de validation)</span>`;
+                        else if (activeProof.status === "approved") statusLabel = `<span class="text-blue-400 font-bold text-xs">Approuvée ! (Prête pour la clôture hebdo)</span>`;
+                        else if (activeProof.status === "distributed") statusLabel = `<span class="text-emerald-400 font-bold text-xs">Points distribués (+${activeProof.points} pts)</span>`;
 
                         applicationsPanelHtml = `
-                            <div class="mt-4 p-3 bg-emerald-950/10 border border-emerald-500/20 rounded-xl space-y-3">
+                            <div class="mt-4 p-3 bg-emerald-950/10 border border-emerald-500/20 rounded-xl space-y-3 animate-fade-in">
                                 <div class="p-2.5 bg-emerald-950/20 border border-emerald-500/20 rounded-lg text-center text-xs text-emerald-400 font-bold flex items-center justify-center gap-1.5 select-none">
                                     <i data-lucide="shield-check" class="w-4 h-4"></i> Composition validée
                                 </div>
-                                <div class="p-3 bg-[#0b0e14]/60 border border-[#252f44] rounded-lg space-y-2 animate-fade-in">
+                                <div class="p-3 bg-[#0b0e14]/60 border border-[#252f44] rounded-lg space-y-2">
                                     <div class="flex justify-between items-center text-xs">
-                                        <span class="text-slate-400">Preuve envoyée :</span>
+                                        <span class="text-slate-400">Preuve collective :</span>
                                         ${statusLabel}
                                     </div>
-                                    <a href="${proof.url}" target="_blank" class="text-[11px] text-blue-400 hover:underline truncate block max-w-full flex items-center gap-1">
-                                        <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Voir la capture d'écran
+                                    <a href="${activeProof.url}" target="_blank" class="text-[11px] text-blue-400 hover:text-blue-300 hover:underline truncate block max-w-full flex items-center gap-1">
+                                        <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Voir la capture d'écran de l'équipe
                                     </a>
-                                    ${proof.status === "rejected" ? `
-                                        <div class="flex flex-col sm:flex-row gap-2 mt-2">
-                                            <input type="file" id="proof-file-${team.id}" accept="image/*" class="hidden" onchange="updateFileNameLabel('${team.id}')">
-                                            <label for="proof-file-${team.id}" class="flex-grow bg-[#0b0e14] border border-[#252f44] hover:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-400 cursor-pointer text-center truncate transition">
-                                                <span id="file-label-${team.id}"><i data-lucide="upload-cloud" class="w-3.5 h-3.5 inline-block mr-1"></i> Nouvelle capture...</span>
-                                            </label>
-                                            <button onclick="submitEventProofFile('${team.id}', 'proof-file-${team.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition shrink-0">Renvoyer</button>
-                                        </div>
-                                    ` : ""}
                                 </div>
                             </div>
                         `;
                     } else {
+                        // Soit aucune preuve, soit toutes les preuves existantes sont rejetées
+                        const rejectedProofEntry = teamProofsList.find(([_, p]) => p.status === "rejected");
+                        const rejectedProof = rejectedProofEntry ? rejectedProofEntry[1] : null;
+                        const rejectedProofAuthor = rejectedProofEntry ? rejectedProofEntry[0] : null;
+
+                        let rejectedNoteHtml = "";
+                        if (rejectedProof) {
+                            rejectedNoteHtml = `
+                                <div class="p-2 bg-red-950/20 border border-red-500/20 rounded-lg text-red-400 text-[11px] leading-relaxed">
+                                    ⚠️ La preuve précédente déposée par <strong>${rejectedProofAuthor}</strong> a été rejetée. N'importe quel membre de l'équipe peut en soumettre une nouvelle valide.
+                                </div>
+                            `;
+                        }
+
                         applicationsPanelHtml = `
-                            <div class="mt-4 p-3 bg-emerald-950/10 border border-emerald-500/20 rounded-xl space-y-3">
+                            <div class="mt-4 p-3 bg-emerald-950/10 border border-emerald-500/20 rounded-xl space-y-3 animate-fade-in">
                                 <div class="p-2.5 bg-emerald-950/20 border border-emerald-500/20 rounded-lg text-center text-xs text-emerald-400 font-bold flex items-center justify-center gap-1.5 select-none">
                                     <i data-lucide="shield-check" class="w-4 h-4"></i> Composition validée
                                 </div>
-                                <div class="p-3 bg-[#0b0e14]/60 border border-[#252f44] rounded-lg space-y-2 animate-fade-in">
-                                    <span class="block text-[11px] text-slate-300 font-semibold uppercase tracking-wider">Déposer votre preuve de réussite :</span>
+                                ${rejectedNoteHtml}
+                                <div class="p-3 bg-[#0b0e14]/60 border border-[#252f44] rounded-lg space-y-2">
+                                    <span class="block text-[11px] text-slate-300 font-semibold uppercase tracking-wider">Déposer la preuve de réussite de l'équipe :</span>
                                     <div class="flex flex-col sm:flex-row gap-2">
                                         <input type="file" id="proof-file-${team.id}" accept="image/*" class="hidden" onchange="updateFileNameLabel('${team.id}')">
                                         <label for="proof-file-${team.id}" class="flex-grow bg-[#0b0e14] border border-[#252f44] hover:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-400 cursor-pointer text-center truncate transition">
@@ -2073,7 +2087,7 @@ async function loadMembersViewData() {
                     }
                 }
 
-                for (let i = 0; i < maxSlots; i++) {
+                for (let i = 0; i < 6; i++) {
                     const playerName = team.players ? team.players[i] : null;
                     if (playerName) {
                         const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
@@ -3581,7 +3595,9 @@ async function distributeWeeklyPoints() {
     // Analyse de l'ensemble des activités non encore clôturées
     teamsData.forEach(team => {
         if (team.proofs) {
+            // Calcul du montant réel (avec application de la règle des 50%)
             const realPoints = getCalculatedTeamPoints(team);
+            
             Object.entries(team.proofs).forEach(([playerName, proof]) => {
                 if (proof.status === "approved") {
                     if (!approvedPointsByPlayer[playerName]) {
@@ -3589,7 +3605,7 @@ async function distributeWeeklyPoints() {
                     }
                     approvedPointsByPlayer[playerName] += realPoints;
                     
-                    // Scelle le montant de points réellement attribués dans l'historique
+                    // Scelle la valeur de distribution finale dans l'objet de preuve
                     proof.points = realPoints;
                     
                     proofsToUpdate.push({ teamId: team.id, playerName });
