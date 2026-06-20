@@ -2225,62 +2225,62 @@ async function loadDashboardData() {
         });
 
         // Stockage des points temporaires par joueur pour affichage
-const playerPointsMap = {};
-
-// Calculer le total exact des points en attente par joueur (en ne gardant que l'épreuve la plus élevée de sa semaine)
-Object.entries(playerPendingActivities).forEach(([playerName, activities]) => {
-    let weeklyHighestTierNum = 0;
-    let highestTierPoints = 0;
-    let nonDimensionalPoints = 0;
-
-    activities.forEach(({ team }) => {
-        const realPoints = getCalculatedTeamPoints(team);
-        if (team.motif === "Épreuve dimensionnelle") {
-            const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
-            const tierNum = match ? parseInt(match[0], 10) : 0;
+        const playerPointsMap = {};
             
-            if (tierNum > weeklyHighestTierNum) {
-                weeklyHighestTierNum = tierNum;
-                highestTierPoints = realPoints; // Seuls les points de l'épreuve la plus haute sont retenus
+        // Calculer le total exact des points en attente par joueur (en ne gardant que l'épreuve la plus élevée de sa semaine)
+        Object.entries(playerPendingActivities).forEach(([playerName, activities]) => {
+            let weeklyHighestTierNum = 0;
+            let highestTierPoints = 0;
+            let nonDimensionalPoints = 0;
+            
+            activities.forEach(({ team }) => {
+                const realPoints = getCalculatedTeamPoints(team);
+                if (team.motif === "Épreuve dimensionnelle") {
+                    const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
+                    const tierNum = match ? parseInt(match[0], 10) : 0;
+                        
+                    if (tierNum > weeklyHighestTierNum) {
+                        weeklyHighestTierNum = tierNum;
+                        highestTierPoints = realPoints; // Seuls les points de l'épreuve la plus haute sont retenus
+                    }
+                } else {
+                    nonDimensionalPoints += realPoints;
+                }
+            });
+            
+            const totalForPlayer = nonDimensionalPoints + highestTierPoints;
+            playerPointsMap[playerName] = totalForPlayer;
+            pendingPointsTotal += totalForPlayer;
+        });
+            
+        // Rendu de la liste détaillée des points en attente par membre dans le Dashboard
+        const pendingContainer = document.getElementById('weekly-pending-details-container');
+        const pendingList = document.getElementById('weekly-pending-members-list');
+        
+        if (pendingContainer && pendingList) {
+            const entries = Object.entries(playerPointsMap);
+            if (entries.length > 0) {
+                pendingContainer.classList.remove('hidden');
+                pendingList.innerHTML = entries.map(([playerName, points]) => {
+                    // Recherche du membre pour afficher ses icônes d'armes
+                    const dbMember = allDatabaseMembers.find(m => (m.character_name || m.email) === playerName);
+                    const weaponsHtml = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
+                    
+                    return `
+                        <div class="flex items-center justify-between p-2.5 bg-[#0b0e14]/60 border border-[#1e2638] rounded-xl text-xs animate-fade-in">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="font-bold text-slate-200 truncate" title="${playerName}">${playerName}</span>
+                                <div class="flex items-center gap-0.5 shrink-0">${weaponsHtml}</div>
+                            </div>
+                            <span class="font-extrabold text-emerald-400 shrink-0">+${points} pts</span>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                pendingContainer.classList.add('hidden');
+                pendingList.innerHTML = '';
             }
-        } else {
-            nonDimensionalPoints += realPoints;
         }
-    });
-
-    const totalForPlayer = nonDimensionalPoints + highestTierPoints;
-    playerPointsMap[playerName] = totalForPlayer;
-    pendingPointsTotal += totalForPlayer;
-});
-
-// Rendu de la liste détaillée des points en attente par membre dans le Dashboard
-const pendingContainer = document.getElementById('weekly-pending-details-container');
-const pendingList = document.getElementById('weekly-pending-members-list');
-
-if (pendingContainer && pendingList) {
-    const entries = Object.entries(playerPointsMap);
-    if (entries.length > 0) {
-        pendingContainer.classList.remove('hidden');
-        pendingList.innerHTML = entries.map(([playerName, points]) => {
-            // Recherche du membre pour afficher ses icônes d'armes
-            const dbMember = allDatabaseMembers.find(m => (m.character_name || m.email) === playerName);
-            const weaponsHtml = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
-            
-            return `
-                <div class="flex items-center justify-between p-2.5 bg-[#0b0e14]/60 border border-[#1e2638] rounded-xl text-xs animate-fade-in">
-                    <div class="flex items-center gap-2 min-w-0">
-                        <span class="font-bold text-slate-200 truncate" title="${playerName}">${playerName}</span>
-                        <div class="flex items-center gap-0.5 shrink-0">${weaponsHtml}</div>
-                    </div>
-                    <span class="font-extrabold text-emerald-400 shrink-0">+${points} pts</span>
-                </div>
-            `;
-        }).join('');
-    } else {
-        pendingContainer.classList.add('hidden');
-        pendingList.innerHTML = '';
-    }
-}
 
             pendingPointsTotal += nonDimensionalPoints + highestTierPoints;
         });
