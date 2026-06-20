@@ -2286,14 +2286,14 @@ async function loadDashboardData() {
                     const weaponsHtml = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
                     
                     return `
-                        <div class="w-full flex items-center justify-between p-3 bg-[#111622] border border-[#1e2638] rounded-xl hover:border-slate-500/20 transition duration-150 shadow-md animate-fade-in">
+                        <div class="w-full flex items-center justify-between p-3 bg-[#111622] border border-[#1e2638] rounded-xl hover:border-slate-500/20 transition duration-150 shadow-md animate-fade-in" style="width: 100% !important; box-sizing: border-box !important;">
                             <div class="flex items-center gap-3 min-w-0 flex-1">
                                 <!-- Encart armes isolé (sert d'avatar de classe) -->
                                 <div class="flex items-center gap-1 bg-[#0b0e14]/50 px-2 py-1.5 rounded-lg border border-[#252f44] shrink-0">
                                     ${weaponsHtml ? weaponsHtml : '<i data-lucide="user" class="w-3.5 h-3.5 text-slate-500"></i>'}
                                 </div>
                                 <!-- Nom du joueur protégé contre l'écrasement -->
-                                <span class="text-xs font-bold text-slate-200 truncate pr-1" title="${playerName}">
+                                <span class="text-xs font-bold text-slate-200 truncate pr-1" style="display: inline-block !important; min-width: 50px !important;" title="${playerName}">
                                     ${playerName}
                                 </span>
                             </div>
