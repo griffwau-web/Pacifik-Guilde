@@ -1978,6 +1978,9 @@ async function loadMembersViewData() {
                 appsHtml = `<div class="p-3 text-center text-slate-600 text-xs italic select-none">Aucun postulant</div>`;
             }
 
+            const maxSlots = team.motif === "Boss de guilde" ? Math.max(6, (team.players || []).length + 1) : 6;
+            const totalSlotsLabel = team.motif === "Boss de guilde" ? "∞" : "6";
+
             if (team.motif === "Raid") {
                 let slotsAHtml = "";
                 let slotsBHtml = "";
@@ -2070,7 +2073,7 @@ async function loadMembersViewData() {
                     }
                 }
 
-                for (let i = 0; i < 6; i++) {
+                for (let i = 0; i < maxSlots; i++) {
                     const playerName = team.players ? team.players[i] : null;
                     if (playerName) {
                         const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
@@ -2110,7 +2113,7 @@ async function loadMembersViewData() {
                             <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
                                 <div class="flex justify-between items-center border-b border-[#1e2638] pb-1.5">
                                     <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Composition</span>
-                                    <span class="text-[10px] text-slate-500 font-bold">${team.players ? team.players.length : 0} / 6</span>
+                                    <span class="text-[10px] text-slate-500 font-bold">${team.players ? team.players.length : 0} / ${totalSlotsLabel}</span>
                                 </div>
                                 <div class="space-y-1.5">${teamPlayersHtml}</div>
                             </div>
@@ -2642,103 +2645,52 @@ async function submitAddEventForm(event) {
     const isMemberCreator = session && session.user.email !== ADMIN_EMAIL;
     const motifText = dimensionalTier ? `${motif} (${dimensionalTier})` : (raidDifficulty ? `${motif} (${raidDifficulty})` : motif);
 
-    if (motif === "Boss de guilde") {
-        const totalActiveMembers = allDatabaseMembers ? allDatabaseMembers.length : 0;
-        let numGroups = Math.ceil(totalActiveMembers / 6);
-        if (numGroups < 1) numGroups = 1;
+    // Création d'une activité unique (plus de fractionnement forcé pour le Boss de Guilde)
+    const newEvent = {
+        id: "event-" + Date.now(),
+        name: name,
+        date: dateVal,
+        motif: motif,
+        raidDifficulty: raidDifficulty, 
+        dimensionalTier: dimensionalTier,
+        gearScoreLimit: gsLimit, 
+        players: [],
+        playersA: [],
+        playersB: [],
+        applications: [],
+        validated: false
+    };
 
-        const baseId = Date.now();
-        for (let g = 1; g <= numGroups; g++) {
-            const suffix = numGroups > 1 ? ` - Groupe ${g}` : "";
-            const newEvent = {
-                id: `event-${baseId}-${g}`,
-                name: `${name}${suffix}`,
-                date: dateVal,
-                motif: motif,
-                raidDifficulty: null, 
-                dimensionalTier: null,
-                gearScoreLimit: gsLimit, 
-                players: [],
-                applications: [],
-                validated: false
-            };
-            teamsData.push(newEvent);
+    teamsData.push(newEvent);
+    await saveTeamsState();
+
+    // 1. Alerte d'administration (Uniquement si le créateur est un membre)
+    if (isMemberCreator) {
+        await sendDiscordMemberCreationNotification(name, dateVal, motifText, gsLimit, creatorName);
+    }
+    
+    // 2. Annonce publique pour les inscriptions (Si les notifications sont activées globalement)
+    if (notificationsEnabled) {
+        let motifLabel = motif;
+        if (motif === 'Raid' && raidDifficulty) {
+            motifLabel = `${motif} (${raidDifficulty})`;
+        } else if (motif === 'Épreuve dimensionnelle' && dimensionalTier) {
+            motifLabel = `${motif} (${dimensionalTier})`;
         }
+        await sendDiscordNotification(name, dateVal, motifLabel, gsLimit);
+    }
 
-        await saveTeamsState();
-
-        // 1. Alerte d'administration (Uniquement si le créateur est un membre)
-        if (isMemberCreator) {
-            await sendDiscordMemberCreationNotification(name, dateVal, motifText, gsLimit, creatorName);
-        }
-        
-        // 2. Annonce publique pour les inscriptions (Si les notifications sont activées globalement)
-        if (notificationsEnabled) {
-            const notificationName = numGroups > 1 ? `${name} (${numGroups} Groupes)` : name;
-            await sendDiscordNotification(notificationName, dateVal, motif, gsLimit);
-        }
-
-        if (supabaseClient) {
-            try {
-                const extraNotice = gsLimit > 0 ? ` (Requis: ${gsLimit} GS)` : "";
-                const groupsNotice = numGroups > 1 ? ` (${numGroups} groupes créés)` : "";
-                await supabaseClient
-                    .from('notifications')
-                    .insert([{ 
-                        message: `Nouvelle activité créée par ${creatorName} : "${name}" (${motif})${groupsNotice} prévue le ${formatEventDate(dateVal)}${extraNotice} !`,
-                        event_id: `event-${baseId}-1`
-                    }]);
-            } catch (err) {
-                console.error("Échec de création de la notification :", err);
-            }
-        }
-    } else {
-        const newEvent = {
-            id: "event-" + Date.now(),
-            name: name,
-            date: dateVal,
-            motif: motif,
-            raidDifficulty: raidDifficulty, 
-            dimensionalTier: dimensionalTier,
-            gearScoreLimit: gsLimit, 
-            players: [],
-            playersA: [],
-            playersB: [],
-            applications: [],
-            validated: false
-        };
-
-        teamsData.push(newEvent);
-        await saveTeamsState();
-
-        // 1. Alerte d'administration (Uniquement si le créateur est un membre)
-        if (isMemberCreator) {
-            await sendDiscordMemberCreationNotification(name, dateVal, motifText, gsLimit, creatorName);
-        }
-        
-        // 2. Annonce publique pour les inscriptions (Si les notifications sont activées globalement)
-        if (notificationsEnabled) {
-            let motifLabel = motif;
-            if (motif === 'Raid' && raidDifficulty) {
-                motifLabel = `${motif} (${raidDifficulty})`;
-            } else if (motif === 'Épreuve dimensionnelle' && dimensionalTier) {
-                motifLabel = `${motif} (${dimensionalTier})`;
-            }
-            await sendDiscordNotification(name, dateVal, motifLabel, gsLimit);
-        }
-
-        if (supabaseClient) {
-            try {
-                const extraNotice = gsLimit > 0 ? ` (Requis: ${gsLimit} GS)` : "";
-                await supabaseClient
-                    .from('notifications')
-                    .insert([{ 
-                        message: `Nouvelle activité créée par ${creatorName} : "${name}" (${motifText}) prévue le ${formatEventDate(dateVal)}${extraNotice} !`,
-                        event_id: newEvent.id
-                    }]);
-            } catch (err) {
-                console.error("Échec de création de la notification :", err);
-            }
+    if (supabaseClient) {
+        try {
+            const extraNotice = gsLimit > 0 ? ` (Requis: ${gsLimit} GS)` : "";
+            await supabaseClient
+                .from('notifications')
+                .insert([{ 
+                    message: `Nouvelle activité créée par ${creatorName} : "${name}" (${motifText}) prévue le ${formatEventDate(dateVal)}${extraNotice} !`,
+                    event_id: newEvent.id
+                }]);
+        } catch (err) {
+            console.error("Échec de création de la notification :", err);
         }
     }
 
@@ -2752,6 +2704,7 @@ async function submitAddEventForm(event) {
         await loadMembersViewData();
     }
 }
+
 function removePlayerFromCurrentTeam(playerName, teamId) {
     const team = teamsData.find(t => t.id === teamId);
     if (!team) return;
@@ -3131,7 +3084,11 @@ function renderTeamMaker() {
                 }
             }
 
-            for (let i = 0; i < 6; i++) {
+            // Calcul dynamique de la capacité (6 de base ou extensible à l'infini si Boss de Guilde)
+            const maxSlots = team.motif === "Boss de guilde" ? Math.max(6, (team.players || []).length + 1) : 6;
+            const totalSlotsLabel = team.motif === "Boss de guilde" ? "∞" : "6";
+
+            for (let i = 0; i < maxSlots; i++) {
                 const playerName = team.players ? team.players[i] : null;
                 if (playerName) {
                     const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
@@ -3189,7 +3146,7 @@ function renderTeamMaker() {
                         <div ondragover="allowDrop(event)" ondrop="dropToTeam(event, '${team.id}')" class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
                             <div class="flex justify-between items-center border-b border-[#1e2638] pb-1.5">
                                 <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Composition</span>
-                                <span class="text-[10px] text-slate-500 font-bold">${team.players ? team.players.length : 0} / 6</span>
+                                <span class="text-[10px] text-slate-500 font-bold">${team.players ? team.players.length : 0} / ${totalSlotsLabel}</span>
                             </div>
                             <div class="space-y-1.5">${teamSlotsHtml}</div>
                         </div>
