@@ -34,6 +34,7 @@ const TL_ITEMS_DB = [
     { name: "Éclat cranté de Deluzhnoa", rarity: "epic", tier: "T2", type: "weapon", icon: "spear", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/deluzhnoa_s_notched_shard" },
     { name: "Orbe d'Eletrum", rarity: "epic", tier: "T2", type: "weapon", icon: "orb", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/electrum_orb" },
     { name: "Sphère d'ombres", rarity: "epic", tier: "T2", type: "weapon", icon: "orb", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/sphere_of_shadows" },
+    { name: "Crocs incendiaires de Tevent", rarity: "epic", tier: "T2", type: "weapon", icon: "dagger", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/dagger_aa_t2_polymorph_002" },
 
     // --- ARMURES T2 ---
     { name: "Barbute du courroux de l'oubli", rarity: "epic", tier: "T2", type: "armor", icon: "shield", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/barbute_of_wrath_of_oblivion" },
