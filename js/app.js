@@ -30,6 +30,9 @@ let allDatabaseMembers = [];
 let teamsData = [];         
 let auctionsData = []; 
 
+let membersCurrentPage = 1;
+const membersPerPage = 10;
+
 // Configuration par défaut des barèmes de points d'activité
 // Configuration par défaut des barèmes de points d'activité
 let pointsConfig = {
@@ -2306,16 +2309,31 @@ async function loadDashboardData() {
         allDatabaseMembers = members; 
 
         const membersTableBody = document.getElementById('members-table-body');
+        const paginationContainer = document.getElementById('members-pagination-container');
+
         if (membersTableBody) {
             membersTableBody.innerHTML = "";
             if (members.length === 0) {
                 membersTableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">Aucun membre enregistré.</td></tr>`;
+                if (paginationContainer) paginationContainer.innerHTML = "";
             } else {
-                members.forEach(m => {
+                const totalMembers = members.length;
+                const totalPages = Math.ceil(totalMembers / membersPerPage);
+                
+                // Sécurité : ajuste la page courante si elle dépasse les limites réelles
+                if (membersCurrentPage > totalPages) {
+                    membersCurrentPage = Math.max(1, totalPages);
+                }
+
+                // Découpage du tableau pour n'afficher que les membres de la page active
+                const startIndex = (membersCurrentPage - 1) * membersPerPage;
+                const endIndex = startIndex + membersPerPage;
+                const paginatedMembers = members.slice(startIndex, endIndex);
+
+                paginatedMembers.forEach(m => {
                     let deleteButtonHtml = "";
                     const maskedEmail = maskEmail(m.email);
                     const displayName = m.character_name || maskedEmail;
-                    const currentTokens = m.wish_tokens !== undefined && m.wish_tokens !== null ? m.wish_tokens : 2;
         
                     if (m.email !== ADMIN_EMAIL) {
                         deleteButtonHtml = `
@@ -2344,6 +2362,54 @@ async function loadDashboardData() {
                         </tr>
                     `;
                 });
+
+                // Génération des boutons de pagination contextuels selon votre charte
+                if (paginationContainer) {
+                    if (totalPages <= 1) {
+                        paginationContainer.innerHTML = "";
+                    } else {
+                        let paginationHtml = "";
+                        
+                        // Condition Page 1 : "1 >"
+                        if (membersCurrentPage === 1) {
+                            paginationHtml = `
+                                <div class="flex items-center gap-3 text-xs font-bold select-none text-slate-400">
+                                    <span class="text-white bg-blue-600 px-2.5 py-1 rounded-md">1</span>
+                                    <button onclick="changeMembersPage(2)" class="hover:text-white transition px-2 py-1 bg-[#161b26] border border-[#252f44] rounded-md flex items-center justify-center">
+                                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </div>
+                            `;
+                        } 
+                        // Condition Page Intermédiaire : "< X >"
+                        else if (membersCurrentPage > 1 && membersCurrentPage < totalPages) {
+                            paginationHtml = `
+                                <div class="flex items-center gap-3 text-xs font-bold select-none text-slate-400">
+                                    <button onclick="changeMembersPage(${membersCurrentPage - 1})" class="hover:text-white transition px-2 py-1 bg-[#161b26] border border-[#252f44] rounded-md flex items-center justify-center">
+                                        <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                    <span class="text-white bg-blue-600 px-2.5 py-1 rounded-md">${membersCurrentPage}</span>
+                                    <button onclick="changeMembersPage(${membersCurrentPage + 1})" class="hover:text-white transition px-2 py-1 bg-[#161b26] border border-[#252f44] rounded-md flex items-center justify-center">
+                                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </div>
+                            `;
+                        } 
+                        // Condition Dernière Page : "< X"
+                        else if (membersCurrentPage === totalPages) {
+                            paginationHtml = `
+                                <div class="flex items-center gap-3 text-xs font-bold select-none text-slate-400">
+                                    <button onclick="changeMembersPage(${membersCurrentPage - 1})" class="hover:text-white transition px-2 py-1 bg-[#161b26] border border-[#252f44] rounded-md flex items-center justify-center">
+                                        <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                    <span class="text-white bg-blue-600 px-2.5 py-1 rounded-md">${membersCurrentPage}</span>
+                                </div>
+                            `;
+                        }
+
+                        paginationContainer.innerHTML = paginationHtml;
+                    }
+                }
             }
         }
 
@@ -3901,4 +3967,10 @@ function getCalculatedTeamPoints(team) {
         }
     }
     return basePoints;
+}
+
+// Gère le changement de page de l'affichage des membres d'administration
+async function changeMembersPage(page) {
+    membersCurrentPage = page;
+    await loadDashboardData();
 }
