@@ -1292,6 +1292,12 @@ async function loadMemberProfile() {
                 cb.disabled = true;
             });
 
+            // AJOUT : Injection dynamique du solde de points dans le bandeau supérieur de l'espace membre
+            const pointsDisplay = document.getElementById('member-display-points');
+            if (pointsDisplay) {
+                pointsDisplay.innerText = data.points ?? 0;
+            }
+
             document.getElementById('btn-edit-profile').classList.remove('hidden');
             document.getElementById('btn-save-profile').classList.add('hidden');
             document.getElementById('profile-char-name').disabled = true;
