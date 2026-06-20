@@ -2193,7 +2193,16 @@ async function loadDashboardData() {
         await loadFormStatus();
         await loadAdminNotes();
         
-        // Calcul et affichage du cycle de la semaine de guilde (Jeudi au Mercredi)
+        // 1. Récupérer les profils des membres dès le départ pour assurer l'affichage correct des armes/icônes
+        const { data: members, error: membersError } = await supabaseClient
+            .from('member_profiles')
+            .select('*')
+            .order('email');
+
+        if (membersError) throw membersError;
+        allDatabaseMembers = members; // Alimentation globale immédiate
+
+        // 2. Calcul et affichage du cycle de la semaine de guilde (Jeudi au Mercredi)
         const { start, end } = getGuildWeekRange(new Date());
         const dateOpts = { day: '2-digit', month: '2-digit' };
         const dateRangeStr = `Du Jeudi ${start.toLocaleDateString('fr-FR', dateOpts)} au Mercredi ${end.toLocaleDateString('fr-FR', dateOpts)}`;
@@ -2203,7 +2212,7 @@ async function loadDashboardData() {
             weeklyCycleDatesEl.innerText = dateRangeStr;
         }
 
-        // Comptabilisation des preuves approuvées en attente
+        // 3. Comptabilisation des preuves approuvées en attente
         let pendingProofsCount = 0;
         let pendingPointsTotal = 0;
 
@@ -2226,19 +2235,19 @@ async function loadDashboardData() {
 
         // Stockage des points temporaires par joueur pour affichage
         const playerPointsMap = {};
-            
+
         // Calculer le total exact des points en attente par joueur (en ne gardant que l'épreuve la plus élevée de sa semaine)
         Object.entries(playerPendingActivities).forEach(([playerName, activities]) => {
             let weeklyHighestTierNum = 0;
             let highestTierPoints = 0;
             let nonDimensionalPoints = 0;
-            
+
             activities.forEach(({ team }) => {
                 const realPoints = getCalculatedTeamPoints(team);
                 if (team.motif === "Épreuve dimensionnelle") {
                     const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
                     const tierNum = match ? parseInt(match[0], 10) : 0;
-                        
+                    
                     if (tierNum > weeklyHighestTierNum) {
                         weeklyHighestTierNum = tierNum;
                         highestTierPoints = realPoints; // Seuls les points de l'épreuve la plus haute sont retenus
@@ -2247,16 +2256,26 @@ async function loadDashboardData() {
                     nonDimensionalPoints += realPoints;
                 }
             });
-            
+
             const totalForPlayer = nonDimensionalPoints + highestTierPoints;
             playerPointsMap[playerName] = totalForPlayer;
             pendingPointsTotal += totalForPlayer;
         });
-            
-        // Rendu de la liste détaillée des points en attente par membre dans le Dashboard
+
+        const weeklyPendingProofsEl = document.getElementById('weekly-pending-proofs-count');
+        if (weeklyPendingProofsEl) {
+            weeklyPendingProofsEl.innerText = pendingProofsCount;
+        }
+
+        const weeklyPendingPointsEl = document.getElementById('weekly-pending-points-total');
+        if (weeklyPendingPointsEl) {
+            weeklyPendingPointsEl.innerText = `${pendingPointsTotal} pts`;
+        }
+
+        // 4. Rendu de la liste détaillée des points en attente par membre dans le Dashboard
         const pendingContainer = document.getElementById('weekly-pending-details-container');
         const pendingList = document.getElementById('weekly-pending-members-list');
-        
+
         if (pendingContainer && pendingList) {
             const entries = Object.entries(playerPointsMap);
             if (entries.length > 0) {
@@ -2281,20 +2300,8 @@ async function loadDashboardData() {
                 pendingList.innerHTML = '';
             }
         }
-
-            pendingPointsTotal += nonDimensionalPoints + highestTierPoints;
-        });
-
-        const weeklyPendingProofsEl = document.getElementById('weekly-pending-proofs-count');
-        if (weeklyPendingProofsEl) {
-            weeklyPendingProofsEl.innerText = pendingProofsCount;
-        }
-
-        const weeklyPendingPointsEl = document.getElementById('weekly-pending-points-total');
-        if (weeklyPendingPointsEl) {
-            weeklyPendingPointsEl.innerText = `${pendingPointsTotal} pts`;
-        }
         
+        // 5. Récupération et traitement des candidatures publiques
         const { data: players, error } = await supabaseClient
             .from('players')
             .select('*')
@@ -2386,25 +2393,17 @@ async function loadDashboardData() {
             });
         }
 
-        const { data: members, error: membersError } = await supabaseClient
-            .from('member_profiles')
-            .select('*')
-            .order('email');
-
-        if (membersError) throw membersError;
-        allDatabaseMembers = members; 
-
+        // 6. Remplissage de l'affichage de la table des membres actifs du Dashboard
         const membersTableBody = document.getElementById('members-table-body');
         if (membersTableBody) {
             membersTableBody.innerHTML = "";
-            if (members.length === 0) {
+            if (allDatabaseMembers.length === 0) {
                 membersTableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">Aucun membre enregistré.</td></tr>`;
             } else {
-                members.forEach(m => {
+                allDatabaseMembers.forEach(m => {
                     let deleteButtonHtml = "";
                     const maskedEmail = maskEmail(m.email);
                     const displayName = m.character_name || maskedEmail;
-                    const currentTokens = m.wish_tokens !== undefined && m.wish_tokens !== null ? m.wish_tokens : 2;
         
                     if (m.email !== ADMIN_EMAIL) {
                         deleteButtonHtml = `
@@ -2436,6 +2435,7 @@ async function loadDashboardData() {
             }
         }
 
+        // 7. Charger l'état des compositions et enchères
         await loadTeamsFromStorage();
         await loadAuctionsFromStorage();
 
@@ -2495,6 +2495,7 @@ async function loadDashboardData() {
         switchView('login');
     }
 }
+
 // Attribution des points d'activité d'une équipe par l'admin
 async function validateEvent(teamId) {
     const team = teamsData.find(t => t.id === teamId);
