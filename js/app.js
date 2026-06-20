@@ -24,6 +24,7 @@ let flatpickrInstance = null;
 let teamsChannel = null;      
 let notificationsEnabled = true; 
 let isFormActive = true; // État d'activation du formulaire public
+let autoCloseConfig = { enabled: false, day: "3", time: "21:00" }; // Par défaut : Mercredi à 21h00
 
 let allDatabasePlayers = []; 
 let allDatabaseMembers = []; 
@@ -575,7 +576,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// Lecture de l'activation du formulaire et des notifications globales
 // Lecture de l'activation du formulaire et des configurations globales (Formulaire, Notifications, Points)
 async function loadFormStatus() {
     const stored = localStorage.getItem('lespacific_form_active');
@@ -614,6 +614,12 @@ async function loadFormStatus() {
                     localStorage.setItem('lespacific_points_config', JSON.stringify(pointsConfig));
                     applyPointsConfigToUI();
                 }
+
+                // Récupération de la planification automatique
+                if (data.data.autoCloseConfig !== undefined) {
+                    autoCloseConfig = data.data.autoCloseConfig;
+                }
+                updateAutoCloseUI();
             }
         } catch (err) {
             console.log("Lecture de configuration Supabase indisponible, utilisation du cache.");
@@ -2502,6 +2508,9 @@ async function loadDashboardData() {
 
         renderCharts(levelsDistribution, topPlayers);
         renderTeamMaker();
+        
+        // APPEL : Vérifie si l'heure programmée pour l'auto-clôture est échue
+        await checkAutoCloseTrigger();
 
     } catch (err) {
         console.error("Accès refusé au Dashboard :", err);
@@ -4002,4 +4011,116 @@ function getTierBasePoints(tier) {
     return pointsConfig[`Épreuve T${tier}`] ?? 10;
 }
 
+// Met à jour visuellement les éléments de l'interface de planification
+function updateAutoCloseUI() {
+    const btn = document.getElementById('btn-toggle-autoclose');
+    const statusLabel = document.getElementById('auto-close-status-label');
+    const daySelect = document.getElementById('autoclose-day');
+    const timeInput = document.getElementById('autoclose-time');
+
+    if (daySelect) daySelect.value = autoCloseConfig.day;
+    if (timeInput) timeInput.value = autoCloseConfig.time;
+
+    if (btn && statusLabel) {
+        if (autoCloseConfig.enabled) {
+            btn.className = "bg-emerald-950/40 border border-emerald-900/30 text-emerald-400 font-semibold px-2.5 py-1.5 rounded-lg text-xs transition duration-150 flex items-center gap-1.5 cursor-pointer";
+            btn.innerHTML = `<i data-lucide="toggle-right" class="w-4 h-4"></i> Auto-clôture ON`;
+            statusLabel.innerText = "Planification Active";
+            statusLabel.className = "text-[10px] text-emerald-400 italic font-semibold";
+        } else {
+            btn.className = "bg-red-950/40 border border-red-900/30 text-red-400 font-semibold px-2.5 py-1.5 rounded-lg text-xs transition duration-150 flex items-center gap-1.5 cursor-pointer";
+            btn.innerHTML = `<i data-lucide="toggle-left" class="w-4 h-4"></i> Auto-clôture OFF`;
+            statusLabel.innerText = "Désactivé";
+            statusLabel.className = "text-[10px] text-slate-500 italic";
+        }
+    }
+    lucide.createIcons();
+}
+
+// Active/Désactive la planification au clic sur le toggle
+async function toggleAutoCloseConfig() {
+    autoCloseConfig.enabled = !autoCloseConfig.enabled;
+    updateAutoCloseUI();
+    await saveAutoCloseSettings();
+}
+
+// Enregistre de manière permanente les paramètres sur Supabase
+async function saveAutoCloseSettings() {
+    const daySelect = document.getElementById('autoclose-day');
+    const timeInput = document.getElementById('autoclose-time');
+
+    if (daySelect) autoCloseConfig.day = daySelect.value;
+    if (timeInput) autoCloseConfig.time = timeInput.value;
+
+    if (supabaseClient) {
+        try {
+            const { data } = await supabaseClient
+                .from('guild_teams')
+                .select('data')
+                .eq('id', 2)
+                .single();
+            
+            const settings = data && data.data ? data.data : {};
+            settings.autoCloseConfig = autoCloseConfig;
+            settings.formActive = isFormActive;
+            settings.notificationsEnabled = notificationsEnabled;
+            settings.pointsConfig = pointsConfig;
+
+            await supabaseClient
+                .from('guild_teams')
+                .upsert({ id: 2, data: settings });
+        } catch (err) {
+            console.error("Échec de la sauvegarde de la planification :", err);
+        }
+    }
+}
+
+// Vérifie si le seuil horaire est dépassé et propose le déclenchement de la clôture
+async function checkAutoCloseTrigger() {
+    if (!autoCloseConfig || !autoCloseConfig.enabled) return;
+
+    const pendingCountEl = document.getElementById('weekly-pending-proofs-count');
+    if (!pendingCountEl) return;
+
+    const pendingCount = parseInt(pendingCountEl.innerText, 10) || 0;
+    if (pendingCount === 0) return; // Aucun point approuvé en attente, inutile de clôturer
+
+    const now = new Date();
+    const currentDay = now.getDay(); // 0: Dimanche, 1: Lundi...
+    const [targetHour, targetMinute] = autoCloseConfig.time.split(':').map(Number);
+    const targetDay = parseInt(autoCloseConfig.day, 10);
+
+    let isPastTrigger = false;
+
+    // Détermination si le jour ciblé est dépassé
+    if (currentDay > targetDay) {
+        isPastTrigger = true;
+    } else if (currentDay === targetDay) {
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        if (currentHour > targetHour || (currentHour === targetHour && currentMinute >= targetMinute)) {
+            isPastTrigger = true;
+        }
+    } else if (currentDay === 0 && targetDay !== 0) {
+        // Le dimanche (0) est après les autres jours de la semaine
+        isPastTrigger = true;
+    }
+
+    if (isPastTrigger) {
+        // Empêche de harceler l'administrateur à chaque clic durant sa session en utilisant sessionStorage
+        const alreadyPrompted = sessionStorage.getItem('autoclose_prompted_this_session');
+        if (!alreadyPrompted) {
+            sessionStorage.setItem('autoclose_prompted_this_session', 'true');
+            
+            const jourLibelles = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+            const targetDayName = jourLibelles[targetDay];
+
+            const message = `L'heure programmée pour la clôture automatique (${targetDayName} à ${autoCloseConfig.time}) est dépassée.\n\nIl y a actuellement ${pendingCount} preuves en attente de distribution.\n\nVoulez-vous procéder à la distribution des points et clôturer la semaine de guilde maintenant ?`;
+            
+            if (await showCustomConfirm(message, "Clôture Hebdomadaire Programmée")) {
+                await distributeWeeklyPoints();
+            }
+        }
+    }
+}
 
