@@ -638,6 +638,8 @@
                             </button>
                         </div>
                     </div>
+                    
+                    <!-- Les 3 compteurs du haut -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                         <div class="bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl p-4">
                             <span class="block text-[10px] text-slate-500 uppercase font-bold">Semaine Actuelle (Guild Cycle)</span>
@@ -651,12 +653,13 @@
                             <span class="block text-[10px] text-slate-500 uppercase font-bold">Total Points à distribuer</span>
                             <span id="weekly-pending-points-total" class="text-sm font-bold text-emerald-400 mt-1 block">0 pts</span>
                         </div>
-                       <!-- Liste détaillée des points par joueur en attente -->
-                        <div id="weekly-pending-details-container" class="hidden border-t border-[#1e2638] pt-4 mt-2" style="width: 100% !important; display: block !important; clear: both !important;">
-                            <span class="block text-[10px] text-slate-500 uppercase font-bold mb-3 tracking-wider text-left select-none">Répartition des points en attente par membre :</span>
-                            <div id="weekly-pending-members-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto pr-1" style="width: 100% !important; min-width: 100% !important; display: grid !important;">
-                                <!-- Rempli dynamiquement en JS -->
-                            </div>
+                    </div>
+
+                    <!-- Liste détaillée des points par joueur en attente (Hors de la grille étroite pour occuper toute la largeur) -->
+                    <div id="weekly-pending-details-container" class="hidden border-t border-[#1e2638] pt-4 mt-2" style="width: 100% !important; display: block !important; clear: both !important;">
+                        <span class="block text-[10px] text-slate-500 uppercase font-bold mb-3 tracking-wider text-left select-none">Répartition des points en attente par membre :</span>
+                        <div id="weekly-pending-members-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto pr-1" style="width: 100% !important; min-width: 100% !important; display: grid !important;">
+                            <!-- Rempli dynamiquement en JS -->
                         </div>
                     </div>
                 </div>
