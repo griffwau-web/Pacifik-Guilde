@@ -589,6 +589,10 @@ async function loadFormStatus() {
     }
     updateNotifToggleButton();
 
+    // Chargement initial rapide depuis le cache local pour éviter les latences de chargement
+    const cachedVideo = localStorage.getItem('lespacific_weekly_video_url') || "";
+    updateWeeklyVideoUI(cachedVideo);
+
     if (supabaseClient) {
         try {
             const { data, error } = await supabaseClient
@@ -612,6 +616,15 @@ async function loadFormStatus() {
                     pointsConfig = data.data.pointsConfig;
                     localStorage.setItem('lespacific_points_config', JSON.stringify(pointsConfig));
                     applyPointsConfigToUI();
+                }
+
+                // Récupération et synchronisation de la vidéo stratégique
+                if (data.data.weeklyVideoUrl !== undefined) {
+                    const videoUrl = data.data.weeklyVideoUrl;
+                    localStorage.setItem('lespacific_weekly_video_url', videoUrl);
+                    updateWeeklyVideoUI(videoUrl);
+                } else {
+                    updateWeeklyVideoUI("");
                 }
             }
         } catch (err) {
@@ -3978,4 +3991,70 @@ function getTierBasePoints(tier) {
     if (tier <= 0) return 0;
     if (tier >= 1 && tier <= 5) return pointsConfig["Épreuve dimensionnelle"] ?? 10;
     return pointsConfig[`Épreuve T${tier}`] ?? 10;
+}
+
+// Analyseur d'URL YouTube pour en extraire proprement l'ID de la vidéo
+function getYouTubeId(url) {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+}
+
+// Met à jour dynamiquement l'iframe côté membre et pré-remplit le champ côté admin
+function updateWeeklyVideoUI(url) {
+    const youtubeId = getYouTubeId(url);
+    
+    // Partie Espace Membre (Lecteur Iframe)
+    const videoCard = document.getElementById('member-weekly-video-card');
+    const iframe = document.getElementById('member-weekly-video-iframe');
+    
+    if (videoCard && iframe) {
+        if (youtubeId) {
+            iframe.src = `https://www.youtube.com/embed/${youtubeId}`;
+            videoCard.classList.remove('hidden');
+        } else {
+            iframe.src = "";
+            videoCard.classList.add('hidden');
+        }
+    }
+
+    // Partie Dashboard (Pré-remplissage du champ de saisie de l'admin)
+    const adminInput = document.getElementById('admin-weekly-video-url');
+    if (adminInput && url !== undefined) {
+        adminInput.value = url;
+    }
+}
+
+// Enregistre de manière persistante le lien de la vidéo sur Supabase
+async function saveWeeklyVideo() {
+    const input = document.getElementById('admin-weekly-video-url');
+    if (!input) return;
+    const url = input.value.trim();
+
+    if (supabaseClient) {
+        try {
+            const { data } = await supabaseClient
+                .from('guild_teams')
+                .select('data')
+                .eq('id', 2)
+                .single();
+            
+            const settings = data && data.data ? data.data : {};
+            settings.weeklyVideoUrl = url;
+
+            const { error } = await supabaseClient
+                .from('guild_teams')
+                .upsert({ id: 2, data: settings });
+
+            if (error) throw error;
+
+            localStorage.setItem('lespacific_weekly_video_url', url);
+            updateWeeklyVideoUI(url);
+            alert("Vidéo stratégique de la semaine mise à jour avec succès !");
+        } catch (err) {
+            console.error("Échec de mise à jour de la vidéo :", err);
+            alert("Une erreur est survenue lors de l'enregistrement du lien.");
+        }
+    }
 }
