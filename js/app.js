@@ -2200,14 +2200,14 @@ async function loadDashboardData() {
         await loadFormStatus();
         await loadAdminNotes();
         
-        // 1. Récupérer les profils des membres dès le départ pour assurer l'affichage correct des armes/icônes
+        // 1. Récupérer les profils des membres pour synchroniser les informations
         const { data: members, error: membersError } = await supabaseClient
             .from('member_profiles')
             .select('*')
             .order('email');
 
         if (membersError) throw membersError;
-        allDatabaseMembers = members; // Alimentation globale immédiate
+        allDatabaseMembers = members; 
 
         // 2. Calcul et affichage du cycle de la semaine de guilde (Jeudi au Mercredi)
         const { start, end } = getGuildWeekRange(new Date());
@@ -2219,31 +2219,53 @@ async function loadDashboardData() {
             weeklyCycleDatesEl.innerText = dateRangeStr;
         }
 
-        // 3. Comptabilisation des preuves approuvées en attente
+        // 3. Comptabilisation collective des preuves approuvées en attente
         let pendingProofsCount = 0;
         let pendingPointsTotal = 0;
 
-        // Regrouper les activités approuvées de la semaine par joueur pour le calcul exact
+        // Regrouper les activités approuvées par joueur pour la semaine
         const playerPendingActivities = {}; // Structure : { "NomJoueur": [ { team, proof } ] }
 
         teamsData.forEach(team => {
+            let hasApprovedProof = false;
+            let approvedProofObj = null;
+
+            // On vérifie s'il y a au moins une preuve approuvée pour cette équipe
             if (team.proofs) {
                 Object.entries(team.proofs).forEach(([playerName, proof]) => {
                     if (proof.status === "approved") {
-                        pendingProofsCount++;
-                        if (!playerPendingActivities[playerName]) {
-                            playerPendingActivities[playerName] = [];
-                        }
-                        playerPendingActivities[playerName].push({ team, proof });
+                        hasApprovedProof = true;
+                        approvedProofObj = proof;
                     }
+                });
+            }
+
+            // Si l'équipe a une preuve approuvée, tous les inscrits reçoivent les points
+            if (hasApprovedProof) {
+                pendingProofsCount++; // On compte une preuve collective pour l'activité
+
+                // Récupération de la composition complète
+                let assignedPlayers = [];
+                if (team.motif === "Raid") {
+                    if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
+                    if (team.playersB) assignedPlayers = assignedPlayers.concat(team.playersB);
+                } else {
+                    if (team.players) assignedPlayers = assignedPlayers.concat(team.players);
+                }
+                assignedPlayers = assignedPlayers.filter(p => p && p !== "");
+
+                // Assigner l'activité approuvée à chaque membre de la composition
+                assignedPlayers.forEach(playerName => {
+                    if (!playerPendingActivities[playerName]) {
+                        playerPendingActivities[playerName] = [];
+                    }
+                    playerPendingActivities[playerName].push({ team, proof: approvedProofObj });
                 });
             }
         });
 
-        // Stockage des points temporaires par joueur pour affichage
+        // Calcul exact des points cumulés en attente par joueur
         const playerPointsMap = {};
-
-        // Calculer le total exact des points en attente par joueur (en ne gardant que l'épreuve la plus élevée de sa semaine)
         Object.entries(playerPendingActivities).forEach(([playerName, activities]) => {
             let weeklyHighestTierNum = 0;
             let highestTierPoints = 0;
@@ -2257,16 +2279,16 @@ async function loadDashboardData() {
                     
                     if (tierNum > weeklyHighestTierNum) {
                         weeklyHighestTierNum = tierNum;
-                        highestTierPoints = realPoints; // Seuls les points de l'épreuve la plus haute sont retenus
+                        highestTierPoints = realPoints;
                     }
                 } else {
                     nonDimensionalPoints += realPoints;
                 }
             });
 
-            const totalForPlayer = nonDimensionalPoints + highestTierPoints;
-            playerPointsMap[playerName] = totalForPlayer;
-            pendingPointsTotal += totalForPlayer;
+            const totalPoints = nonDimensionalPoints + highestTierPoints;
+            playerPointsMap[playerName] = totalPoints;
+            pendingPointsTotal += totalPoints;
         });
 
         const weeklyPendingProofsEl = document.getElementById('weekly-pending-proofs-count');
@@ -2279,7 +2301,7 @@ async function loadDashboardData() {
             weeklyPendingPointsEl.innerText = `${pendingPointsTotal} pts`;
         }
 
-        // 4. Rendu de la liste détaillée des points en attente par membre dans le Dashboard
+        // Rendu de la liste détaillée des points en attente par membre (avec sécurité anti-écrasement)
         const pendingContainer = document.getElementById('weekly-pending-details-container');
         const pendingList = document.getElementById('weekly-pending-members-list');
 
@@ -2288,25 +2310,21 @@ async function loadDashboardData() {
             if (entries.length > 0) {
                 pendingContainer.classList.remove('hidden');
                 pendingList.innerHTML = entries.map(([playerName, points]) => {
-                    // Recherche du membre pour afficher ses icônes d'armes
                     const dbMember = allDatabaseMembers.find(m => (m.character_name || m.email) === playerName);
                     const weaponsHtml = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
                     
                     return `
                         <div class="flex items-center justify-between gap-3 p-3 bg-[#111622] border border-[#1e2638] rounded-xl hover:border-slate-500/20 transition shadow-md animate-fade-in" style="width: 100% !important; min-width: 260px !important; box-sizing: border-box !important; flex: 1 1 auto !important;">
                             <div class="flex items-center gap-2.5 min-w-0">
-                                <!-- Encart armes sur la gauche -->
                                 <div class="flex items-center gap-0.5 shrink-0 bg-[#0b0e14]/50 px-1.5 py-1 rounded-lg border border-[#252f44]">
                                     ${weaponsHtml ? weaponsHtml : '<i data-lucide="user" class="w-3.5 h-3.5 text-slate-500"></i>'}
                                 </div>
-                                <!-- Nom du joueur au milieu -->
                                 <div class="truncate">
                                     <span class="block text-xs font-bold text-slate-200 truncate pr-1" title="${playerName}">
                                         ${playerName}
                                     </span>
                                 </div>
                             </div>
-                            <!-- Points sur la droite -->
                             <div class="flex items-center shrink-0">
                                 <span class="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 font-mono select-none">
                                     +${points} pts
@@ -2328,7 +2346,6 @@ async function loadDashboardData() {
             .order('score', { ascending: false });
 
         if (error) throw error;
-
         allDatabasePlayers = players; 
 
         const totalPlayers = players.length;
@@ -2413,7 +2430,7 @@ async function loadDashboardData() {
             });
         }
 
-        // 6. Remplissage de l'affichage de la table des membres actifs du Dashboard
+        // 6. Remplissage de l'affichage de la table des membres actifs
         const membersTableBody = document.getElementById('members-table-body');
         if (membersTableBody) {
             membersTableBody.innerHTML = "";
@@ -2455,7 +2472,6 @@ async function loadDashboardData() {
             }
         }
 
-        // 7. Charger l'état des compositions et enchères
         await loadTeamsFromStorage();
         await loadAuctionsFromStorage();
 
@@ -2509,8 +2525,8 @@ async function loadDashboardData() {
 
         renderCharts(levelsDistribution, topPlayers);
         renderTeamMaker();
-        
-        // APPEL : Vérifie si l'heure programmée pour l'auto-clôture est échue
+
+        // Vérification de la clôture programmée
         await checkAutoCloseTrigger();
 
     } catch (err) {
@@ -3619,20 +3635,45 @@ async function distributeWeeklyPoints() {
 
     const approvedPointsByPlayer = {}; // Regroupement : { "NomJoueur": points }
     const proofsToUpdate = [];
-    const storagePathsToDelete = []; // Contiendra la liste des captures à supprimer de Supabase
+    const storagePathsToDelete = []; // Liste des captures d'écran à supprimer physiquement de Supabase Storage
 
-    // 1. Regrouper toutes les activités approuvées par joueur pour cette semaine
+    // 1. Identifier les équipes de la semaine qui ont au moins une preuve validée
     const playerApprovedActivities = {}; // Structure : { "NomJoueur": [ { team, proof } ] }
 
     teamsData.forEach(team => {
+        let hasApprovedProof = false;
+        let approvedProofObj = null;
+
         if (team.proofs) {
             Object.entries(team.proofs).forEach(([playerName, proof]) => {
                 if (proof.status === "approved") {
-                    if (!playerApprovedActivities[playerName]) {
-                        playerApprovedActivities[playerName] = [];
+                    hasApprovedProof = true;
+                    approvedProofObj = proof;
+                    proofsToUpdate.push({ teamId: team.id, playerName });
+                    if (proof.storagePath) {
+                        storagePathsToDelete.push(proof.storagePath);
                     }
-                    playerApprovedActivities[playerName].push({ team, proof });
                 }
+            });
+        }
+
+        // Si l'équipe est validée collectivement, on distribue les points à tous les joueurs de sa composition
+        if (hasApprovedProof) {
+            let assignedPlayers = [];
+            if (team.motif === "Raid") {
+                if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
+                if (team.playersB) assignedPlayers = assignedPlayers.concat(team.playersB);
+            } else {
+                if (team.players) assignedPlayers = assignedPlayers.concat(team.players);
+            }
+            assignedPlayers = assignedPlayers.filter(p => p && p !== "");
+
+            // Associer l'activité approuvée à CHAQUE participant de l'équipe
+            assignedPlayers.forEach(playerName => {
+                if (!playerApprovedActivities[playerName]) {
+                    playerApprovedActivities[playerName] = [];
+                }
+                playerApprovedActivities[playerName].push({ team, proof: approvedProofObj });
             });
         }
     });
@@ -3643,7 +3684,7 @@ async function distributeWeeklyPoints() {
         return;
     }
 
-    // 2. Traiter chaque joueur pour ne retenir que l'épreuve dimensionnelle la plus élevée de la semaine
+    // 2. Calculer le total par joueur en appliquant la dédoublonnage de l'épreuve dimensionnelle la plus élevée
     playersToProcess.forEach(playerName => {
         let weeklyHighestTierNum = 0;
         let highestTierTeam = null;
@@ -3652,7 +3693,7 @@ async function distributeWeeklyPoints() {
 
         const activities = playerApprovedActivities[playerName];
 
-        // Premier passage : identifier le plus haut tier d'épreuve de la semaine et initialiser les autres à 0
+        // Premier passage : identifier l'épreuve la plus haute de la semaine et initialiser les autres à 0
         activities.forEach(({ team, proof }) => {
             if (team.motif === "Épreuve dimensionnelle") {
                 const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
@@ -3663,33 +3704,26 @@ async function distributeWeeklyPoints() {
                     highestTierTeam = team;
                     highestTierProof = proof;
                 }
-                
-                // On initialise par défaut tous les points de preuves d'épreuves à 0 (les tiers inférieurs recevront 0)
-                proof.points = 0;
+                proof.points = 0; // Réinitialisation de sécurité pour les paliers inférieurs
             } else {
                 const pts = getCalculatedTeamPoints(team);
                 nonDimensionalPoints += pts;
                 proof.points = pts;
             }
-
-            proofsToUpdate.push({ teamId: team.id, playerName });
-            if (proof.storagePath) {
-                storagePathsToDelete.push(proof.storagePath);
-            }
         });
 
-        // Deuxième passage : attribuer les points réels uniquement pour le plus haut tier d'épreuve de la semaine
+        // Deuxième passage : attribuer les points réels uniquement pour la plus haute épreuve validée
         let dimensionalPointsToAward = 0;
         if (weeklyHighestTierNum > 0 && highestTierTeam && highestTierProof) {
             dimensionalPointsToAward = getCalculatedTeamPoints(highestTierTeam);
-            highestTierProof.points = dimensionalPointsToAward; // On affecte les points finaux à cette preuve
+            highestTierProof.points = dimensionalPointsToAward;
         }
 
         approvedPointsByPlayer[playerName] = nonDimensionalPoints + dimensionalPointsToAward;
     });
 
     try {
-        // Envoi des requêtes de mise à jour des points
+        // 3. Mettre à jour les soldes de points sur la base de données Supabase
         const updates = playersToProcess.map(async (playerName) => {
             const dbMember = allDatabaseMembers.find(m => (m.character_name || m.email) === playerName);
             if (dbMember) {
@@ -3704,7 +3738,7 @@ async function distributeWeeklyPoints() {
 
         await Promise.all(updates);
 
-        // Nettoyage temporaire : Suppression des captures du serveur Supabase Storage
+        // 4. Supprimer physiquement les images de capture d'écran validées du serveur Supabase Storage
         if (storagePathsToDelete.length > 0) {
             try {
                 await supabaseClient
@@ -3712,11 +3746,11 @@ async function distributeWeeklyPoints() {
                     .from('proofs')
                     .remove(storagePathsToDelete);
             } catch (storageErr) {
-                console.warn("Certaines images n'ont pas pu être purgées du stockage.", storageErr);
+                console.warn("Certaines images n'ont pas pu être nettoyées du stockage.", storageErr);
             }
         }
 
-        // Marquage des preuves comme distribuées dans notre cache local
+        // 5. Marquer le statut local des preuves comme distribué
         proofsToUpdate.forEach(({ teamId, playerName }) => {
             const team = teamsData.find(t => t.id === teamId);
             if (team && team.proofs && team.proofs[playerName]) {
@@ -3725,30 +3759,19 @@ async function distributeWeeklyPoints() {
             }
         });
 
-        // Fermeture définitive de l'activité
+        // 6. Finaliser et clôturer définitivement les activités concernées
         teamsData.forEach(team => {
             if (team.composition_validated && !team.validated) {
                 const hasDistributed = team.proofs && Object.values(team.proofs).some(p => p.status === "distributed");
                 if (hasDistributed) {
                     team.validated = true;
-                    
-                    let assignedPlayers = [];
-                    if (team.motif === "Raid") {
-                        if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
-                        if (team.playersB) assignedPlayers = assignedPlayers.concat(team.playersB);
-                    } else {
-                        if (team.players) assignedPlayers = assignedPlayers.concat(team.players);
-                    }
-                    assignedPlayers = assignedPlayers.filter(p => p && p !== "");
-                    
-                    // Calcul et stockage du montant final de points distribués
                     team.distributedPoints = getCalculatedTeamPoints(team);
                 }
             }
         });
 
         await saveTeamsState();
-        alert("La distribution hebdomadaire des points approuvés a été effectuée.");
+        alert("La distribution hebdomadaire collective a été effectuée.");
         await loadDashboardData();
     } catch (err) {
         console.error("Échec lors de la distribution :", err);
