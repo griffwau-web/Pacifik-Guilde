@@ -831,6 +831,11 @@ function subscribeToRealtimeTeams() {
     teamsChannel = supabaseClient
         .channel('public:guild_changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'guild_teams' }, async (payload) => {
+            // OPTIMISATION : Si la modification concerne uniquement le bloc-notes (id = 3),
+            // on l'ignore pour éviter de déclencher un rafraîchissement global du site pendant la saisie.
+            if (payload.new && payload.new.id === 3) {
+                return;
+            }
             console.log("Mise à jour d'équipe reçue en direct :", payload);
             await handleLiveUpdate();
         })
@@ -3323,7 +3328,7 @@ async function loadAdminNotes() {
     }
 }
 
-// Enregistrement manuel ou automatique des notes administratives
+// Enregistrement manuel des notes administratives
 async function saveAdminNotes() {
     const textarea = document.getElementById('admin-notes-textarea');
     const statusSpan = document.getElementById('notes-status');
@@ -3368,7 +3373,7 @@ async function saveAdminNotes() {
     }
 }
 
-// Configurer les écouteurs pour la sauvegarde automatique au clavier
+// Configurer les écouteurs pour signaler les modifications locales sur le bloc-notes
 function setupAdminNotesListeners() {
     const textarea = document.getElementById('admin-notes-textarea');
     if (!textarea) return;
@@ -3376,13 +3381,9 @@ function setupAdminNotesListeners() {
     textarea.addEventListener('input', () => {
         const statusSpan = document.getElementById('notes-status');
         if (statusSpan) {
-            statusSpan.innerText = "Modifications en cours...";
-            statusSpan.className = "text-[10px] text-slate-400 italic";
+            statusSpan.innerText = "Modifications non sauvegardées";
+            statusSpan.className = "text-[10px] text-amber-500 italic font-semibold";
         }
-        
-        clearTimeout(notesAutoSaveTimeout);
-        // Lancer la sauvegarde automatique si l'utilisateur arrête de taper pendant 2 secondes
-        notesAutoSaveTimeout = setTimeout(saveAdminNotes, 2000);
     });
 }
 
