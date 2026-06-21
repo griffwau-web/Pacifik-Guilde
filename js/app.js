@@ -613,12 +613,6 @@ async function loadFormStatus() {
                     localStorage.setItem('lespacific_points_config', JSON.stringify(pointsConfig));
                     applyPointsConfigToUI();
                 }
-
-                // Récupération de la planification automatique
-                if (data.data.autoCloseConfig !== undefined) {
-                    autoCloseConfig = data.data.autoCloseConfig;
-                }
-                updateAutoCloseUI();
             }
         } catch (err) {
             console.log("Lecture de configuration Supabase indisponible, utilisation du cache.");
@@ -2199,14 +2193,14 @@ async function loadDashboardData() {
         await loadFormStatus();
         await loadAdminNotes();
         
-        // 1. Récupérer les profils des membres pour synchroniser les informations
+        // 1. Récupérer les profils des membres dès le départ pour assurer l'affichage correct des armes/icônes
         const { data: members, error: membersError } = await supabaseClient
             .from('member_profiles')
             .select('*')
             .order('email');
 
         if (membersError) throw membersError;
-        allDatabaseMembers = members; 
+        allDatabaseMembers = members; // Alimentation globale immédiate
 
         // 2. Calcul et affichage du cycle de la semaine de guilde (Jeudi au Mercredi)
         const { start, end } = getGuildWeekRange(new Date());
@@ -2222,7 +2216,7 @@ async function loadDashboardData() {
         let pendingProofsCount = 0;
         let pendingPointsTotal = 0;
 
-        // Regrouper les activités approuvées par joueur pour la semaine
+        // Regrouper les activités approuvées de la semaine par joueur pour le calcul exact
         const playerPendingActivities = {}; // Structure : { "NomJoueur": [ { team, proof } ] }
 
         teamsData.forEach(team => {
@@ -2338,7 +2332,7 @@ async function loadDashboardData() {
             }
         }
         
-        // 5. Récupération et traitement des candidatures publiques
+        // 4. Récupération et traitement des candidatures publiques
         const { data: players, error } = await supabaseClient
             .from('players')
             .select('*')
@@ -2429,7 +2423,7 @@ async function loadDashboardData() {
             });
         }
 
-        // 6. Remplissage de l'affichage de la table des membres actifs
+        // 5. Remplissage de l'affichage de la table des membres actifs
         const membersTableBody = document.getElementById('members-table-body');
         if (membersTableBody) {
             membersTableBody.innerHTML = "";
@@ -2471,6 +2465,7 @@ async function loadDashboardData() {
             }
         }
 
+        // 6. Charger l'état des compositions et enchères
         await loadTeamsFromStorage();
         await loadAuctionsFromStorage();
 
@@ -2524,9 +2519,6 @@ async function loadDashboardData() {
 
         renderCharts(levelsDistribution, topPlayers);
         renderTeamMaker();
-
-        // Vérification de la clôture programmée
-        await checkAutoCloseTrigger();
 
     } catch (err) {
         console.error("Accès refusé au Dashboard :", err);
