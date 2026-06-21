@@ -415,6 +415,18 @@
                         </div>
                     </div>
 
+                    <!-- VIDÉO STRATÉGIQUE DE LA SEMAINE (MEMBRES) -->
+                    <div id="member-weekly-video-card" class="hidden bg-[#111622] border border-[#1e2638] rounded-xl p-6 shadow-xl space-y-4">
+                        <h3 class="text-md font-bold text-white flex items-center gap-2 border-b border-[#1e2638] pb-3 uppercase tracking-wide">
+                            <i data-lucide="youtube" class="w-5 h-5 text-red-500 animate-pulse"></i>
+                            Stratégie Épreuve de la Semaine
+                        </h3>
+                        <!-- Lecteur YouTube Responsif (16:9) -->
+                        <div class="aspect-video w-full rounded-xl overflow-hidden border border-[#1e2638] bg-[#0b0e14]">
+                            <iframe id="member-weekly-video-iframe" class="w-full h-full" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                        </div>
+                    </div>
+
                     <!-- COMPOSITIONS D'ÉQUIPES -->
                     <div class="bg-[#111622] border border-[#1e2638] rounded-xl p-6 shadow-xl space-y-6">
                         <div class="flex justify-between items-center border-b border-[#1e2638] pb-3 flex-wrap gap-2">
@@ -685,6 +697,28 @@
                         </div>
                     </div>
                     <textarea id="admin-notes-textarea" placeholder="Rédigez vos notes de gestion partagées ici (objectifs de la semaine, priorités de recrutement, consignes officiers...)..." class="w-full h-40 bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-xl p-4 text-slate-100 text-xs outline-none transition resize-none"></textarea>
+                </div>
+
+                <!-- BLOC VIDÉO STRATÉGIQUE DE LA SEMAINE (ADMIN) -->
+                <div class="bg-[#111622] border border-[#1e2638] rounded-xl p-5 shadow-lg space-y-4">
+                    <div class="flex flex-wrap justify-between items-center gap-4 border-b border-[#1e2638] pb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-red-500/10 text-red-500 p-2 rounded-lg">
+                                <i data-lucide="youtube" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-white uppercase tracking-wide">Vidéo Stratégique de la Semaine</h4>
+                                <p class="text-xs text-slate-400">Déposez un lien YouTube pour guider les membres sur l'épreuve dimensionnelle en cours.</p>
+                            </div>
+                        </div>
+                        <button onclick="saveWeeklyVideo()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5">
+                            <i data-lucide="save" class="w-3.5 h-3.5"></i> Sauvegarder
+                        </button>
+                    </div>
+                    <div class="text-left">
+                        <label class="block text-xs font-semibold mb-1 text-slate-300">Lien de la vidéo YouTube *</label>
+                        <input type="text" id="admin-weekly-video-url" placeholder="Ex: https://www.youtube.com/watch?v=dQw4w9WgXcQ" class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-100 outline-none text-xs transition">
+                    </div>
                 </div>
 
                 <!-- SECTION COMPTES DES MEMBRES DE LA GUILDE -->
