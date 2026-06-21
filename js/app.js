@@ -3628,17 +3628,20 @@ async function submitEventProofFile(teamId, fileInputId) {
 }
 
 // Clôture et distribution groupée de tous les points approuvés de la semaine
-async function distributeWeeklyPoints() {
-    if (!(await showCustomConfirm("Voulez-vous procéder à la distribution de tous les points approuvés ? Cette action mettra à jour définitivement le solde des membres actifs.", "Clôturer la semaine"))) {
-        return;
+async function distributeWeeklyPoints(isSilent = false) {
+    // Si ce n'est pas silencieux, on demande la confirmation manuelle habituelle
+    if (!isSilent) {
+        if (!(await showCustomConfirm("Voulez-vous procéder à la distribution de tous les points approuvés ? Cette action mettra à jour définitivement le solde des membres actifs.", "Clôturer la semaine"))) {
+            return;
+        }
     }
 
     const approvedPointsByPlayer = {}; // Regroupement : { "NomJoueur": points }
     const proofsToUpdate = [];
-    const storagePathsToDelete = []; // Liste des captures d'écran à supprimer physiquement de Supabase Storage
+    const storagePathsToDelete = []; // Liste des captures à supprimer de Supabase
 
-    // 1. Identifier les équipes de la semaine qui ont au moins une preuve validée
-    const playerApprovedActivities = {}; // Structure : { "NomJoueur": [ { team, proof } ] }
+    // 1. Regrouper toutes les activités approuvées collectivement
+    const playerApprovedActivities = {}; 
 
     teamsData.forEach(team => {
         let hasApprovedProof = false;
@@ -3657,7 +3660,6 @@ async function distributeWeeklyPoints() {
             });
         }
 
-        // Si l'équipe est validée collectivement, on distribue les points à tous les joueurs de sa composition
         if (hasApprovedProof) {
             let assignedPlayers = [];
             if (team.motif === "Raid") {
@@ -3668,7 +3670,6 @@ async function distributeWeeklyPoints() {
             }
             assignedPlayers = assignedPlayers.filter(p => p && p !== "");
 
-            // Associer l'activité approuvée à CHAQUE participant de l'équipe
             assignedPlayers.forEach(playerName => {
                 if (!playerApprovedActivities[playerName]) {
                     playerApprovedActivities[playerName] = [];
@@ -3680,11 +3681,13 @@ async function distributeWeeklyPoints() {
 
     const playersToProcess = Object.keys(playerApprovedActivities);
     if (playersToProcess.length === 0) {
-        alert("Aucun point approuvé n'est actuellement en attente de distribution.");
+        if (!isSilent) {
+            alert("Aucun point approuvé n'est actuellement en attente de distribution.");
+        }
         return;
     }
 
-    // 2. Calculer le total par joueur en appliquant la dédoublonnage de l'épreuve dimensionnelle la plus élevée
+    // 2. Traiter chaque joueur (règle du plus haut palier d'épreuve)
     playersToProcess.forEach(playerName => {
         let weeklyHighestTierNum = 0;
         let highestTierTeam = null;
@@ -3693,7 +3696,6 @@ async function distributeWeeklyPoints() {
 
         const activities = playerApprovedActivities[playerName];
 
-        // Premier passage : identifier l'épreuve la plus haute de la semaine et initialiser les autres à 0
         activities.forEach(({ team, proof }) => {
             if (team.motif === "Épreuve dimensionnelle") {
                 const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
@@ -3704,7 +3706,7 @@ async function distributeWeeklyPoints() {
                     highestTierTeam = team;
                     highestTierProof = proof;
                 }
-                proof.points = 0; // Réinitialisation de sécurité pour les paliers inférieurs
+                proof.points = 0;
             } else {
                 const pts = getCalculatedTeamPoints(team);
                 nonDimensionalPoints += pts;
@@ -3712,7 +3714,6 @@ async function distributeWeeklyPoints() {
             }
         });
 
-        // Deuxième passage : attribuer les points réels uniquement pour la plus haute épreuve validée
         let dimensionalPointsToAward = 0;
         if (weeklyHighestTierNum > 0 && highestTierTeam && highestTierProof) {
             dimensionalPointsToAward = getCalculatedTeamPoints(highestTierTeam);
@@ -3723,7 +3724,7 @@ async function distributeWeeklyPoints() {
     });
 
     try {
-        // 3. Mettre à jour les soldes de points sur la base de données Supabase
+        // 3. Mettre à jour les comptes de points sur Supabase
         const updates = playersToProcess.map(async (playerName) => {
             const dbMember = allDatabaseMembers.find(m => (m.character_name || m.email) === playerName);
             if (dbMember) {
@@ -3738,7 +3739,7 @@ async function distributeWeeklyPoints() {
 
         await Promise.all(updates);
 
-        // 4. Supprimer physiquement les images de capture d'écran validées du serveur Supabase Storage
+        // 4. Supprimer les captures d'écran validées du stockage cloud
         if (storagePathsToDelete.length > 0) {
             try {
                 await supabaseClient
@@ -3746,11 +3747,11 @@ async function distributeWeeklyPoints() {
                     .from('proofs')
                     .remove(storagePathsToDelete);
             } catch (storageErr) {
-                console.warn("Certaines images n'ont pas pu être nettoyées du stockage.", storageErr);
+                console.warn("Certaines images n'ont pas pu être purgées du stockage.", storageErr);
             }
         }
 
-        // 5. Marquer le statut local des preuves comme distribué
+        // 5. Mettre à jour l'historique local de l'activité
         proofsToUpdate.forEach(({ teamId, playerName }) => {
             const team = teamsData.find(t => t.id === teamId);
             if (team && team.proofs && team.proofs[playerName]) {
@@ -3759,7 +3760,6 @@ async function distributeWeeklyPoints() {
             }
         });
 
-        // 6. Finaliser et clôturer définitivement les activités concernées
         teamsData.forEach(team => {
             if (team.composition_validated && !team.validated) {
                 const hasDistributed = team.proofs && Object.values(team.proofs).some(p => p.status === "distributed");
@@ -3771,11 +3771,19 @@ async function distributeWeeklyPoints() {
         });
 
         await saveTeamsState();
-        alert("La distribution hebdomadaire collective a été effectuée.");
+        
+        if (!isSilent) {
+            alert("La distribution hebdomadaire collective a été effectuée.");
+        } else {
+            console.log("Clôture hebdomadaire automatique effectuée en arrière-plan avec succès.");
+        }
+        
         await loadDashboardData();
     } catch (err) {
         console.error("Échec lors de la distribution :", err);
-        alert("Une erreur est survenue durant le traitement de distribution.");
+        if (!isSilent) {
+            alert("Une erreur est survenue durant le traitement de distribution.");
+        }
     }
 }
 
@@ -4108,11 +4116,15 @@ async function saveAutoCloseSettings() {
 async function checkAutoCloseTrigger() {
     if (!autoCloseConfig || !autoCloseConfig.enabled) return;
 
+    // L'exécution automatique requiert la session d'un administrateur connecté (sécurité d'écriture Supabase)
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || session.user.email !== ADMIN_EMAIL) return; 
+
     const pendingCountEl = document.getElementById('weekly-pending-proofs-count');
     if (!pendingCountEl) return;
 
     const pendingCount = parseInt(pendingCountEl.innerText, 10) || 0;
-    if (pendingCount === 0) return; // Aucun point approuvé en attente, inutile de clôturer
+    if (pendingCount === 0) return; // Aucun point approuvé en attente de distribution
 
     const now = new Date();
     const currentDay = now.getDay(); // 0: Dimanche, 1: Lundi...
@@ -4121,7 +4133,6 @@ async function checkAutoCloseTrigger() {
 
     let isPastTrigger = false;
 
-    // Détermination si le jour ciblé est dépassé
     if (currentDay > targetDay) {
         isPastTrigger = true;
     } else if (currentDay === targetDay) {
@@ -4131,25 +4142,12 @@ async function checkAutoCloseTrigger() {
             isPastTrigger = true;
         }
     } else if (currentDay === 0 && targetDay !== 0) {
-        // Le dimanche (0) est après les autres jours de la semaine
         isPastTrigger = true;
     }
 
     if (isPastTrigger) {
-        // Empêche de harceler l'administrateur à chaque clic durant sa session en utilisant sessionStorage
-        const alreadyPrompted = sessionStorage.getItem('autoclose_prompted_this_session');
-        if (!alreadyPrompted) {
-            sessionStorage.setItem('autoclose_prompted_this_session', 'true');
-            
-            const jourLibelles = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-            const targetDayName = jourLibelles[targetDay];
-
-            const message = `L'heure programmée pour la clôture automatique (${targetDayName} à ${autoCloseConfig.time}) est dépassée.\n\nIl y a actuellement ${pendingCount} preuves en attente de distribution.\n\nVoulez-vous procéder à la distribution des points et clôturer la semaine de guilde maintenant ?`;
-            
-            if (await showCustomConfirm(message, "Clôture Hebdomadaire Programmée")) {
-                await distributeWeeklyPoints();
-            }
-        }
+        console.log("Échéance de clôture hebdomadaire atteinte. Lancement silencieux de la distribution...");
+        await distributeWeeklyPoints(true); // Lancement silencieux direct (isSilent = true)
     }
 }
 
