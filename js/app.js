@@ -2521,67 +2521,8 @@ async function loadDashboardData() {
         renderTeamMaker();
 
     } catch (err) {
-        console.error("Accès refusé au Dashboard :", err);
-        switchView('login');
-    }
-}
-
-// Attribution des points d'activité d'une équipe par l'admin
-async function validateEvent(teamId) {
-    const team = teamsData.find(t => t.id === teamId);
-    if (!team) return;
-
-    let defaultPoints = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
-
-    const ptsInput = await showCustomPrompt("Saisissez la valeur de points d'activité à accorder aux membres sélectionnés :", defaultPoints, "Distribuer des points");
-    if (ptsInput === null) return; // Saisie annulée
-    
-    const points = parseInt(ptsInput, 10);
-
-    if (isNaN(points) || points <= 0) {
-        alert("Valeur saisie invalide.");
-        return;
-    }
-
-    if (await showCustomConfirm(`Vous allez distribuer définitivement +${points} points aux participants. Continuer ?`, "Confirmation de distribution")) {
-        let assignedPlayers = [];
-        if (team.motif === "Raid") {
-            if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
-            if (team.playersB) assignedPlayers = assignedPlayers.concat(team.playersB);
-        } else {
-            if (team.players) assignedPlayers = assignedPlayers.concat(team.players);
-        }
-
-        assignedPlayers = assignedPlayers.filter(p => p && p !== "");
-
-        if (assignedPlayers.length === 0) {
-            alert("Aucun joueur assigné.");
-            return;
-        }
-
-        try {
-            const updates = assignedPlayers
-                .map(name => allDatabaseMembers.find(m => (m.character_name || m.email) === name))
-                .filter(dbMember => dbMember !== undefined)
-                .map(dbMember => {
-                    const currentPoints = dbMember.points || 0;
-                    return supabaseClient
-                        .from('member_profiles')
-                        .update({ points: currentPoints + points })
-                        .eq('id', dbMember.id);
-                });
-
-            await Promise.all(updates);
-
-            team.validated = true;
-            team.distributedPoints = points;
-            await saveTeamsState();
-
-            alert(`Succès ! +${points} points distribués.`);
-            loadDashboardData();
-        } catch (err) {
-            console.error(err);
-        }
+        console.error("Erreur lors du chargement du Dashboard (les détails de l'anomalie sont visibles ci-dessus) :", err);
+        // Redirection désactivée en cas d'erreur de rendu pour vous permettre d'ouvrir la console F12 et d'identifier la ligne en faute.
     }
 }
 
