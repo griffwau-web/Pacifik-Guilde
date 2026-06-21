@@ -1845,7 +1845,8 @@ async function loadMembersViewData() {
                         displayPoints = Math.round(calculatedBase / 2);
                         penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif < 50% : ${participantCount}/12 joueurs)</span>`;
                     }
-                } else {
+                } else if (team.motif !== "Boss de guilde") { 
+                    // Exclure le Boss de guilde du message d'avertissement de pénalité
                     if (participantCount < 3) {
                         displayPoints = Math.round(calculatedBase / 2);
                         penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif < 50% : ${participantCount}/6 joueurs)</span>`;
@@ -3975,6 +3976,11 @@ function showCustomPrompt(message, defaultValue = "", title = "Saisie") {
 function getCalculatedTeamPoints(team) {
     const basePoints = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
     
+    // Si l'activité est un Boss de guilde, aucun malus n'est appliqué
+    if (team.motif === "Boss de guilde") {
+        return basePoints;
+    }
+
     let participantCount = 0;
     if (team.motif === "Raid") {
         const playersA = team.playersA ? team.playersA.filter(p => p && p !== "") : [];
