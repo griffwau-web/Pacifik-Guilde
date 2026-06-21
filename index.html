@@ -658,38 +658,6 @@
                                 <!-- Rempli dynamiquement en JS -->
                             </div>
                         </div>
-        
-                        <!-- Paramètres de Planification de la Clôture Automatique -->
-                        <div class="border-t border-[#1e2638] pt-4 mt-4 space-y-3">
-                            <div class="flex flex-wrap items-center justify-between gap-3">
-                                <div class="text-left">
-                                    <span class="block text-[11px] text-slate-400 uppercase font-bold tracking-wider select-none">Planification de la Clôture :</span>
-                                    <p class="text-[10px] text-slate-500 leading-tight">Sauvegarde automatique des réglages sur le cloud de la guilde.</p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <span id="auto-close-status-label" class="text-[10px] text-slate-500 italic">Désactivé</span>
-                                    <button onclick="toggleAutoCloseConfig()" id="btn-toggle-autoclose" class="bg-red-950/40 border border-red-900/30 text-red-400 font-semibold px-2.5 py-1.5 rounded-lg text-xs transition duration-150 flex items-center gap-1.5">
-                                        <i data-lucide="toggle-left" class="w-4 h-4"></i> Auto-clôture OFF
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="autoclose-config-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#0b0e14]/30 p-3 rounded-xl border border-[#1e2638] text-left">
-                                <div>
-                                    <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Jour d'envoi automatique</label>
-                                    <select id="autoclose-day" onchange="saveAutoCloseSettings()" class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-2 py-1.5 text-slate-100 outline-none text-xs transition">
-                                        <option value="1">Lundi</option>
-                                        <option value="2">Mardi</option>
-                                        <option value="3">Mercredi</option>
-                                        <option value="4">Jeudi</option>
-                                        <option value="5">Vendredi</option>
-                                        <option value="6">Samedi</option>
-                                        <option value="0">Dimanche</option>
-                                    </select>
-                                </div>
-                                <div>
-                            <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Heure de clôture</label>
-                            <input type="time" id="autoclose-time" onchange="saveAutoCloseSettings()" class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-2 py-1.5 text-slate-100 outline-none text-xs transition">
-                        </div>
                     </div>
                 </div>
                     </div>
