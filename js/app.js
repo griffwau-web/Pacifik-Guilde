@@ -2203,6 +2203,9 @@ async function loadMembersViewData() {
             }).join('');
         }
     }
+    // NOUVEAU : Rendu du planning hebdomadaire de guilde pour le membre connecté
+    renderWeeklyCalendar(session.user);
+    
     lucide.createIcons();
 }
 
@@ -4059,3 +4062,114 @@ async function saveWeeklyVideo() {
         }
     }
 }
+
+// Analyse et affiche le calendrier hebdomadaire (Jeudi-Mercredi) personnalisé par membre
+function renderWeeklyCalendar(sessionUser) {
+    const container = document.getElementById('calendar-grid-container');
+    if (!container) return;
+
+    // Trouver l'identité du membre connecté
+    const myProfile = allDatabaseMembers.find(m => m.id === sessionUser.id);
+    const displayName = myProfile ? (myProfile.character_name || myProfile.email) : sessionUser.email;
+
+    // Récupérer la plage du cycle de la semaine de guilde en cours (Jeudi au Mercredi)
+    const { start } = getGuildWeekRange(new Date());
+    
+    // Générer un tableau des 7 jours du cycle
+    const daysArray = [];
+    for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(start);
+        dayDate.setDate(start.getDate() + i);
+        daysArray.push(dayDate);
+    }
+
+    const dayLabels = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+
+    container.innerHTML = daysArray.map(dayDate => {
+        const dayNum = dayDate.getDay();
+        const dayLabel = dayLabels[dayNum];
+        const dateStr = dayDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+        
+        // Extraction locale sécurisée (Y-M-D) pour éviter les décalages de fuseau horaire
+        const y = dayDate.getFullYear();
+        const m = String(dayDate.getMonth() + 1).padStart(2, '0');
+        const d = String(dayDate.getDate()).padStart(2, '0');
+        const compDateStr = `${y}-${m}-${d}`;
+
+        // Filtrer les activités prévues ce jour-là et applicables au membre
+        const dayEvents = teamsData.filter(team => {
+            if (!team.date) return false;
+            const eventDateStr = team.date.split(' ')[0]; // Récupère YYYY-MM-DD
+            if (eventDateStr !== compDateStr) return false;
+
+            // Règle de visibilité :
+            // - Pas encore validé -> Visible par tout le monde pour inscription
+            // - Validé par l'admin -> Seuls les membres de la composition le voient
+            if (!team.composition_validated && !team.validated) {
+                return true;
+            }
+            return isPlayerAssignedToTeam(displayName, team.id);
+        });
+
+        // Générer les icônes d'activités pour ce jour
+        let eventsHtml = "";
+        if (dayEvents.length > 0) {
+            eventsHtml = dayEvents.map(ev => {
+                let iconName = "shield";
+                let iconColorClass = "text-purple-400 bg-purple-500/10 border-purple-500/20";
+                let titleLabel = ev.name;
+
+                if (ev.motif === "PVP") {
+                    iconName = "swords";
+                    iconColorClass = "text-purple-400 bg-purple-500/10 border-purple-500/20";
+                } else if (ev.motif === "Boss de guilde") {
+                    iconName = "crown";
+                    iconColorClass = "text-amber-400 bg-amber-500/10 border-amber-500/20";
+                } else if (ev.motif === "Épreuve dimensionnelle") {
+                    iconName = "compass";
+                    iconColorClass = "text-cyan-400 bg-cyan-500/10 border-cyan-500/20";
+                    if (ev.dimensionalTier) titleLabel += ` (${ev.dimensionalTier})`;
+                } else if (ev.motif === "Raid") {
+                    iconName = "flame";
+                    iconColorClass = "text-pink-400 bg-pink-500/10 border-pink-500/20";
+                    if (ev.raidDifficulty) titleLabel += ` (${ev.raidDifficulty})`;
+                }
+
+                // Heure de l'activité
+                let timeStr = "";
+                if (ev.date && ev.date.includes(' ')) {
+                    timeStr = " - " + ev.date.split(' ')[1];
+                }
+
+                return `
+                    <div class="flex items-center justify-center p-2 rounded-lg border ${iconColorClass} text-xs font-semibold shrink-0 cursor-help" title="${titleLabel}${timeStr}">
+                        <i data-lucide="${iconName}" class="w-4 h-4"></i>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            eventsHtml = `<span class="text-[10px] text-slate-600 italic select-none">Aucun</span>`;
+        }
+
+        // Identifier le jour actuel
+        const isToday = new Date().toDateString() === dayDate.toDateString();
+        const todayBgClass = isToday 
+            ? "bg-blue-600/10 border-blue-500/40" 
+            : "bg-[#0b0e14]/40 border-[#1e2638]";
+
+        return `
+            <div class="p-3.5 rounded-xl border ${todayBgClass} flex flex-col items-center gap-2.5 transition hover:border-[#252f44]">
+                <div class="text-center">
+                    <span class="block text-[11px] font-bold ${isToday ? 'text-blue-400 font-extrabold' : 'text-slate-400'} uppercase tracking-wide">${dayLabel}</span>
+                    <span class="block text-xs font-semibold text-slate-500 mt-0.5">${dateStr}</span>
+                </div>
+                <div class="w-full flex flex-wrap justify-center items-center gap-1.5 border-t border-[#1e2638]/40 pt-2.5 min-h-[44px]">
+                    ${eventsHtml}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    lucide.createIcons();
+}
+
