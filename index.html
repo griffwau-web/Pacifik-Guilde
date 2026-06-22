@@ -353,15 +353,51 @@
                 </div>
             </div>
 
-            <!-- NOUVEAU BLOC : PLANNING HEBDOMADAIRE DE GUILDE -->
+            <!-- PLANNING HEBDOMADAIRE DE GUILDE -->
             <div id="member-weekly-calendar" class="bg-[#111622] border border-[#1e2638] rounded-2xl p-5 shadow-xl space-y-4">
-                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-[#1e2638] pb-2 select-none">
-                    <i data-lucide="calendar" class="w-4 h-4 text-blue-400"></i>
-                    Planning Hebdomadaire de Guilde
-                </h3>
+                <div class="flex justify-between items-center border-b border-[#1e2638] pb-2">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 select-none">
+                        <i data-lucide="calendar" class="w-4 h-4 text-blue-400"></i>
+                        Planning Hebdomadaire de Guilde
+                    </h3>
+                </div>
+                
                 <!-- Grille du calendrier (7 colonnes adaptées au cycle Jeudi-Mercredi) -->
                 <div id="calendar-grid-container" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                     <!-- Rempli dynamiquement par JS -->
+                </div>
+
+                <!-- Légende des Icônes d'activités -->
+                <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-3 border-t border-[#1e2638]/40 text-[10px] text-slate-400 select-none">
+                    <span class="font-semibold text-[9px] uppercase tracking-wider text-slate-500">Légende :</span>
+                    
+                    <div class="flex items-center gap-2">
+                        <span class="p-1 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 inline-flex items-center justify-center shrink-0">
+                            <i data-lucide="swords" class="w-3.5 h-3.5"></i>
+                        </span>
+                        <span>PVP</span>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                        <span class="p-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 inline-flex items-center justify-center shrink-0">
+                            <i data-lucide="crown" class="w-3.5 h-3.5"></i>
+                        </span>
+                        <span>Boss de guilde</span>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                        <span class="p-1 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 inline-flex items-center justify-center shrink-0">
+                            <i data-lucide="compass" class="w-3.5 h-3.5"></i>
+                        </span>
+                        <span>Épreuve dimensionnelle</span>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                        <span class="p-1 rounded bg-pink-500/10 text-pink-400 border border-pink-500/20 inline-flex items-center justify-center shrink-0">
+                            <i data-lucide="flame" class="w-3.5 h-3.5"></i>
+                        </span>
+                        <span>Raid</span>
+                    </div>
                 </div>
             </div>
 
@@ -1057,5 +1093,6 @@
     <script src="js/app.js"></script>
 </body>
 </html>
+
 
 
