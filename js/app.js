@@ -1406,6 +1406,15 @@ async function applyToEvent(teamId, role) {
             }
         }
 
+        // NOUVEAU : Contrôle d'inscription unique pour chaque difficulté de Raid par semaine
+        if (team.motif === "Raid") {
+            const diff = team.raidDifficulty || "Raid Normal";
+            if (isPlayerLockedOutFromRaid(displayName, teamId, diff)) {
+                alert(`Candidature impossible : Vous êtes déjà retenu dans la composition d'un autre ${diff} pour la semaine du ${formatEventDate(team.date)}.`);
+                return;
+            }
+        }
+
         if (!team.applications) {
             team.applications = [];
         }
@@ -2792,6 +2801,15 @@ async function dropToRaidGroup(event, teamId, groupLetter) {
                 return;
             }
 
+            // NOUVEAU : Contrôle de double assignation sur la même semaine pour la même difficulté
+            if (team.motif === "Raid") {
+                const diff = team.raidDifficulty || "Raid Normal";
+                if (isPlayerLockedOutFromRaid(playerName, teamId, diff)) {
+                    alert(`Action impossible : ${playerName} est déjà assigné à un autre ${diff} durant cette même semaine de guilde.`);
+                    return;
+                }
+            }
+
             const groupKey = groupLetter === 'A' ? 'playersA' : 'playersB';
             if (!team[groupKey]) team[groupKey] = [];
 
@@ -2811,7 +2829,6 @@ async function dropToRaidGroup(event, teamId, groupLetter) {
         console.error("Erreur dropToRaidGroup :", err);
     }
 }
-
 async function dropToPool(event, teamId) {
     event.preventDefault();
     try {
@@ -4173,3 +4190,29 @@ function renderWeeklyCalendar(sessionUser) {
     lucide.createIcons();
 }
 
+// Vérifie si un joueur est déjà verrouillé (lockout) pour une difficulté de raid donnée sur la semaine de l'activité cible
+function isPlayerLockedOutFromRaid(playerName, targetEventId, difficulty) {
+    const targetEvent = teamsData.find(t => t.id === targetEventId);
+    if (!targetEvent || targetEvent.motif !== "Raid" || !targetEvent.date) return false;
+
+    // Déterminer la semaine de guilde de l'activité cible (Jeudi au Mercredi)
+    const targetDate = new Date(targetEvent.date);
+    const { start, end } = getGuildWeekRange(targetDate);
+
+    // Parcourir toutes les autres activités de la même semaine
+    for (const team of teamsData) {
+        if (team.id === targetEventId) continue;
+        if (team.motif !== "Raid" || (team.raidDifficulty || "Raid Normal") !== difficulty) continue;
+        if (!team.date) continue;
+
+        const teamDate = new Date(team.date);
+        // Si l'activité tombe dans la même semaine
+        if (teamDate >= start && teamDate <= end) {
+            // Et si le joueur est déjà assigné (fait partie de l'effectif)
+            if (isPlayerAssignedToTeam(playerName, team.id)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
