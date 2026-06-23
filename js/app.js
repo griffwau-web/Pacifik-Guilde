@@ -4020,18 +4020,31 @@ function updateWeeklyVideoUI(url) {
     
     if (videoCard && iframe) {
         if (youtubeId) {
-            iframe.src = `https://www.youtube.com/embed/${youtubeId}`;
+            // Extraire l'ID unique de la vidéo actuellement en cours de lecture dans l'Iframe
+            const currentIframeId = getYouTubeId(iframe.src);
+            
+            // COMPARAISON SÉCURISÉE : N'actualiser l'Iframe que si l'ID de la vidéo cible est DIFFÉRENT.
+            // Si le même ID tourne (même si YouTube y a ajouté des paramètres de tracking en lecture),
+            // on ne touche pas au .src afin d'éviter toute coupure ou réinitialisation de la vidéo.
+            if (currentIframeId !== youtubeId) {
+                iframe.src = `https://www.youtube.com/embed/${youtubeId}`;
+            }
             videoCard.classList.remove('hidden');
         } else {
-            iframe.src = "";
+            if (iframe.src !== "") {
+                iframe.src = "";
+            }
             videoCard.classList.add('hidden');
         }
     }
 
-    // Partie Dashboard (Pré-remplissage du champ de saisie de l'admin)
+    // Partie Dashboard (pour pré-remplir le champ de saisie de l'admin)
     const adminInput = document.getElementById('admin-weekly-video-url');
     if (adminInput && url !== undefined) {
-        adminInput.value = url;
+        // Évite d'écraser la saisie en cours de l'administrateur
+        if (adminInput.value !== url) {
+            adminInput.value = url;
+        }
     }
 }
 
