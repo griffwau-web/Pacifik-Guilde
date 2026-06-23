@@ -1406,15 +1406,6 @@ async function applyToEvent(teamId, role) {
             }
         }
 
-        // NOUVEAU : Contrôle d'inscription unique pour chaque difficulté de Raid par semaine
-        if (team.motif === "Raid") {
-            const diff = team.raidDifficulty || "Raid Normal";
-            if (isPlayerLockedOutFromRaid(displayName, teamId, diff)) {
-                alert(`Candidature impossible : Vous êtes déjà retenu dans la composition d'un autre ${diff} pour la semaine du ${formatEventDate(team.date)}.`);
-                return;
-            }
-        }
-
         if (!team.applications) {
             team.applications = [];
         }
@@ -2230,7 +2221,7 @@ async function loadDashboardData() {
             .order('email');
 
         if (membersError) throw membersError;
-        allDatabaseMembers = members; // Alimentation globale immédiate
+        allDatabaseMembers = members; 
 
         // 2. Calcul et affichage du cycle de la semaine de guilde (Jeudi au Mercredi)
         const { start, end } = getGuildWeekRange(new Date());
@@ -2246,14 +2237,13 @@ async function loadDashboardData() {
         let pendingProofsCount = 0;
         let pendingPointsTotal = 0;
 
-        // Regrouper les activités approuvées de la semaine par joueur pour le calcul exact
-        const playerPendingActivities = {}; // Structure : { "NomJoueur": [ { team, proof } ] }
+        // Regrouper les activités approuvées de la semaine par joueur
+        const playerPendingActivities = {}; 
 
         teamsData.forEach(team => {
             let hasApprovedProof = false;
             let approvedProofObj = null;
 
-            // On vérifie s'il y a au moins une preuve approuvée pour cette équipe
             if (team.proofs) {
                 Object.entries(team.proofs).forEach(([playerName, proof]) => {
                     if (proof.status === "approved") {
@@ -2263,11 +2253,9 @@ async function loadDashboardData() {
                 });
             }
 
-            // Si l'équipe a une preuve approuvée, tous les inscrits reçoivent les points
             if (hasApprovedProof) {
-                pendingProofsCount++; // On compte une preuve collective pour l'activité
+                pendingProofsCount++;
 
-                // Récupération de la composition complète
                 let assignedPlayers = [];
                 if (team.motif === "Raid") {
                     if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
@@ -2277,7 +2265,6 @@ async function loadDashboardData() {
                 }
                 assignedPlayers = assignedPlayers.filter(p => p && p !== "");
 
-                // Assigner l'activité approuvée à chaque membre de la composition
                 assignedPlayers.forEach(playerName => {
                     if (!playerPendingActivities[playerName]) {
                         playerPendingActivities[playerName] = [];
@@ -2287,29 +2274,42 @@ async function loadDashboardData() {
             }
         });
 
-        // Calcul exact des points cumulés en attente par joueur
+        // Calcul exact des points cumulés en attente par joueur avec dédoublonnage (Limitation d'un seul raid par difficulté par semaine)
         const playerPointsMap = {};
         Object.entries(playerPendingActivities).forEach(([playerName, activities]) => {
-            let weeklyHighestTierNum = 0;
-            let highestTierPoints = 0;
-            let nonDimensionalPoints = 0;
+            let highestDimensionalTier = 0;
+            let highestDimensionalPoints = 0;
+            
+            const raidMaxPoints = {
+                "Raid Normal": 0,
+                "Raid Hardcore": 0,
+                "Raid Nightmare": 0
+            };
+
+            let otherActivitiesPoints = 0; // PVP, Boss de guilde, etc.
 
             activities.forEach(({ team }) => {
-                const realPoints = getCalculatedTeamPoints(team);
+                const pts = getCalculatedTeamPoints(team);
                 if (team.motif === "Épreuve dimensionnelle") {
                     const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
                     const tierNum = match ? parseInt(match[0], 10) : 0;
-                    
-                    if (tierNum > weeklyHighestTierNum) {
-                        weeklyHighestTierNum = tierNum;
-                        highestTierPoints = realPoints;
+                    if (tierNum > highestDimensionalTier) {
+                        highestDimensionalTier = tierNum;
+                        highestDimensionalPoints = pts;
+                    }
+                } else if (team.motif === "Raid") {
+                    const diff = team.raidDifficulty || "Raid Normal";
+                    if (pts > raidMaxPoints[diff]) {
+                        raidMaxPoints[diff] = pts; // Conserve uniquement le score maximal de cette difficulté
                     }
                 } else {
-                    nonDimensionalPoints += realPoints;
+                    otherActivitiesPoints += pts;
                 }
             });
 
-            const totalPoints = nonDimensionalPoints + highestTierPoints;
+            const totalRaidPoints = Object.values(raidMaxPoints).reduce((sum, val) => sum + val, 0);
+            const totalPoints = otherActivitiesPoints + highestDimensionalPoints + totalRaidPoints;
+            
             playerPointsMap[playerName] = totalPoints;
             pendingPointsTotal += totalPoints;
         });
@@ -2552,7 +2552,6 @@ async function loadDashboardData() {
 
     } catch (err) {
         console.error("Erreur lors du chargement du Dashboard (les détails de l'anomalie sont visibles ci-dessus) :", err);
-        // Redirection désactivée en cas d'erreur de rendu pour vous permettre d'ouvrir la console F12 et d'identifier la ligne en faute.
     }
 }
 
@@ -2801,15 +2800,6 @@ async function dropToRaidGroup(event, teamId, groupLetter) {
                 return;
             }
 
-            // NOUVEAU : Contrôle de double assignation sur la même semaine pour la même difficulté
-            if (team.motif === "Raid") {
-                const diff = team.raidDifficulty || "Raid Normal";
-                if (isPlayerLockedOutFromRaid(playerName, teamId, diff)) {
-                    alert(`Action impossible : ${playerName} est déjà assigné à un autre ${diff} durant cette même semaine de guilde.`);
-                    return;
-                }
-            }
-
             const groupKey = groupLetter === 'A' ? 'playersA' : 'playersB';
             if (!team[groupKey]) team[groupKey] = [];
 
@@ -2829,6 +2819,7 @@ async function dropToRaidGroup(event, teamId, groupLetter) {
         console.error("Erreur dropToRaidGroup :", err);
     }
 }
+
 async function dropToPool(event, teamId) {
     event.preventDefault();
     try {
@@ -3595,7 +3586,6 @@ async function submitEventProofFile(teamId, fileInputId) {
 
 // Clôture et distribution groupée de tous les points approuvés de la semaine
 async function distributeWeeklyPoints(isSilent = false) {
-    // Si ce n'est pas silencieux, on demande la confirmation manuelle habituelle
     if (!isSilent) {
         if (!(await showCustomConfirm("Voulez-vous procéder à la distribution de tous les points approuvés ? Cette action mettra à jour définitivement le solde des membres actifs.", "Clôturer la semaine"))) {
             return;
@@ -3653,16 +3643,23 @@ async function distributeWeeklyPoints(isSilent = false) {
         return;
     }
 
-    // 2. Traiter chaque joueur (règle du plus haut palier d'épreuve)
+    // 2. Traiter chaque joueur (avec dédoublonnage des épreuves et des raids de même difficulté)
     playersToProcess.forEach(playerName => {
-        let weeklyHighestTierNum = 0;
-        let highestTierTeam = null;
-        let highestTierProof = null;
-        let nonDimensionalPoints = 0;
-
         const activities = playerApprovedActivities[playerName];
 
-        activities.forEach(({ team, proof }) => {
+        let highestDimensionalTier = 0;
+        let highestDimensionalPoints = 0;
+
+        const raidMaxPoints = {
+            "Raid Normal": 0,
+            "Raid Hardcore": 0,
+            "Raid Nightmare": 0
+        };
+
+        let otherActivitiesPoints = 0;
+
+        activities.forEach(({ team }) => {
+            const pts = getCalculatedTeamPoints(team);
             if (team.motif === "Épreuve dimensionnelle") {
                 const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
                 const tierNum = match ? parseInt(match[0], 10) : 0;
@@ -3673,20 +3670,18 @@ async function distributeWeeklyPoints(isSilent = false) {
                     highestTierProof = proof;
                 }
                 proof.points = 0;
+            } else if (team.motif === "Raid") {
+                const diff = team.raidDifficulty || "Raid Normal";
+                if (pts > raidMaxPoints[diff]) {
+                    raidMaxPoints[diff] = pts;
+                }
             } else {
-                const pts = getCalculatedTeamPoints(team);
-                nonDimensionalPoints += pts;
-                proof.points = pts;
+                otherActivitiesPoints += pts;
             }
         });
 
-        let dimensionalPointsToAward = 0;
-        if (weeklyHighestTierNum > 0 && highestTierTeam && highestTierProof) {
-            dimensionalPointsToAward = getCalculatedTeamPoints(highestTierTeam);
-            highestTierProof.points = dimensionalPointsToAward;
-        }
-
-        approvedPointsByPlayer[playerName] = nonDimensionalPoints + dimensionalPointsToAward;
+        const totalRaidPoints = Object.values(raidMaxPoints).reduce((sum, val) => sum + val, 0);
+        approvedPointsByPlayer[playerName] = otherActivitiesPoints + highestDimensionalPoints + totalRaidPoints;
     });
 
     try {
@@ -3717,10 +3712,9 @@ async function distributeWeeklyPoints(isSilent = false) {
             }
         }
 
-        // 5. NOUVEAU : Suppression automatique des équipes validées de teamsData
+        // 5. Suppression automatique des équipes validées de teamsData
         const teamsToKeep = teamsData.filter(team => {
             if (team.composition_validated && !team.validated) {
-                // Une équipe est considérée comme traitée si elle possède au moins une preuve en attente/approuvée
                 const hasApproved = team.proofs && Object.values(team.proofs).some(p => p.status === "approved" || p.status === "distributed");
                 if (hasApproved) {
                     return false; // Supprimée automatiquement du fichier de sauvegarde
@@ -3747,7 +3741,6 @@ async function distributeWeeklyPoints(isSilent = false) {
         }
     }
 }
-
 // Validation de la composition de l'équipe par l'administrateur
 async function validateTeamComposition(teamId) {
     if (!(await showCustomConfirm("Voulez-vous valider la composition de cette équipe ? Les inscriptions seront verrouillées et les membres pourront déposer leurs preuves.", "Valider la composition"))) {
@@ -4183,31 +4176,4 @@ function renderWeeklyCalendar(sessionUser) {
     }).join('');
 
     lucide.createIcons();
-}
-
-// Vérifie si un joueur est déjà verrouillé (lockout) pour une difficulté de raid donnée sur la semaine de l'activité cible
-function isPlayerLockedOutFromRaid(playerName, targetEventId, difficulty) {
-    const targetEvent = teamsData.find(t => t.id === targetEventId);
-    if (!targetEvent || targetEvent.motif !== "Raid" || !targetEvent.date) return false;
-
-    // Déterminer la semaine de guilde de l'activité cible (Jeudi au Mercredi)
-    const targetDate = new Date(targetEvent.date);
-    const { start, end } = getGuildWeekRange(targetDate);
-
-    // Parcourir toutes les autres activités de la même semaine
-    for (const team of teamsData) {
-        if (team.id === targetEventId) continue;
-        if (team.motif !== "Raid" || (team.raidDifficulty || "Raid Normal") !== difficulty) continue;
-        if (!team.date) continue;
-
-        const teamDate = new Date(team.date);
-        // Si l'activité tombe dans la même semaine
-        if (teamDate >= start && teamDate <= end) {
-            // Et si le joueur est déjà assigné (fait partie de l'effectif)
-            if (isPlayerAssignedToTeam(playerName, team.id)) {
-                return true;
-            }
-        }
-    }
-    return false;
 }
