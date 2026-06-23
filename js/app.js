@@ -3717,31 +3717,26 @@ async function distributeWeeklyPoints(isSilent = false) {
             }
         }
 
-        // 5. Mettre à jour l'historique local de l'activité
-        proofsToUpdate.forEach(({ teamId, playerName }) => {
-            const team = teamsData.find(t => t.id === teamId);
-            if (team && team.proofs && team.proofs[playerName]) {
-                team.proofs[playerName].status = "distributed";
-                delete team.proofs[playerName].storagePath;
-            }
-        });
-
-        teamsData.forEach(team => {
+        // 5. NOUVEAU : Suppression automatique des équipes validées de teamsData
+        const teamsToKeep = teamsData.filter(team => {
             if (team.composition_validated && !team.validated) {
-                const hasDistributed = team.proofs && Object.values(team.proofs).some(p => p.status === "distributed");
-                if (hasDistributed) {
-                    team.validated = true;
-                    team.distributedPoints = getCalculatedTeamPoints(team);
+                // Une équipe est considérée comme traitée si elle possède au moins une preuve en attente/approuvée
+                const hasApproved = team.proofs && Object.values(team.proofs).some(p => p.status === "approved" || p.status === "distributed");
+                if (hasApproved) {
+                    return false; // Supprimée automatiquement du fichier de sauvegarde
                 }
             }
+            return true; // Conservée
         });
+        
+        teamsData = teamsToKeep;
 
         await saveTeamsState();
         
         if (!isSilent) {
-            alert("La distribution hebdomadaire collective a été effectuée.");
+            alert("La distribution hebdomadaire collective a été effectuée. Les équipes terminées ont été archivées.");
         } else {
-            console.log("Clôture hebdomadaire automatique effectuée en arrière-plan avec succès.");
+            console.log("Clôture hebdomadaire automatique et archivage effectués avec succès.");
         }
         
         await loadDashboardData();
