@@ -113,6 +113,7 @@ function getWeaponIcon(weaponName) {
         "Lance": "spear.webp",
         "Arc": "bow.webp",
         "Grimoire": "wand.webp"
+        "Gantelet": "gauntlet.webp"
     };
     const filename = mapping[weaponName];
     if (filename) {
