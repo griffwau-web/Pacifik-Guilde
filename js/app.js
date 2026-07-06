@@ -497,6 +497,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     loadTeamsFromStorage();
     loadPointsConfig();
     
+    // NOUVEAU : Charger le statut du formulaire (ACTIF/FERMÉ) dès le démarrage
+    await loadFormStatus();
+
     flatpickrInstance = flatpickr("#event-date", {
         enableTime: true,
         dateFormat: "Y-m-d H:i",
@@ -566,9 +569,15 @@ window.addEventListener('DOMContentLoaded', async () => {
                 const urlParams = new URLSearchParams(window.location.search);
                 const inviteToken = urlParams.get('invite');
                 if (inviteToken) {
+                    // Redirige directement vers la vue d'inscription
                     verifyAndShowInvite(inviteToken);
                 } else {
-                    switchView('form');
+                    // NOUVEAU : Si le formulaire est fermé, on redirige directement vers l'écran de connexion
+                    if (isFormActive) {
+                        switchView('form');
+                    } else {
+                        switchView('login');
+                    }
                 }
             }
         });
@@ -664,6 +673,8 @@ async function toggleFormStatus() {
 function updateFormStatusUI() {
     const btnToggleForm = document.getElementById('btn-toggle-form');
     const navFormBtn = document.getElementById('nav-form');
+    const formClosedMessage = document.getElementById('form-closed-message');
+    const formContentContainer = document.getElementById('form-content-container');
 
     if (btnToggleForm) {
         if (isFormActive) {
@@ -687,10 +698,20 @@ function updateFormStatusUI() {
             }
         }
     }
+
+    // Gérer l'affichage du message de fermeture pour le public
+    if (formClosedMessage && formContentContainer) {
+        if (isFormActive) {
+            formClosedMessage.classList.add('hidden');
+            formContentContainer.classList.remove('hidden');
+        } else {
+            formClosedMessage.classList.remove('hidden');
+            formContentContainer.classList.add('hidden');
+        }
+    }
     lucide.createIcons();
 }
 
-// Lecture des configurations de points
 // Lecture des configurations de points depuis le cache
 function loadPointsConfig() {
     const stored = localStorage.getItem('lespacific_points_config');
@@ -1067,23 +1088,31 @@ async function handleInviteSignupSubmit(event) {
     const token = document.getElementById('invite-token-holder').value;
 
     try {
+        // Enregistrement avec option d'adresse de redirection après validation par e-mail
         const { data, error } = await supabaseClient.auth.signUp({
             email: email,
-            password: password
+            password: password,
+            options: {
+                emailRedirectTo: 'https://pacifik-guilde.vercel.app/' // URL de redirection de validation d'e-mail
+            }
         });
 
         if (error) throw error;
 
+        // Consommer le jeton d'invitation
         await supabaseClient
             .from('invitations')
             .update({ used: true })
             .eq('token', token);
 
-        alert("Votre compte membre a été créé avec succès.");
-        window.location.href = window.location.origin + window.location.pathname;
+        // Alerte explicite concernant la confirmation de l'e-mail
+        alert("Votre compte membre a été créé avec succès !\n\n⚠️ IMPORTANT : Un e-mail de confirmation vous a été envoyé. Vous devez impérativement cliquer sur le lien de validation contenu dans cet e-mail pour activer votre compte et pouvoir vous connecter.");
+        
+        // Rediriger vers la page de connexion
+        window.location.href = 'https://pacifik-guilde.vercel.app/';
     } catch (err) {
         console.error(err);
-        alert("Échec de la création du compte.");
+        alert("Échec de la création du compte. Veuillez vérifier vos informations ou contacter un administrateur.");
     }
 }
 
