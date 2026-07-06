@@ -565,63 +565,86 @@
                 <!-- DOUBLE COLONNE : BARÈMES & CRÉATION ENCHÈRES -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <!-- SECTION : CONFIGURATION DES POINTS D'ACTIVITÉ (SÉCURISÉE) -->
-                    <div class="bg-[#111622] border border-[#1e2638] rounded-xl p-5 shadow-lg space-y-4">
-                        <div class="flex flex-wrap justify-between items-center gap-4 border-b border-[#1e2638] pb-3">
-                            <div class="flex items-center gap-3">
-                                <div class="bg-blue-500/10 text-blue-400 p-2 rounded-lg">
-                                    <i data-lucide="settings" class="w-5 h-5"></i>
-                                </div>
-                                <div>
-                                    <h4 class="text-sm font-bold text-white uppercase tracking-wide">Barème des Points d'Activité</h4>
-                                    <p class="text-xs text-slate-400">Points par défaut lors de la validation d'activités.</p>
-                                </div>
-                            </div>
-                            <div class="flex gap-2">
-                                <button id="btn-edit-pts" onclick="enablePointsConfigEdit()" class="bg-[#161b26] hover:bg-[#1f2635] text-slate-300 border border-[#252f44] font-semibold px-4 py-2 rounded-lg text-xs transition flex items-center gap-1.5">
-                                    <i data-lucide="lock" class="w-3.5 h-3.5"></i> Modifier
-                                </button>
-                                <button id="btn-save-pts" onclick="savePointsConfig()" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-xs transition flex items-center gap-1.5">
-                                    <i data-lucide="save" class="w-3.5 h-3.5"></i> Valider
-                                </button>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div>
-                                <label class="block text-[11px] font-semibold mb-1 text-slate-400 uppercase">Épreuve Base (T1-T5)</label>
-                                <input type="number" id="config-pts-epreuve" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-3 py-2 text-slate-100 outline-none text-xs transition disabled:opacity-50">
+                <div class="bg-[#111622] border border-[#1e2638] rounded-xl p-5 shadow-lg space-y-4">
+                    <div class="flex flex-wrap justify-between items-center gap-4 border-b border-[#1e2638] pb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-blue-500/10 text-blue-400 p-2 rounded-lg">
+                                <i data-lucide="settings" class="w-5 h-5"></i>
                             </div>
                             <div>
-                                <label class="block text-[11px] font-semibold mb-1 text-slate-400 uppercase">PVP (6 joueurs)</label>
-                                <input type="number" id="config-pts-pvp" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-3 py-2 text-slate-100 outline-none text-xs transition disabled:opacity-50">
+                                <h4 class="text-sm font-bold text-white uppercase tracking-wide">Barème des Points d'Activité</h4>
+                                <p class="text-xs text-slate-400">Points par défaut lors de la validation d'activités.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="btn-edit-pts" onclick="enablePointsConfigEdit()" class="bg-[#161b26] hover:bg-[#1f2635] text-slate-300 border border-[#252f44] font-semibold px-4 py-2 rounded-lg text-xs transition flex items-center gap-1.5">
+                                <i data-lucide="lock" class="w-3.5 h-3.5"></i> Modifier
+                            </button>
+                            <button id="btn-save-pts" onclick="savePointsConfig()" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-xs transition flex items-center gap-1.5">
+                                <i data-lucide="save" class="w-3.5 h-3.5"></i> Valider
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- PVP & Boss de guilde -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[11px] font-semibold mb-1 text-slate-400 uppercase">PVP (6 joueurs)</label>
+                            <input type="number" id="config-pts-pvp" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-3 py-2 text-slate-100 outline-none text-xs transition disabled:opacity-50">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold mb-1 text-slate-400 uppercase">Boss de Guilde</label>
+                            <input type="number" id="config-pts-boss" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-3 py-2 text-slate-100 outline-none text-xs transition disabled:opacity-50">
+                        </div>
+                    </div>
+                    
+                    <!-- Raids Normal, Hardcore, Nightmare -->
+                    <div class="border-t border-[#1e2638] pt-3 mt-2">
+                        <span class="block text-[10px] text-slate-500 uppercase font-bold mb-3 tracking-wider">Points Spécifiques : Raids</span>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Raid Normal</label>
+                                <input type="number" id="config-pts-raid-normal" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-2 py-1.5 text-slate-100 outline-none text-xs transition disabled:opacity-50">
                             </div>
                             <div>
-                                <label class="block text-[11px] font-semibold mb-1 text-slate-400 uppercase">Boss de Guilde</label>
-                                <input type="number" id="config-pts-boss" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-3 py-2 text-slate-100 outline-none text-xs transition disabled:opacity-50">
+                                <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Raid Hardcore</label>
+                                <input type="number" id="config-pts-raid-hardcore" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-2 py-1.5 text-slate-100 outline-none text-xs transition disabled:opacity-50">
+                            </div>
+                            <div>
+                                <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Raid Nightmare</label>
+                                <input type="number" id="config-pts-raid-nightmare" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-2 py-1.5 text-slate-100 outline-none text-xs transition disabled:opacity-50">
                             </div>
                         </div>
-                        
-                        <!-- Raids Normal, Hardcore, Nightmare -->
-                        <div class="border-t border-[#1e2638] pt-3 mt-2">
-                            <span class="block text-[10px] text-slate-500 uppercase font-bold mb-3 tracking-wider">Points Spécifiques : Raids</span>
-                            <div class="grid grid-cols-3 gap-2">
-                                <div>
-                                    <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Raid Normal</label>
-                                    <input type="number" id="config-pts-raid-normal" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-2 py-1.5 text-slate-100 outline-none text-xs transition disabled:opacity-50">
-                                </div>
-                                <div>
-                                    <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Raid Hardcore</label>
-                                    <input type="number" id="config-pts-raid-hardcore" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-2 py-1.5 text-slate-100 outline-none text-xs transition disabled:opacity-50">
-                                </div>
-                                <div>
-                                    <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Raid Nightmare</label>
-                                    <input type="number" id="config-pts-raid-nightmare" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-2 py-1.5 text-slate-100 outline-none text-xs transition disabled:opacity-50">
-                                </div>
-                            </div>
-                        </div>
+                    </div>
 
-                        <!-- Épreuves Dimensionnelles Tiers 6 à 10 -->
-                        <div class="border-t border-[#1e2638] pt-3 mt-2">
-                            <span class="block text-[10px] text-slate-500 uppercase font-bold mb-3 tracking-wider">Points Spécifiques : Épreuves T6 à T10</span>
+                    <!-- Épreuves Dimensionnelles Tiers 1 à 10 -->
+                    <div class="border-t border-[#1e2638] pt-3 mt-2">
+                        <span class="block text-[10px] text-slate-500 uppercase font-bold mb-3 tracking-wider">Points Spécifiques : Épreuves T1 à T10</span>
+                        <div class="space-y-3">
+                            <!-- Ligne 1 : Tiers 1 à 5 -->
+                            <div class="grid grid-cols-5 gap-2">
+                                <div>
+                                    <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Tier 1</label>
+                                    <input type="number" id="config-pts-epreuve-t1" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-2 py-1.5 text-slate-100 outline-none text-xs transition disabled:opacity-50">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Tier 2</label>
+                                    <input type="number" id="config-pts-epreuve-t2" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-2 py-1.5 text-slate-100 outline-none text-xs transition disabled:opacity-50">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Tier 3</label>
+                                    <input type="number" id="config-pts-epreuve-t3" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-2 py-1.5 text-slate-100 outline-none text-xs transition disabled:opacity-50">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Tier 4</label>
+                                    <input type="number" id="config-pts-epreuve-t4" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-2 py-1.5 text-slate-100 outline-none text-xs transition disabled:opacity-50">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Tier 5</label>
+                                    <input type="number" id="config-pts-epreuve-t5" disabled class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-2 py-1.5 text-slate-100 outline-none text-xs transition disabled:opacity-50">
+                                </div>
+                            </div>
+                            <!-- Ligne 2 : Tiers 6 à 10 -->
                             <div class="grid grid-cols-5 gap-2">
                                 <div>
                                     <label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Tier 6</label>
@@ -646,6 +669,7 @@
                             </div>
                         </div>
                     </div>
+                </div>
 
                     <!-- CRÉATION NOUVELLE ENCHÈRE (DKP) -->
                     <div class="bg-[#111622] border border-[#1e2638] rounded-xl p-5 shadow-lg space-y-4">
