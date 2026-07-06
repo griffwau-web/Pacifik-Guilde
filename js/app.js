@@ -34,14 +34,17 @@ let membersCurrentPage = 1;
 const membersPerPage = 10;
 
 // Configuration par défaut des barèmes de points d'activité
-// Configuration par défaut des barèmes de points d'activité
 let pointsConfig = {
     "PVP": 10,
     "Boss de guilde": 10,
     "Raid Normal": 15,
     "Raid Hardcore": 20,
     "Raid Nightmare": 25,
-    "Épreuve dimensionnelle": 0,
+    "Épreuve T1": 10,
+    "Épreuve T2": 10,
+    "Épreuve T3": 10,
+    "Épreuve T4": 10,
+    "Épreuve T5": 10,
     "Épreuve T6": 12,
     "Épreuve T7": 14,
     "Épreuve T8": 16,
@@ -82,12 +85,12 @@ function getActivityPointsValue(motif, dimensionalTier, raidDifficulty) {
             const match = dimensionalTier.match(/\d+/);
             if (match) {
                 const tierNum = parseInt(match[0], 10);
-                if (tierNum >= 6 && tierNum <= 10) {
-                    return pointsConfig[`Épreuve T${tierNum}`] ?? pointsConfig["Épreuve dimensionnelle"] ?? 10;
+                if (tierNum >= 1 && tierNum <= 10) {
+                    return pointsConfig[`Épreuve T${tierNum}`] ?? 10;
                 }
             }
         }
-        return pointsConfig["Épreuve dimensionnelle"] ?? 10; // Valeur par défaut pour T1 à T5
+        return 10; // Valeur par défaut
     }
     if (motif === "Raid") {
         if (raidDifficulty) {
@@ -720,8 +723,9 @@ function loadPointsConfig() {
     }
     applyPointsConfigToUI();
 }
+
+// Active la modification des champs du barème
 function enablePointsConfigEdit() {
-    document.getElementById('config-pts-epreuve').disabled = false;
     document.getElementById('config-pts-pvp').disabled = false;
     document.getElementById('config-pts-boss').disabled = false;
     
@@ -729,6 +733,11 @@ function enablePointsConfigEdit() {
     document.getElementById('config-pts-raid-hardcore').disabled = false;
     document.getElementById('config-pts-raid-nightmare').disabled = false;
     
+    document.getElementById('config-pts-epreuve-t1').disabled = false;
+    document.getElementById('config-pts-epreuve-t2').disabled = false;
+    document.getElementById('config-pts-epreuve-t3').disabled = false;
+    document.getElementById('config-pts-epreuve-t4').disabled = false;
+    document.getElementById('config-pts-epreuve-t5').disabled = false;
     document.getElementById('config-pts-epreuve-t6').disabled = false;
     document.getElementById('config-pts-epreuve-t7').disabled = false;
     document.getElementById('config-pts-epreuve-t8').disabled = false;
@@ -740,9 +749,7 @@ function enablePointsConfigEdit() {
 }
 
 // Sauvegarde les configurations de points dans le stockage local et sur Supabase
-// Sauvegarde les configurations de points dans le stockage local et sur Supabase
 async function savePointsConfig() {
-    pointsConfig["Épreuve dimensionnelle"] = parsePointsValue(document.getElementById('config-pts-epreuve').value, 10);
     pointsConfig["PVP"] = parsePointsValue(document.getElementById('config-pts-pvp').value, 10);
     pointsConfig["Boss de guilde"] = parsePointsValue(document.getElementById('config-pts-boss').value, 10);
     
@@ -750,6 +757,11 @@ async function savePointsConfig() {
     pointsConfig["Raid Hardcore"] = parsePointsValue(document.getElementById('config-pts-raid-hardcore').value, 20);
     pointsConfig["Raid Nightmare"] = parsePointsValue(document.getElementById('config-pts-raid-nightmare').value, 25);
     
+    pointsConfig["Épreuve T1"] = parsePointsValue(document.getElementById('config-pts-epreuve-t1').value, 10);
+    pointsConfig["Épreuve T2"] = parsePointsValue(document.getElementById('config-pts-epreuve-t2').value, 10);
+    pointsConfig["Épreuve T3"] = parsePointsValue(document.getElementById('config-pts-epreuve-t3').value, 10);
+    pointsConfig["Épreuve T4"] = parsePointsValue(document.getElementById('config-pts-epreuve-t4').value, 10);
+    pointsConfig["Épreuve T5"] = parsePointsValue(document.getElementById('config-pts-epreuve-t5').value, 10);
     pointsConfig["Épreuve T6"] = parsePointsValue(document.getElementById('config-pts-epreuve-t6').value, 12);
     pointsConfig["Épreuve T7"] = parsePointsValue(document.getElementById('config-pts-epreuve-t7').value, 14);
     pointsConfig["Épreuve T8"] = parsePointsValue(document.getElementById('config-pts-epreuve-t8').value, 16);
@@ -758,7 +770,6 @@ async function savePointsConfig() {
 
     localStorage.setItem('lespacific_points_config', JSON.stringify(pointsConfig));
 
-    document.getElementById('config-pts-epreuve').disabled = true;
     document.getElementById('config-pts-pvp').disabled = true;
     document.getElementById('config-pts-boss').disabled = true;
     
@@ -766,6 +777,11 @@ async function savePointsConfig() {
     document.getElementById('config-pts-raid-hardcore').disabled = true;
     document.getElementById('config-pts-raid-nightmare').disabled = true;
     
+    document.getElementById('config-pts-epreuve-t1').disabled = true;
+    document.getElementById('config-pts-epreuve-t2').disabled = true;
+    document.getElementById('config-pts-epreuve-t3').disabled = true;
+    document.getElementById('config-pts-epreuve-t4').disabled = true;
+    document.getElementById('config-pts-epreuve-t5').disabled = true;
     document.getElementById('config-pts-epreuve-t6').disabled = true;
     document.getElementById('config-pts-epreuve-t7').disabled = true;
     document.getElementById('config-pts-epreuve-t8').disabled = true;
@@ -786,8 +802,6 @@ async function savePointsConfig() {
             
             const settings = data && data.data ? data.data : {};
             settings.pointsConfig = pointsConfig;
-            settings.formActive = isFormActive;
-            settings.notificationsEnabled = notificationsEnabled;
 
             await supabaseClient
                 .from('guild_teams')
@@ -3833,10 +3847,9 @@ async function sendDiscordMemberCreationNotification(name, dateVal, motif, gsLim
 
 // Applique visuellement les valeurs du barème de points aux champs de saisie (Dashboard Admin)
 function applyPointsConfigToUI() {
-    const inputEpreuve = document.getElementById('config-pts-epreuve');
-    if (!inputEpreuve) return; // Permet de ne pas exécuter si on n'est pas sur le Dashboard Admin
+    const inputEpreuveT1 = document.getElementById('config-pts-epreuve-t1');
+    if (!inputEpreuveT1) return; // Permet de ne pas exécuter si on n'est pas sur le Dashboard Admin
 
-    inputEpreuve.value = pointsConfig["Épreuve dimensionnelle"] ?? 10;
     document.getElementById('config-pts-pvp').value = pointsConfig["PVP"] ?? 10;
     document.getElementById('config-pts-boss').value = pointsConfig["Boss de guilde"] ?? 10;
     
@@ -3844,6 +3857,11 @@ function applyPointsConfigToUI() {
     document.getElementById('config-pts-raid-hardcore').value = pointsConfig["Raid Hardcore"] ?? 20;
     document.getElementById('config-pts-raid-nightmare').value = pointsConfig["Raid Nightmare"] ?? 25;
     
+    document.getElementById('config-pts-epreuve-t1').value = pointsConfig["Épreuve T1"] ?? 10;
+    document.getElementById('config-pts-epreuve-t2').value = pointsConfig["Épreuve T2"] ?? 10;
+    document.getElementById('config-pts-epreuve-t3').value = pointsConfig["Épreuve T3"] ?? 10;
+    document.getElementById('config-pts-epreuve-t4').value = pointsConfig["Épreuve T4"] ?? 10;
+    document.getElementById('config-pts-epreuve-t5').value = pointsConfig["Épreuve T5"] ?? 10;
     document.getElementById('config-pts-epreuve-t6').value = pointsConfig["Épreuve T6"] ?? 12;
     document.getElementById('config-pts-epreuve-t7').value = pointsConfig["Épreuve T7"] ?? 14;
     document.getElementById('config-pts-epreuve-t8').value = pointsConfig["Épreuve T8"] ?? 16;
@@ -4027,7 +4045,6 @@ async function changeMembersPage(page) {
 // Récupère les points de base d'un palier d'épreuve dimensionnelle spécifique
 function getTierBasePoints(tier) {
     if (tier <= 0) return 0;
-    if (tier >= 1 && tier <= 5) return pointsConfig["Épreuve dimensionnelle"] ?? 10;
     return pointsConfig[`Épreuve T${tier}`] ?? 10;
 }
 
