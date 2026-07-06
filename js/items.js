@@ -1,19 +1,13 @@
 // BASE DE DONNÉES LOCALE DES ÉQUIPEMENTS DE THRONE AND LIBERTY (ÉPIQUE T2 & T3)
 const TL_ITEMS_DB = [
     // ==========================================
-    // --- ÉQUIPEMENTS ÉPIQUE T1 ---
+    // --- ARMES ---
     // ==========================================
-    // --- ARMES T1 ---
     { name: "Crocs de fureur de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "dagger",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/dagger_aa_t2_polymorph_001" },
     { name: "Toucher vulnérant de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "wand",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/wand_aa_t2_polymorph_001" },
     { name: "Œil omniscient de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "orb",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/orb_aa_t1_arch_001" },
     { name: "Arc de la mort hurlante de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "longbow",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/bow_aa_t1_nomal_002" },
     { name: "Lame martiale du désespoir de Tevent", rarity: "epic", tier: "T1", type: "weapon", icon: "greatsword",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/sword2h_aa_t2_polymorph_001" },
-
-    // ==========================================
-    // --- ÉQUIPEMENTS ÉPIQUE T2 ---
-    // ==========================================
-    // --- ARMES T2 ---
     { name: "Lame du givre éternel de Deluzhnoa", rarity: "epic", tier: "T2", type: "weapon", icon: "sword", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/deluzhnoas_edge_of_eternal_frost" },
     { name: "Lame-tempête de Daigon", rarity: "epic", tier: "T2", type: "weapon", icon: "sword", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/daigons_stormblade" },
     { name: "Épée du chevalier inébranlable", rarity: "epic", tier: "T2", type: "weapon", icon: "sword", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/unshakeable_knights_sword" },
@@ -50,6 +44,7 @@ const TL_ITEMS_DB = [
     { name: "Lame martiale incinératrice de Tevent", rarity: "epic", tier: "T2", type: "weapon", icon: "greatsword",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/sword2h_aa_t2_polymorph_002" },
     { name: "Arc de la mort brûlante de Tevent", rarity: "epic", tier: "T2", type: "weapon", icon: "longbow",questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/bow_aa_t1_nomal_009" },
 
+    
     // --- ARMURES T2 ---
     { name: "Barbute du courroux de l'oubli", rarity: "epic", tier: "T2", type: "armor", icon: "shield", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/barbute_of_wrath_of_oblivion" },
     { name: "Capuchon de la tempête transcendante", rarity: "epic", tier: "T2", type: "armor", icon: "shield", questlogUrl: "https://questlog.gg/throne-and-liberty/fr/db/item/transcendental_storm_hood" },
