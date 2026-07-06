@@ -112,8 +112,8 @@ function getWeaponIcon(weaponName) {
         "Orbe": "orb.webp",
         "Lance": "spear.webp",
         "Arc": "bow.webp",
-        "Grimoire": "wand.webp"
-        "Gantelet": "gauntlet.webp"
+        "Grimoire": "wand.webp",
+        "Gantelet": "gauntlet.webp" // Ajout de l'icône du Gantelet
     };
     const filename = mapping[weaponName];
     if (filename) {
