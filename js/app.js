@@ -2142,7 +2142,6 @@ async function loadMembersViewData() {
                                 <!-- Grille optimisée en 2 colonnes et 3 lignes pour un affichage aéré -->
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${slotsBHtml}</div>
                             </div>
-                            </div>
                         </div>
                         ${applicationsPanelHtml}
                         <div class="flex justify-between items-center text-[10px] text-slate-500 mt-2 border-t border-[#1e2638] pt-2">
