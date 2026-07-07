@@ -2152,7 +2152,8 @@ async function loadMembersViewData() {
                     }
                 }
 
-                for (let i = 0; i < 6; i++) {
+                const memberMaxSlots = team.motif === "Boss de guilde" ? Math.max(6, (team.players || []).length) : 6;
+                for (let i = 0; i < memberMaxSlots; i++) {
                     const playerName = team.players ? team.players[i] : null;
                     if (playerName) {
                         const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
@@ -2825,7 +2826,8 @@ async function dropToTeam(event, teamId) {
             if (!team.players) team.players = [];
             if (team.players.includes(playerName)) return;
 
-            if (team.players.length >= 6) {
+            // NOUVEAU : La limite de 6 joueurs ne s'applique pas au Boss de guilde (extensible à l'infini)
+            if (team.motif !== "Boss de guilde" && team.players.length >= 6) {
                 alert("Cette équipe est pleine.");
                 return;
             }
