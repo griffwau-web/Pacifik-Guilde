@@ -3785,18 +3785,40 @@ async function distributeWeeklyPoints(isSilent = false) {
         }
     }
 }
+
 // Validation de la composition de l'équipe par l'administrateur
 async function validateTeamComposition(teamId) {
+    const teamIndex = teamsData.findIndex(t => t.id === teamId);
+    if (teamIndex === -1) return;
+
+    const team = teamsData[teamIndex];
+
+    // Calcul du nombre de joueurs réellement affectés à la composition (hors postulants en attente)
+    let assignedCount = 0;
+    if (team.motif === "Raid") {
+        const playersA = team.playersA ? team.playersA.filter(p => p && p.trim() !== "") : [];
+        const playersB = team.playersB ? team.playersB.filter(p => p && p.trim() !== "") : [];
+        assignedCount = playersA.length + playersB.length;
+    } else {
+        const players = team.players ? team.players.filter(p => p && p.trim() !== "") : [];
+        assignedCount = players.length;
+    }
+
+    // Blocage de sécurité si aucun joueur n'est assigné à la composition
+    if (assignedCount === 0) {
+        alert("Validation impossible : Vous devez affecter au moins 1 joueur (en le glissant-déposant depuis la liste des postulants vers la composition d'équipe) avant de pouvoir la valider.");
+        return;
+    }
+
+    // Si des joueurs sont bien assignés, on demande la confirmation de l'administrateur
     if (!(await showCustomConfirm("Voulez-vous valider la composition de cette équipe ? Les inscriptions seront verrouillées et les membres pourront déposer leurs preuves.", "Valider la composition"))) {
         return;
     }
-    const teamIndex = teamsData.findIndex(t => t.id === teamId);
-    if (teamIndex !== -1) {
-        teamsData[teamIndex].composition_validated = true;
-        await saveTeamsState();
-        alert("La composition a été verrouillée avec succès. Les membres peuvent désormais déposer leurs captures.");
-        await loadDashboardData();
-    }
+
+    team.composition_validated = true;
+    await saveTeamsState();
+    alert("La composition a été verrouillée avec succès. Les membres peuvent désormais déposer leurs captures.");
+    await loadDashboardData();
 }
 
 // Envoi d'une notification de création d'activité par un membre (destinée aux administrateurs)
