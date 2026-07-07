@@ -2114,24 +2114,32 @@ async function loadMembersViewData() {
                                 ${gsBadgeHtml}
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Colonne Gauche (1/3) : Postulants -->
+                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col h-full space-y-3">
                                 <span class="text-xs font-bold text-slate-300 block border-b border-[#1e2638] pb-1.5 uppercase tracking-wider">Postulants</span>
                                 <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto">${appsHtml}</div>
                             </div>
-                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
-                                <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
-                                    <span>GROUPE A</span>
-                                    <span class="text-slate-500 font-bold">${team.playersA ? team.playersA.length : 0}/6</span>
-                                </h5>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${slotsAHtml}</div>
-                            </div>
-                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
-                                <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
-                                    <span>GROUPE B</span>
-                                    <span class="text-slate-500 font-bold">${team.playersB ? team.playersB.length : 0}/6</span>
-                                </h5>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${slotsBHtml}</div>
+                            
+                            <!-- Colonne Droite (2/3) : Groupe A & Groupe B empilés verticalement -->
+                            <div class="lg:col-span-2 space-y-4">
+                                <!-- GROUPE A -->
+                                <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
+                                    <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
+                                        <span>GROUPE A</span>
+                                        <span class="text-slate-500 font-bold">${team.playersA ? team.playersA.length : 0}/6</span>
+                                    </h5>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">${slotsAHtml}</div>
+                                </div>
+                                
+                                <!-- GROUPE B -->
+                                <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
+                                    <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
+                                        <span>GROUPE B</span>
+                                        <span class="text-slate-500 font-bold">${team.playersB ? team.playersB.length : 0}/6</span>
+                                    </h5>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">${slotsBHtml}</div>
+                                </div>
                             </div>
                         </div>
                         ${applicationsPanelHtml}
@@ -3140,24 +3148,32 @@ function renderTeamMaker() {
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div ondragover="allowDrop(event)" ondrop="dropToPool(event, '${team.id}')" class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Colonne Gauche (1/3) : Postulants -->
+                        <div ondragover="allowDrop(event)" ondrop="dropToPool(event, '${team.id}')" class="lg:col-span-1 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col h-full space-y-3">
                             <span class="text-xs font-bold text-slate-300 block border-b border-[#1e2638] pb-1.5 uppercase tracking-wider">Membres Postulés</span>
                             <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto">${appsHtml}</div>
                         </div>
-                        <div ondragover="allowDrop(event)" ondrop="dropToRaidGroup(event, '${team.id}', 'A')" class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
-                            <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
-                                <span>GROUPE A</span>
-                                <span class="text-slate-500 font-bold">${team.playersA ? team.playersA.length : 0}/6</span>
-                            </h5>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${slotsAHtml}</div>
-                        </div>
-                        <div ondragover="allowDrop(event)" ondrop="dropToRaidGroup(event, '${team.id}', 'B')" class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
-                            <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
-                                <span>GROUPE B</span>
-                                <span class="text-slate-500 font-bold">${team.playersB ? team.playersB.length : 0}/6</span>
-                            </h5>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${slotsBHtml}</div>
+                        
+                        <!-- Colonne Droite (2/3) : Groupe A & Groupe B empilés verticalement -->
+                        <div class="lg:col-span-2 space-y-4">
+                            <!-- GROUPE A -->
+                            <div ondragover="allowDrop(event)" ondrop="dropToRaidGroup(event, '${team.id}', 'A')" class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
+                                <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
+                                    <span>GROUPE A</span>
+                                    <span class="text-slate-500 font-bold">${team.playersA ? team.playersA.length : 0}/6</span>
+                                </h5>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">${slotsAHtml}</div>
+                            </div>
+                            
+                            <!-- GROUPE B -->
+                            <div ondragover="allowDrop(event)" ondrop="dropToRaidGroup(event, '${team.id}', 'B')" class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
+                                <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
+                                    <span>GROUPE B</span>
+                                    <span class="text-slate-500 font-bold">${team.playersB ? team.playersB.length : 0}/6</span>
+                                </h5>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">${slotsBHtml}</div>
+                            </div>
                         </div>
                     </div>
                     ${proofsReviewHtml}
