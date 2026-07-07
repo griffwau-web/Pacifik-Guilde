@@ -2681,7 +2681,7 @@ async function submitAddEventForm(event) {
     const name = document.getElementById('event-name').value.trim();
     const dateVal = document.getElementById('event-date').value;
     const motif = document.getElementById('event-motif').value;
-    const gsLimit = parseInt(document.getElementById('event-gs-limit').value, 10) || 0; 
+    let gsLimit = parseInt(document.getElementById('event-gs-limit').value, 10) || 0; 
 
     let raidDifficulty = null;
     if (motif === 'Raid') {
@@ -2691,6 +2691,24 @@ async function submitAddEventForm(event) {
     let dimensionalTier = null;
     if (motif === 'Épreuve dimensionnelle') {
         dimensionalTier = document.getElementById('event-dimensional-tier').value;
+
+        // Validation forcée de sécurité du GearScore minimum selon le Tier d'épreuve choisi
+        const gsMapping = {
+            "Tier 1": 7200,
+            "Tier 2": 7400,
+            "Tier 3": 7600,
+            "Tier 4": 7800,
+            "Tier 5": 8000,
+            "Tier 6": 8400,
+            "Tier 7": 8800,
+            "Tier 8": 9200,
+            "Tier 9": 9600,
+            "Tier 10": 10000
+        };
+        const minGsRequired = gsMapping[dimensionalTier] || 0;
+        if (gsLimit < minGsRequired) {
+            gsLimit = minGsRequired; // Ajustement forcé de sécurité au minimum requis
+        }
     }
 
     // Récupération de l'identité de l'auteur de l'événement
@@ -2709,7 +2727,6 @@ async function submitAddEventForm(event) {
     const isMemberCreator = session && session.user.email !== ADMIN_EMAIL;
     const motifText = dimensionalTier ? `${motif} (${dimensionalTier})` : (raidDifficulty ? `${motif} (${raidDifficulty})` : motif);
 
-    // Création d'une activité unique (plus de fractionnement forcé pour le Boss de Guilde)
     const newEvent = {
         id: "event-" + Date.now(),
         name: name,
@@ -2760,7 +2777,6 @@ async function submitAddEventForm(event) {
 
     closeAddEventModal();
     
-    // Rafraîchir l'affichage de manière contextuelle selon l'onglet actif de l'utilisateur
     const dashboardSection = document.getElementById('view-dashboard');
     if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
         await loadDashboardData();
