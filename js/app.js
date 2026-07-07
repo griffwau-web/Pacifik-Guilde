@@ -2124,22 +2124,24 @@ async function loadMembersViewData() {
                             <!-- Colonne Droite (2/3) : Groupe A & Groupe B empilés verticalement -->
                             <div class="lg:col-span-2 space-y-4">
                                 <!-- GROUPE A -->
-                                <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
-                                    <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
-                                        <span>GROUPE A</span>
-                                        <span class="text-slate-500 font-bold">${team.playersA ? team.playersA.length : 0}/6</span>
-                                    </h5>
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">${slotsAHtml}</div>
-                                </div>
-                                
-                                <!-- GROUPE B -->
-                                <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
-                                    <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
-                                        <span>GROUPE B</span>
-                                        <span class="text-slate-500 font-bold">${team.playersB ? team.playersB.length : 0}/6</span>
-                                    </h5>
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">${slotsBHtml}</div>
-                                </div>
+                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
+                                <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
+                                    <span>GROUPE A</span>
+                                    <span class="text-slate-500 font-bold">${team.playersA ? team.playersA.length : 0}/6</span>
+                                </h5>
+                                <!-- Grille optimisée en 2 colonnes et 3 lignes pour un affichage aéré -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${slotsAHtml}</div>
+                            </div>
+                            
+                            <!-- GROUPE B -->
+                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
+                                <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
+                                    <span>GROUPE B</span>
+                                    <span class="text-slate-500 font-bold">${team.playersB ? team.playersB.length : 0}/6</span>
+                                </h5>
+                                <!-- Grille optimisée en 2 colonnes et 3 lignes pour un affichage aéré -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${slotsBHtml}</div>
+                            </div>
                             </div>
                         </div>
                         ${applicationsPanelHtml}
@@ -3163,7 +3165,8 @@ function renderTeamMaker() {
                                     <span>GROUPE A</span>
                                     <span class="text-slate-500 font-bold">${team.playersA ? team.playersA.length : 0}/6</span>
                                 </h5>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">${slotsAHtml}</div>
+                                <!-- Grille optimisée en 2 colonnes et 3 lignes pour un affichage aéré -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${slotsAHtml}</div>
                             </div>
                             
                             <!-- GROUPE B -->
@@ -3172,7 +3175,8 @@ function renderTeamMaker() {
                                     <span>GROUPE B</span>
                                     <span class="text-slate-500 font-bold">${team.playersB ? team.playersB.length : 0}/6</span>
                                 </h5>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">${slotsBHtml}</div>
+                                <!-- Grille optimisée en 2 colonnes et 3 lignes pour un affichage aéré -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${slotsBHtml}</div>
                             </div>
                         </div>
                     </div>
