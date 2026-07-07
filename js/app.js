@@ -2069,13 +2069,10 @@ async function loadMembersViewData() {
                     if (pA) {
                         const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === pA);
                         const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
-                        const roleBadge = getPlayerRoleBadge(pA, team); // Récupération du badge
+                        const design = getPlayerRoleDesign(pA, team); // Récupération du style coloré
                         slotsAHtml += `
-                            <div class="bg-[#111622] border border-[#252f44] p-2 rounded-lg flex items-center justify-between gap-1.5 transition text-xs">
-                                <div class="flex items-center gap-1.5 min-w-0">
-                                    ${roleBadge}
-                                    <span class="font-bold text-white truncate max-w-[100px]" title="${pA}">${pA}</span>
-                                </div>
+                            <div class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 transition text-xs shadow-sm">
+                                <span class="${design.text} truncate max-w-[110px]" title="${pA}">${pA}</span>
                                 <div class="flex items-center gap-1 shrink-0">${icons}</div>
                             </div>
                         `;
@@ -2087,13 +2084,10 @@ async function loadMembersViewData() {
                     if (pB) {
                         const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === pB);
                         const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
-                        const roleBadge = getPlayerRoleBadge(pB, team); // Récupération du badge
+                        const design = getPlayerRoleDesign(pB, team); // Récupération du style coloré
                         slotsBHtml += `
-                            <div class="bg-[#111622] border border-[#252f44] p-2 rounded-lg flex items-center justify-between gap-1.5 transition text-xs">
-                                <div class="flex items-center gap-1.5 min-w-0">
-                                    ${roleBadge}
-                                    <span class="font-bold text-white truncate max-w-[100px]" title="${pB}">${pB}</span>
-                                </div>
+                            <div class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 transition text-xs shadow-sm">
+                                <span class="${design.text} truncate max-w-[110px]" title="${pB}">${pB}</span>
                                 <div class="flex items-center gap-1 shrink-0">${icons}</div>
                             </div>
                         `;
@@ -2170,9 +2164,11 @@ async function loadMembersViewData() {
                         if (dbMember) {
                             iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
                         }
+                        const design = getPlayerRoleDesign(playerName, team); // Récupération du style coloré
+
                         teamPlayersHtml += `
-                            <div class="bg-[#111622] border border-[#252f44] p-2 rounded-lg flex items-center justify-between gap-1.5">
-                                <span class="font-bold text-white text-xs truncate max-w-[120px]">${playerName}</span>
+                            <div class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 shadow-sm">
+                                <span class="${design.text} text-xs truncate max-w-[120px]" title="${playerName}">${playerName}</span>
                                 <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
                             </div>
                         `;
@@ -3084,20 +3080,18 @@ function renderTeamMaker() {
 
         // 3. Déclinaison de l'affichage selon le type d'activité (Raid de 12 ou Groupe de 6)
         if (team.motif === "Raid") {
-            let slotsAHtml = "";
+            // Remplissage de l'affichage des groupes de raid
+                let slotsAHtml = "";
                 let slotsBHtml = "";
                 for (let i = 0; i < 6; i++) {
                     const pA = team.playersA ? team.playersA[i] : null;
                     if (pA) {
                         const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === pA);
                         const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
-                        const roleBadge = getPlayerRoleBadge(pA, team); // Récupération du badge
+                        const design = getPlayerRoleDesign(pA, team); // Récupération du style coloré
                         slotsAHtml += `
-                            <div draggable="true" ondragstart="dragPlayer(event, '${pA}', '${team.id}')" class="bg-[#111622] border border-[#252f44] p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs">
-                                <div class="flex items-center gap-1.5 min-w-0">
-                                    ${roleBadge}
-                                    <span class="font-bold text-white truncate max-w-[100px]" title="${pA}">${pA}</span>
-                                </div>
+                            <div draggable="true" ondragstart="dragPlayer(event, '${pA}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm">
+                                <span class="${design.text} truncate max-w-[110px]" title="${pA}">${pA}</span>
                                 <div class="flex items-center gap-1 shrink-0">${icons}</div>
                             </div>
                         `;
@@ -3109,13 +3103,10 @@ function renderTeamMaker() {
                     if (pB) {
                         const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === pB);
                         const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
-                        const roleBadge = getPlayerRoleBadge(pB, team); // Récupération du badge
+                        const design = getPlayerRoleDesign(pB, team); // Récupération du style coloré
                         slotsBHtml += `
-                            <div draggable="true" ondragstart="dragPlayer(event, '${pB}', '${team.id}')" class="bg-[#111622] border border-[#252f44] p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs">
-                                <div class="flex items-center gap-1.5 min-w-0">
-                                    ${roleBadge}
-                                    <span class="font-bold text-white truncate max-w-[100px]" title="${pB}">${pB}</span>
-                                </div>
+                            <div draggable="true" ondragstart="dragPlayer(event, '${pB}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm">
+                                <span class="${design.text} truncate max-w-[110px]" title="${pB}">${pB}</span>
                                 <div class="flex items-center gap-1 shrink-0">${icons}</div>
                             </div>
                         `;
@@ -3191,26 +3182,25 @@ function renderTeamMaker() {
             const maxSlots = team.motif === "Boss de guilde" ? Math.max(6, (team.players || []).length + 1) : 6;
             const totalSlotsLabel = team.motif === "Boss de guilde" ? "∞" : "6";
 
-            for (let i = 0; i < memberMaxSlots; i++) {
-                    const playerName = team.players ? team.players[i] : null;
-                    if (playerName) {
-                        const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
-                        let iconsHtml = "";
-                        if (dbMember) {
-                            iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
-                        }
-                        const roleBadge = getPlayerRoleBadge(playerName, team); // Récupération du badge
+            for (let i = 0; i < maxSlots; i++) { // Correction de la variable maxSlots
+                const playerName = team.players ? team.players[i] : null;
+                if (playerName) {
+                    const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
+                    let iconsHtml = "";
+                    if (dbMember) {
+                        iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
+                    }
+                    const design = getPlayerRoleDesign(playerName, team); // Récupération du style coloré
 
-                        teamPlayersHtml += `
-                            <div class="bg-[#111622] border border-[#252f44] p-2 rounded-lg flex items-center justify-between gap-1.5">
-                                <div class="flex items-center gap-1.5 min-w-0">
-                                    ${roleBadge}
-                                    <span class="font-bold text-white text-xs truncate max-w-[120px]" title="${playerName}">${playerName}</span>
-                                </div>
-                                <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
+                    teamSlotsHtml += `
+                        <div id="drag-${playerName}" draggable="true" ondragstart="dragPlayer(event, '${playerName}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition shadow-sm">
+                            <span class="${design.text} text-xs truncate max-w-[110px]" title="${playerName}">${playerName}</span>
+                            <div class="flex items-center gap-1 shrink-0">
+                                ${iconsHtml}
                             </div>
-                        `;
-                    } else {
+                        </div>
+                    `;
+                } else {
                     teamSlotsHtml += `
                         <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-600 text-xs select-none">
                             Vide
@@ -3743,18 +3733,16 @@ async function distributeWeeklyPoints(isSilent = false) {
 
         let otherActivitiesPoints = 0;
 
-        activities.forEach(({ team }) => {
+        activities.forEach(({ team, proof }) => { // Ajout de proof ici pour corriger l'erreur de référence
             const pts = getCalculatedTeamPoints(team);
             if (team.motif === "Épreuve dimensionnelle") {
                 const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
                 const tierNum = match ? parseInt(match[0], 10) : 0;
                 
-                if (tierNum > weeklyHighestTierNum) {
-                    weeklyHighestTierNum = tierNum;
-                    highestTierTeam = team;
-                    highestTierProof = proof;
+                if (tierNum > highestDimensionalTier) {
+                    highestDimensionalTier = tierNum;
+                    highestDimensionalPoints = pts;
                 }
-                proof.points = 0;
             } else if (team.motif === "Raid") {
                 const diff = team.raidDifficulty || "Raid Normal";
                 if (pts > raidMaxPoints[diff]) {
@@ -4368,18 +4356,28 @@ async function sendDiscordReminder(teamId) {
     }
 }
 
-// Génère un badge de rôle coloré pour un joueur selon sa candidature à l'activité
-function getPlayerRoleBadge(playerName, team) {
-    if (!team || !team.applications) return "";
+// Analyse le rôle d'un participant et renvoie les classes CSS de bordure gauche et de couleur de nom correspondantes
+function getPlayerRoleDesign(playerName, team) {
+    const defaultDesign = { border: "border-[#252f44]", text: "text-slate-200" };
+    if (!team || !team.applications) return defaultDesign;
     const app = team.applications.find(a => a.name === playerName);
-    if (!app) return "";
+    if (!app) return defaultDesign;
 
     if (app.role === "Tank") {
-        return `<span class="text-[8px] px-1 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-extrabold uppercase tracking-wide shrink-0">Tank</span>`;
+        return {
+            border: "border-l-[3px] border-l-blue-500 border-y-[#252f44] border-r-[#252f44]",
+            text: "text-blue-400 font-bold"
+        };
     } else if (app.role === "DPS") {
-        return `<span class="text-[8px] px-1 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-extrabold uppercase tracking-wide shrink-0">DPS</span>`;
+        return {
+            border: "border-l-[3px] border-l-red-500 border-y-[#252f44] border-r-[#252f44]",
+            text: "text-red-400 font-bold"
+        };
     } else if (app.role === "Healer") {
-        return `<span class="text-[8px] px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-extrabold uppercase tracking-wide shrink-0">Healer</span>`;
+        return {
+            border: "border-l-[3px] border-l-emerald-500 border-y-[#252f44] border-r-[#252f44]",
+            text: "text-emerald-400 font-bold"
+        };
     }
-    return "";
+    return defaultDesign;
 }
