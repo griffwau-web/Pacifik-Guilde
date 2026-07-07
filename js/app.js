@@ -2985,11 +2985,15 @@ function renderTeamMaker() {
         } else if (team.composition_validated) {
             validationButtonHtml = `
                 <div class="text-[10px] bg-blue-950/20 border border-blue-500/20 text-blue-400 px-3 py-1.5 rounded-lg font-bold flex items-center justify-center gap-1 select-none">
-                    <i class="w-3.5 h-3.5" data-lucide="shield-check"></i> Composition validée (Preuves membres)
+                    <i class="w-3.5 h-3.5" data-lucide="shield-check"></i> Composition validée
                 </div>
             `;
         } else {
             validationButtonHtml = `
+                <!-- Bouton Rappel / Relance de l'activité -->
+                <button onclick="sendDiscordReminder('${team.id}')" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] transition flex items-center justify-center gap-1" title="Renvoyer un rappel de relance d'inscription sur Discord">
+                    <i class="w-3.5 h-3.5" data-lucide="bell"></i> Rappel
+                </button>
                 <button onclick="validateTeamComposition('${team.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] transition flex items-center justify-center gap-1">
                     <i class="w-3.5 h-3.5" data-lucide="shield-alert"></i> Valider la composition
                 </button>
@@ -4274,4 +4278,71 @@ function renderWeeklyCalendar(sessionUser) {
     }).join('');
 
     lucide.createIcons();
+}
+
+// Renvoyer une annonce de relance d'inscription d'équipe sur Discord via Webhook
+async function sendDiscordReminder(teamId) {
+    const team = teamsData.find(t => t.id === teamId);
+    if (!team) return;
+
+    if (!notificationsEnabled) {
+        alert("Les notifications Discord sont actuellement désactivées globalement.");
+        return;
+    }
+
+    if (!(await showCustomConfirm(`Voulez-vous renvoyer une notification de rappel d'inscription sur Discord pour "${team.name}" ?`, "Envoyer un rappel"))) {
+        return;
+    }
+
+    // Embed couleur orange/ambre pour signifier la relance
+    const embedColor = 15105570; 
+    const motif = team.motif;
+    const gsLimit = team.gearScoreLimit || 0;
+
+    const eventName = team.name && team.name.trim() !== "" ? team.name : "Activité sans titre";
+    const eventDate = formatEventDate(team.date) && formatEventDate(team.date).trim() !== "" ? formatEventDate(team.date) : "Date non spécifiée";
+    
+    let motifLabel = motif;
+    if (motif === 'Raid' && team.raidDifficulty) {
+        motifLabel = `${motif} (${team.raidDifficulty})`;
+    } else if (motif === 'Épreuve dimensionnelle' && team.dimensionalTier) {
+        motifLabel = `${motif} (${team.dimensionalTier})`;
+    }
+
+    // Mention active du rôle de membre sur Discord
+    const tagMembre = DISCORD_ROLE_MEMBRE_ID ? `<@&${DISCORD_ROLE_MEMBRE_ID}>` : "@Membre";
+
+    const payload = {
+        content: `⏳ **RAPPEL :** Il reste des places disponibles ! ${tagMembre} inscrivez-vous ou complétez vos rôles sur cette activité !`,
+        embeds: [{
+            title: `🚨 Relance d'Inscription : ${eventName}`,
+            description: `Les inscriptions sont toujours ouvertes. Venez compléter la composition !\nRejoignez votre espace membre ici : https://pacifik-guilde.vercel.app/`,
+            color: embedColor,
+            fields: [
+                { name: "Activité / Type", value: motifLabel, inline: true },
+                { name: "GearScore Requis", value: gsLimit > 0 ? `${gsLimit} GS` : "Aucun", inline: true },
+                { name: "Date & Heure", value: eventDate, inline: false }
+            ],
+            footer: {
+                text: "Guilde Les Pacific"
+            },
+            timestamp: new Date().toISOString()
+        }]
+    };
+
+    try {
+        const response = await fetch(DISCORD_WEBHOOK_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error(`Code HTTP ${response.status}`);
+        alert("Rappel d'inscription envoyé avec succès sur Discord !");
+    } catch (err) {
+        console.error("Échec de l'envoi de la relance Discord :", err);
+        alert("Une erreur est survenue lors de l'envoi de la relance.");
+    }
 }
