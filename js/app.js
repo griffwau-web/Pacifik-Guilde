@@ -2259,8 +2259,8 @@ async function loadMembersViewData() {
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
-                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block border-b border-[#1e2638] pb-1.5">Postulants</span>
-                                <div class="flex flex-col gap-2 max-h-[180px] overflow-y-auto">${appsHtml}</div>
+                                <span class="text-[10px] text-slate-300 font-bold uppercase tracking-wider block border-b border-[#1e2638] pb-1.5">Postulants</span>
+                                <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto">${appsHtml}</div>
                             </div>
                             <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
                                 <div class="flex justify-between items-center border-b border-[#1e2638] pb-1.5">
@@ -3366,10 +3366,10 @@ function renderTeamMaker() {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div ondragover="allowDrop(event)" ondrop="dropToPool(event, '${team.id}')" class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
                             <div class="flex justify-between items-center border-b border-[#1e2638] pb-1.5">
-                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Membres Postulés</span>
+                                <span class="text-[10px] text-slate-300 font-bold uppercase tracking-wider block">Membres Postulés</span>
                                 ${gsBadgeHtml}
                             </div>
-                            <div class="flex flex-col gap-2 max-h-[220px] overflow-y-auto">
+                            <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto">
                                     ${appsHtml}
                             </div>
                         </div>
