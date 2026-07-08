@@ -1349,6 +1349,13 @@ async function loadMemberProfile() {
             document.getElementById('profile-char-name').value = data.character_name || '';
             document.getElementById('profile-gear-score').value = data.gear_score || 0; 
             
+            // NOUVEAU : Récupération du lien de build
+            const buildInput = document.getElementById('profile-build-url');
+            if (buildInput) {
+                buildInput.value = data.build_url || '';
+                buildInput.disabled = true;
+            }
+            
             const checkboxes = document.querySelectorAll('.weapon-checkbox');
             checkboxes.forEach(cb => {
                 if (cb.value === data.weapon1 || cb.value === data.weapon2) {
@@ -1383,6 +1390,13 @@ async function loadMemberProfile() {
 function enableProfileEdit() {
     document.getElementById('profile-char-name').disabled = false;
     document.getElementById('profile-gear-score').disabled = false; 
+    
+    // NOUVEAU : Activer le champ du lien de build lors de l'édition
+    const buildInput = document.getElementById('profile-build-url');
+    if (buildInput) {
+        buildInput.disabled = false;
+    }
+
     const checkboxes = document.querySelectorAll('.weapon-checkbox');
     checkboxes.forEach(cb => cb.disabled = false);
 
@@ -1406,6 +1420,10 @@ async function saveMemberProfile(event) {
         return;
     }
 
+    // NOUVEAU : Lecture du lien de build
+    const buildUrlInput = document.getElementById('profile-build-url');
+    const buildUrl = buildUrlInput ? buildUrlInput.value.trim() : "";
+
     const profileData = {
         id: session.user.id,
         email: session.user.email,
@@ -1413,6 +1431,7 @@ async function saveMemberProfile(event) {
         gear_score: gearScore, 
         weapon1: selected[0],
         weapon2: selected[1],
+        build_url: buildUrl, // NOUVEAU : Sauvegarde en base de données
         updated_at: new Date().toISOString()
     };
 
@@ -2313,12 +2332,19 @@ async function loadMembersViewData() {
 
                 const weaponsHtml = m.weapon1 ? getWeaponIcon(m.weapon1) + getWeaponIcon(m.weapon2) : "";
 
+                // NOUVEAU : Si le joueur possède un lien de build, son pseudo devient cliquable vers Questlog
+                const memberNameHtml = m.build_url
+                    ? `<a href="${m.build_url}" target="_blank" class="block text-xs font-bold text-blue-400 hover:text-blue-300 hover:underline truncate flex items-center gap-1 select-none" title="Consulter le build Questlog de ${displayName}">
+                        ${displayName} <i data-lucide="external-link" class="w-3 h-3 opacity-70"></i>
+                       </a>`
+                    : `<span class="block text-xs font-bold text-slate-200 truncate" title="${displayName}">${displayName}</span>`;
+
                 return `
                     <div class="flex items-center justify-between gap-3 p-2 bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl hover:border-blue-500/20 transition">
                         <div class="flex items-center gap-2.5 min-w-0">
                             ${rankBadge}
                             <div class="truncate">
-                                <span class="block text-xs font-bold text-slate-200 truncate" title="${displayName}">${displayName}</span>
+                                ${memberNameHtml}
                             </div>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
@@ -2326,6 +2352,7 @@ async function loadMembersViewData() {
                             <span class="text-xs font-bold text-emerald-400">${points} pts</span>
                         </div>
                     </div>
+                `;
                 `;
             }).join('');
         }
