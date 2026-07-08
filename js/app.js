@@ -1973,7 +1973,7 @@ async function loadMembersViewData() {
                                     <div class="flex flex-col sm:flex-row gap-2">
                                         <input type="file" id="proof-file-${team.id}" accept="image/*" class="hidden" onchange="updateFileNameLabel('${team.id}')">
                                         <label for="proof-file-${team.id}" class="flex-grow bg-[#0b0e14] border border-[#252f44] hover:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-400 cursor-pointer text-center truncate transition">
-                                            <span id="file-label-${team.id}"><i data-lucide="upload-cloud" class="w-3.5 h-3.5 inline-block mr-1"></i> Sélectionner une capture...</span>
+                                            <span id="file-label-${team.id}"><i data-lucide="upload-cloud" class="w-3.5 h-3.5 inline-block mr-1"></i> Saisir une capture...</span>
                                         </label>
                                         <button onclick="submitEventProofFile('${team.id}', 'proof-file-${team.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition shrink-0">Envoyer</button>
                                     </div>
@@ -2114,15 +2114,15 @@ async function loadMembersViewData() {
                                 ${gsBadgeHtml}
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <!-- Colonne Gauche (2/12) : Postulants réduit de moitié -->
                             <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col h-full space-y-3">
                                 <span class="text-xs font-bold text-slate-300 block border-b border-[#1e2638] pb-1.5 uppercase tracking-wider">Postulants</span>
                                 <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto">${appsHtml}</div>
                             </div>
                             
-                            <!-- Colonne Droite (10/12) : Groupe A & Groupe B élargis -->
-                            <div class="lg:col-span-10 space-y-4">
+                            <!-- Colonne Droite (10/12) : Groupe A & Groupe B empilés verticalement -->
+                            <div class="lg:col-span-2 space-y-4">
                                 <!-- GROUPE A -->
                             <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
                                 <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
@@ -3211,15 +3211,16 @@ function renderTeamMaker() {
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <!-- Colonne Gauche (1/3) : Postulants -->
-                        <div ondragover="allowDrop(event)" ondrop="dropToPool(event, '${team.id}')" class="lg:col-span-1 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col h-full space-y-3">
+                    <!-- Disposition Flexbox Auto-adaptative : Postulants 250px fixe, Groupe A/B s'étire sur toute la largeur libre -->
+                    <div class="flex flex-col lg:flex-row gap-6 w-full">
+                        <!-- Colonne Gauche (Largeur fixe confortable) : Postulants -->
+                        <div ondragover="allowDrop(event)" ondrop="dropToPool(event, '${team.id}')" class="w-full lg:w-[250px] shrink-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col space-y-3">
                             <span class="text-xs font-bold text-slate-300 block border-b border-[#1e2638] pb-1.5 uppercase tracking-wider">Membres Postulés</span>
-                            <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto">${appsHtml}</div>
+                            <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto flex-grow">${appsHtml}</div>
                         </div>
                         
-                        <!-- Colonne Droite (2/3) : Groupe A & Groupe B empilés verticalement -->
-                        <div class="lg:col-span-2 space-y-4">
+                        <!-- Colonne Droite (S'étire sur toute la largeur restante) : Groupe A & Groupe B -->
+                        <div class="flex-grow flex-1 min-w-0 space-y-4">
                             <!-- GROUPE A -->
                             <div ondragover="allowDrop(event)" ondrop="dropToRaidGroup(event, '${team.id}', 'A')" class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
                                 <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
@@ -3367,19 +3368,21 @@ function renderTeamMaker() {
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div ondragover="allowDrop(event)" ondrop="dropToPool(event, '${team.id}')" class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
+                    <!-- Disposition Flexbox Auto-adaptative : Postulants 250px fixe, Composition s'étire sur toute la largeur libre -->
+                    <div class="flex flex-col lg:flex-row gap-6 w-full">
+                        <!-- Colonne Gauche (Largeur fixe confortable) : Postulants -->
+                        <div ondragover="allowDrop(event)" ondrop="dropToPool(event, '${team.id}')" class="w-full lg:w-[250px] shrink-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col space-y-3">
                             <div class="flex justify-between items-center border-b border-[#1e2638] pb-1.5">
-                                <span class="text-[10px] text-slate-300 font-bold uppercase tracking-wider block">Membres Postulés</span>
+                                <span class="text-xs font-bold text-slate-300 block uppercase tracking-wider">Membres Postulés</span>
                                 ${gsBadgeHtml}
                             </div>
-                            <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto">
+                            <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto flex-grow">
                                     ${appsHtml}
                             </div>
                         </div>
                         
-                        <!-- Zone de dépôt globale qui contient les sous-groupes -->
-                        <div ondragover="allowDrop(event)" ondrop="dropToTeam(event, '${team.id}')" class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
+                        <!-- Zone de dépôt globale (S'étire sur tout l'espace libre) -->
+                        <div ondragover="allowDrop(event)" ondrop="dropToTeam(event, '${team.id}')" class="flex-grow flex-1 min-w-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
                             <div class="flex justify-between items-center border-b border-[#1e2638] pb-1.5">
                                 <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Composition</span>
                                 <span class="text-[10px] text-slate-500 font-bold">${team.players ? team.players.length : 0} / ${totalSlotsLabel}</span>
