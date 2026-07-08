@@ -2114,15 +2114,15 @@ async function loadMembersViewData() {
                                 ${gsBadgeHtml}
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <!-- Colonne Gauche (1/3) : Postulants -->
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            <!-- Colonne Gauche (2/12) : Postulants réduit de moitié -->
                             <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col h-full space-y-3">
-                                <span class="text-xs font-bold text-slate-200 block border-b border-[#1e2638] pb-1.5 uppercase tracking-wider">Postulants</span>
+                                <span class="text-xs font-bold text-slate-300 block border-b border-[#1e2638] pb-1.5 uppercase tracking-wider">Postulants</span>
                                 <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto">${appsHtml}</div>
                             </div>
                             
-                            <!-- Colonne Droite (2/3) : Groupe A & Groupe B empilés verticalement -->
-                            <div class="lg:col-span-2 space-y-4">
+                            <!-- Colonne Droite (10/12) : Groupe A & Groupe B élargis -->
+                            <div class="lg:col-span-10 space-y-4">
                                 <!-- GROUPE A -->
                             <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
                                 <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
@@ -2257,11 +2257,15 @@ async function loadMembersViewData() {
                                 <span class="text-xs text-slate-500">${formatEventDate(team.date)}</span>
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
-                                <span class="text-[10px] text-slate-300 font-bold uppercase tracking-wider block border-b border-[#1e2638] pb-1.5">Postulants</span>
-                                <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto">${appsHtml}</div>
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            <!-- Colonne Gauche (2/12) : Postulants réduit de moitié -->
+                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col h-full space-y-3">
+                                <span class="text-xs font-bold text-slate-300 block border-b border-[#1e2638] pb-1.5 uppercase tracking-wider">Postulants</span>
+                                <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto flex-grow">${appsHtml}</div>
                             </div>
+                
+                            <!-- Colonne Droite (10/12) : Composition élargie -->
+                            <div class="lg:col-span-10 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
                             <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
                                 <div class="flex justify-between items-center border-b border-[#1e2638] pb-1.5">
                                     <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Composition</span>
