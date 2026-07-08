@@ -2117,7 +2117,7 @@ async function loadMembersViewData() {
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <!-- Colonne Gauche (1/3) : Postulants -->
                             <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col h-full space-y-3">
-                                <span class="text-xs font-bold text-slate-300 block border-b border-[#1e2638] pb-1.5 uppercase tracking-wider">Postulants</span>
+                                <span class="text-xs font-bold text-slate-200 block border-b border-[#1e2638] pb-1.5 uppercase tracking-wider">Postulants</span>
                                 <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto">${appsHtml}</div>
                             </div>
                             
