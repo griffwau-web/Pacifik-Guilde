@@ -1783,6 +1783,73 @@ async function loadMembersViewData() {
         console.warn("Impossible de récupérer la liste des membres.");
     }
 
+    // NOUVEAU : Calculer et afficher les points de fin de semaine en attente pour le membre connecté
+    let memberPendingPoints = 0;
+    const memberApprovedActivities = [];
+
+    teamsData.forEach(team => {
+        let hasApprovedProof = false;
+        if (team.proofs) {
+            Object.entries(team.proofs).forEach(([playerName, proof]) => {
+                if (proof.status === "approved") {
+                    hasApprovedProof = true;
+                }
+            });
+        }
+
+        if (hasApprovedProof) {
+            if (isPlayerAssignedToTeam(displayName, team.id)) {
+                memberApprovedActivities.push(team);
+            }
+        }
+    });
+
+    // Application des règles de dédoublonnage (1 épreuve max, 1 raid max par difficulté par semaine)
+    let highestDimensionalTier = 0;
+    let highestDimensionalPoints = 0;
+    
+    const raidMaxPoints = {
+        "Raid Normal": 0,
+        "Raid Hardcore": 0,
+        "Raid Nightmare": 0
+    };
+
+    let otherActivitiesPoints = 0;
+
+    memberApprovedActivities.forEach(team => {
+        const pts = getCalculatedTeamPoints(team);
+        if (team.motif === "Épreuve dimensionnelle") {
+            const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
+            const tierNum = match ? parseInt(match[0], 10) : 0;
+            if (tierNum > highestDimensionalTier) {
+                highestDimensionalTier = tierNum;
+                highestDimensionalPoints = pts;
+            }
+        } else if (team.motif === "Raid") {
+            const diff = team.raidDifficulty || "Raid Normal";
+            if (pts > raidMaxPoints[diff]) {
+                raidMaxPoints[diff] = pts;
+            }
+        } else {
+            otherActivitiesPoints += pts;
+        }
+    });
+
+    const totalRaidPoints = Object.values(raidMaxPoints).reduce((sum, val) => sum + val, 0);
+    memberPendingPoints = otherActivitiesPoints + highestDimensionalPoints + totalRaidPoints;
+
+    const pendingContainer = document.getElementById('member-pending-points-container');
+    const pendingDisplay = document.getElementById('member-display-pending-points');
+
+    if (pendingContainer && pendingDisplay) {
+        if (memberPendingPoints > 0) {
+            pendingDisplay.innerText = memberPendingPoints;
+            pendingContainer.classList.remove('hidden');
+        } else {
+            pendingContainer.classList.add('hidden');
+        }
+    }
+
     const memberAuctionsContainer = document.getElementById('members-auctions-container');
     const memberAuctionsView = document.getElementById('members-auctions-view');
     
