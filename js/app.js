@@ -2114,35 +2114,39 @@ async function loadMembersViewData() {
                                 ${gsBadgeHtml}
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <!-- Colonne Gauche (2/12) : Postulants réduit de moitié -->
-                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col h-full space-y-3">
+                        
+                        <!-- Disposition Flexbox Auto-adaptative : Postulants 250px fixe, Groupe A/B s'étire sur toute la largeur libre -->
+                        <div class="flex flex-col lg:flex-row gap-6 w-full">
+                            <!-- Colonne Gauche (Largeur fixe confortable) : Postulants -->
+                            <div class="w-full lg:w-[250px] shrink-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col space-y-3">
                                 <span class="text-xs font-bold text-slate-300 block border-b border-[#1e2638] pb-1.5 uppercase tracking-wider">Postulants</span>
-                                <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto">${appsHtml}</div>
+                                <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto flex-grow">${appsHtml}</div>
                             </div>
                             
-                            <!-- Colonne Droite (10/12) : Groupe A & Groupe B empilés verticalement -->
-                            <div class="lg:col-span-2 space-y-4">
+                            <!-- Colonne Droite (S'étire sur toute la largeur restante) : Groupe A & Groupe B -->
+                            <div class="flex-grow flex-1 min-w-0 space-y-4">
                                 <!-- GROUPE A -->
-                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
-                                <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
-                                    <span>GROUPE A</span>
-                                    <span class="text-slate-500 font-bold">${team.playersA ? team.playersA.length : 0}/6</span>
-                                </h5>
-                                <!-- Grille optimisée en 2 colonnes et 3 lignes pour un affichage aéré -->
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${slotsAHtml}</div>
+                                <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
+                                    <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
+                                        <span>GROUPE A</span>
+                                        <span class="text-slate-500 font-bold">${team.playersA ? team.playersA.length : 0}/6</span>
+                                    </h5>
+                                    <!-- Grille de 2 colonnes et 3 lignes -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${slotsAHtml}</div>
+                                </div>
+                                
+                                <!-- GROUPE B -->
+                                <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
+                                    <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
+                                        <span>GROUPE B</span>
+                                        <span class="text-slate-500 font-bold">${team.playersB ? team.playersB.length : 0}/6</span>
+                                    </h5>
+                                    <!-- Grille de 2 colonnes et 3 lignes -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${slotsBHtml}</div>
+                                </div>
                             </div>
-                            
-                            <!-- GROUPE B -->
-                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
-                                <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
-                                    <span>GROUPE B</span>
-                                    <span class="text-slate-500 font-bold">${team.playersB ? team.playersB.length : 0}/6</span>
-                                </h5>
-                                <!-- Grille optimisée en 2 colonnes et 3 lignes pour un affichage aéré -->
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${slotsBHtml}</div>
-                            </div>
-                        </div>
+                        </div> <!-- Fin du conteneur Flexbox -->
+                        
                         ${applicationsPanelHtml}
                         <div class="flex justify-between items-center text-[10px] text-slate-500 mt-2 border-t border-[#1e2638] pt-2">
                             <span>Prévu le : ${formatEventDate(team.date)} | Valeur : ${displayPoints} pts${penaltyWarning}</span>
@@ -2257,23 +2261,25 @@ async function loadMembersViewData() {
                                 <span class="text-xs text-slate-500">${formatEventDate(team.date)}</span>
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                            <!-- Colonne Gauche (2/12) : Postulants réduit de moitié -->
-                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col h-full space-y-3">
+                        
+                        <!-- Disposition Flexbox Auto-adaptative : Postulants 250px fixe, Composition s'étire sur toute la largeur libre -->
+                        <div class="flex flex-col lg:flex-row gap-6 w-full">
+                            <!-- Colonne Gauche (Largeur fixe confortable) : Postulants -->
+                            <div class="w-full lg:w-[250px] shrink-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col space-y-3">
                                 <span class="text-xs font-bold text-slate-300 block border-b border-[#1e2638] pb-1.5 uppercase tracking-wider">Postulants</span>
                                 <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto flex-grow">${appsHtml}</div>
                             </div>
-                
-                            <!-- Colonne Droite (10/12) : Composition élargie -->
-                            <div class="lg:col-span-10 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
-                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
+                            
+                            <!-- Colonne Droite (S'étire sur tout l'espace libre) : Composition -->
+                            <div class="flex-grow flex-1 min-w-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
                                 <div class="flex justify-between items-center border-b border-[#1e2638] pb-1.5">
                                     <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Composition</span>
                                     <span class="text-[10px] text-slate-500 font-bold">${team.players ? team.players.length : 0} / ${totalSlotsLabel}</span>
                                 </div>
                                 ${compositionHtml}
                             </div>
-                        </div>
+                        </div> <!-- Fin du conteneur Flexbox -->
+                        
                         ${applicationsPanelHtml}
                         <div class="flex justify-between items-center text-[10px] text-slate-500 mt-2 border-t border-[#1e2638] pt-2">
                             <span>Prévu le : ${formatEventDate(team.date)} | Valeur : ${displayPoints} pts${penaltyWarning}</span>
