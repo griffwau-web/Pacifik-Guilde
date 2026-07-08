@@ -1783,6 +1783,10 @@ async function loadMembersViewData() {
         console.warn("Impossible de récupérer la liste des membres.");
     }
 
+    // CORRECTION : Déclarer displayName IMMÉDIATEMENT ici pour qu'il soit disponible pour les calculs ci-dessous
+    const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
+    const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
+
     // NOUVEAU : Calculer et afficher les points de fin de semaine en attente pour le membre connecté
     let memberPendingPoints = 0;
     const memberApprovedActivities = [];
@@ -1938,10 +1942,6 @@ async function loadMembersViewData() {
     const membersTeamsView = document.getElementById('members-teams-view');
     membersTeamsView.innerHTML = "";
 
-    // Identification du profil du membre connecté
-    const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
-    const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
-
     // Filtrer les équipes visibles pour ce membre selon vos règles de gestion
     const visibleTeams = teamsData.filter(team => {
         // Étape de recrutement : visible par tous les membres
@@ -1960,7 +1960,6 @@ async function loadMembersViewData() {
         `;
     } else {
         visibleTeams.forEach(team => {
-            let teamPlayersHtml = "";
             let applicationsPanelHtml = "";
             let gsBadgeHtml = ""; 
 
