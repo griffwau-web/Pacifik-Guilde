@@ -2353,7 +2353,6 @@ async function loadMembersViewData() {
                         </div>
                     </div>
                 `;
-                `;
             }).join('');
         }
     }
