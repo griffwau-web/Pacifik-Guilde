@@ -2164,30 +2164,88 @@ async function loadMembersViewData() {
                     }
                 }
 
-                const memberMaxSlots = team.motif === "Boss de guilde" ? Math.max(6, (team.players || []).length) : 6;
-                for (let i = 0; i < memberMaxSlots; i++) {
-                    const playerName = team.players ? team.players[i] : null;
-                    if (playerName) {
-                        const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
-                        let iconsHtml = "";
-                        if (dbMember) {
-                            iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
-                        }
-                        const design = getPlayerRoleDesign(playerName, team); // Récupération du style coloré
+                let compositionHtml = "";
+                
+                if (team.motif === "Boss de guilde") {
+                    const playersCount = team.players ? team.players.length : 0;
+                    // Pour les membres, pas de slot "+1" vide requis à la fin, on n'affiche que les groupes actifs
+                    const totalGroupsToRender = Math.max(1, Math.ceil(playersCount / 6));
 
-                        teamPlayersHtml += `
-                            <div class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 shadow-sm">
-                                <span class="${design.text} text-xs truncate max-w-[120px]" title="${playerName}">${playerName}</span>
-                                <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
-                            </div>
-                        `;
-                    } else {
-                        teamPlayersHtml += `
-                            <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-600 text-xs select-none">
-                                Vide
+                    let groupsListHtml = "";
+                    for (let g = 0; g < totalGroupsToRender; g++) {
+                        const groupLetter = getGroupLabel(g); // Utilisation du générateur de lettre extensible à l'infini (A... Z... AA...)
+                        let groupSlotsHtml = "";
+                        const startIndex = g * 6;
+                        let groupPlayersCount = 0;
+
+                        for (let i = 0; i < 6; i++) {
+                            const playerIndex = startIndex + i;
+                            const playerName = team.players ? team.players[playerIndex] : null;
+                            if (playerName) {
+                                groupPlayersCount++;
+                                const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
+                                let iconsHtml = "";
+                                if (dbMember) {
+                                    iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
+                                }
+                                const design = getPlayerRoleDesign(playerName, team);
+
+                                groupSlotsHtml += `
+                                    <div class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 text-xs shadow-sm">
+                                        <span class="${design.text} truncate max-w-[100px]" title="${playerName}">${playerName}</span>
+                                        <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
+                                    </div>
+                                `;
+                            } else {
+                                groupSlotsHtml += `
+                                    <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-700 text-[10px] select-none">
+                                        Vide
+                                    </div>
+                                `;
+                            }
+                        }
+
+                        groupsListHtml += `
+                            <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3 space-y-2 mt-2">
+                                <div class="flex justify-between items-center border-b border-[#1e2638] pb-1">
+                                    <span class="text-[10px] text-slate-300 font-bold uppercase tracking-wider block">GROUPE ${groupLetter}</span>
+                                    <span class="text-[10px] text-slate-500 font-bold">${groupPlayersCount}/6</span>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${groupSlotsHtml}</div>
                             </div>
                         `;
                     }
+
+                    compositionHtml = `<div class="space-y-3 w-full">${groupsListHtml}</div>`;
+
+                } else {
+                    // Rendu classique à une seule colonne (PVP et Épreuves dimensionnelles)
+                    let teamPlayersHtml = "";
+                    for (let i = 0; i < 6; i++) {
+                        const playerName = team.players ? team.players[i] : null;
+                        if (playerName) {
+                            const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
+                            let iconsHtml = "";
+                            if (dbMember) {
+                                iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
+                            }
+                            const design = getPlayerRoleDesign(playerName, team);
+
+                            teamPlayersHtml += `
+                                <div class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 shadow-sm">
+                                    <span class="${design.text} text-xs truncate max-w-[120px]" title="${playerName}">${playerName}</span>
+                                    <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
+                                </div>
+                            `;
+                        } else {
+                            teamPlayersHtml += `
+                                <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-600 text-xs select-none">
+                                    Vide
+                                </div>
+                            `;
+                        }
+                    }
+                    compositionHtml = `<div class="space-y-1.5">${teamPlayersHtml}</div>`;
                 }
 
                 membersTeamsView.innerHTML += `
@@ -2209,7 +2267,7 @@ async function loadMembersViewData() {
                                     <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Composition</span>
                                     <span class="text-[10px] text-slate-500 font-bold">${team.players ? team.players.length : 0} / ${totalSlotsLabel}</span>
                                 </div>
-                                <div class="space-y-1.5">${teamPlayersHtml}</div>
+                                ${compositionHtml}
                             </div>
                         </div>
                         ${applicationsPanelHtml}
@@ -3197,35 +3255,94 @@ function renderTeamMaker() {
                 }
             }
 
-            // Calcul dynamique de la capacité (6 de base ou extensible à l'infini si Boss de Guilde)
-            const maxSlots = team.motif === "Boss de guilde" ? Math.max(6, (team.players || []).length + 1) : 6;
+            // Détermination du label et du rendu dynamique de la composition
             const totalSlotsLabel = team.motif === "Boss de guilde" ? "∞" : "6";
+            let compositionHtml = "";
+            
+            if (team.motif === "Boss de guilde") {
+                const playersCount = team.players ? team.players.length : 0;
+                let totalGroupsToRender = 1;
+                
+                // On rajoute dynamiquement un groupe de 6 si le précédent est complet
+                if (playersCount >= 6) {
+                    totalGroupsToRender = Math.floor(playersCount / 6) + 1;
+                }
 
-            for (let i = 0; i < maxSlots; i++) { // Correction de la variable maxSlots
-                const playerName = team.players ? team.players[i] : null;
-                if (playerName) {
-                    const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
-                    let iconsHtml = "";
-                    if (dbMember) {
-                        iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
+                let groupsListHtml = "";
+                for (let g = 0; g < totalGroupsToRender; g++) {
+                    const groupLetter = getGroupLabel(g); // Utilisation du générateur de lettre extensible à l'infini (A... Z... AA...)
+                    let groupSlotsHtml = "";
+                    const startIndex = g * 6;
+                    let groupPlayersCount = 0;
+
+                    for (let i = 0; i < 6; i++) {
+                        const playerIndex = startIndex + i;
+                        const playerName = team.players ? team.players[playerIndex] : null;
+                        if (playerName) {
+                            groupPlayersCount++;
+                            const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
+                            let iconsHtml = "";
+                            if (dbMember) {
+                                iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
+                            }
+                            const design = getPlayerRoleDesign(playerName, team);
+
+                            groupSlotsHtml += `
+                                <div id="drag-${playerName}" draggable="true" ondragstart="dragPlayer(event, '${playerName}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm">
+                                    <span class="${design.text} truncate max-w-[100px]" title="${playerName}">${playerName}</span>
+                                    <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
+                                </div>
+                            `;
+                        } else {
+                            groupSlotsHtml += `
+                                <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-700 text-[10px] select-none">
+                                    Vide
+                                </div>
+                            `;
+                        }
                     }
-                    const design = getPlayerRoleDesign(playerName, team); // Récupération du style coloré
 
-                    teamSlotsHtml += `
-                        <div id="drag-${playerName}" draggable="true" ondragstart="dragPlayer(event, '${playerName}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition shadow-sm">
-                            <span class="${design.text} text-xs truncate max-w-[110px]" title="${playerName}">${playerName}</span>
-                            <div class="flex items-center gap-1 shrink-0">
-                                ${iconsHtml}
+                    groupsListHtml += `
+                        <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3 space-y-2 mt-2">
+                            <div class="flex justify-between items-center border-b border-[#1e2638] pb-1">
+                                <span class="text-[10px] text-slate-300 font-bold uppercase tracking-wider block">GROUPE ${groupLetter}</span>
+                                <span class="text-[10px] text-slate-500 font-bold">${groupPlayersCount}/6</span>
                             </div>
-                        </div>
-                    `;
-                } else {
-                    teamSlotsHtml += `
-                        <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-600 text-xs select-none">
-                            Vide
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${groupSlotsHtml}</div>
                         </div>
                     `;
                 }
+
+                compositionHtml = `<div class="space-y-3 w-full">${groupsListHtml}</div>`;
+
+            } else {
+                // Rendu classique à une seule colonne (PVP et Épreuves dimensionnelles)
+                let teamSlotsHtml = "";
+                for (let i = 0; i < 6; i++) {
+                    const playerName = team.players ? team.players[i] : null;
+                    if (playerName) {
+                        const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
+                        let iconsHtml = "";
+                        if (dbMember) {
+                            iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
+                        }
+                        const design = getPlayerRoleDesign(playerName, team);
+
+                        teamSlotsHtml += `
+                            <div id="drag-${playerName}" draggable="true" ondragstart="dragPlayer(event, '${playerName}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm">
+                                <span class="${design.text} truncate max-w-[110px]" title="${playerName}">${playerName}</span>
+                                <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
+                            </div>
+                        `;
+                    } else {
+                        teamSlotsHtml += `
+                            <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-600 text-xs select-none">
+                                Vide
+                            </div>
+                        `;
+                    }
+                }
+                compositionHtml = `<div class="space-y-1.5">${teamSlotsHtml}</div>`;
             }
 
             teamsContainer.innerHTML += `
@@ -3257,12 +3374,13 @@ function renderTeamMaker() {
                             </div>
                         </div>
                         
+                        <!-- Zone de dépôt globale qui contient les sous-groupes -->
                         <div ondragover="allowDrop(event)" ondrop="dropToTeam(event, '${team.id}')" class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
                             <div class="flex justify-between items-center border-b border-[#1e2638] pb-1.5">
                                 <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Composition</span>
                                 <span class="text-[10px] text-slate-500 font-bold">${team.players ? team.players.length : 0} / ${totalSlotsLabel}</span>
                             </div>
-                            <div class="space-y-1.5">${teamSlotsHtml}</div>
+                            ${compositionHtml}
                         </div>
                     </div>
                     ${proofsReviewHtml}
@@ -4399,4 +4517,15 @@ function getPlayerRoleDesign(playerName, team) {
         };
     }
     return defaultDesign;
+}
+
+// Calcule un label de groupe sous format alphabétique extensible à l'infini (A, B, C... Z, AA, AB...)
+function getGroupLabel(index) {
+    let label = "";
+    let temp = index;
+    while (temp >= 0) {
+        label = String.fromCharCode((temp % 26) + 65) + label;
+        temp = Math.floor(temp / 26) - 1;
+    }
+    return label;
 }
