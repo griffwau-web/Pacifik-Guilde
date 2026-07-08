@@ -344,12 +344,22 @@
                         <p class="text-xs text-slate-400">Bienvenue, <span id="member-display-email" class="text-blue-400 font-bold">--</span>.</p>
                     </div>
                 </div>
-                <!-- Solde de points du membre connecté -->
-                <div class="text-right">
-                    <span class="block text-[10px] text-slate-500 uppercase font-bold tracking-wider">Mon Activité</span>
-                    <span class="text-md font-extrabold text-emerald-400 flex items-center gap-1.5 justify-end mt-0.5 select-none">
-                        Points : <span id="member-display-points" class="font-black text-lg">0</span>
-                    </span>
+                <!-- Solde de points du membre connecté (Avec prévisualisation des points en attente) -->
+                <div class="flex items-center gap-5 justify-end text-right">
+                    <!-- Prévisualisation des points en attente de clôture (Masquée si 0) -->
+                    <div id="member-pending-points-container" class="hidden text-right select-none animate-fade-in">
+                        <span class="block text-[10px] text-amber-500 uppercase font-extrabold tracking-wider">Points en fin de semaine</span>
+                        <span class="text-xs font-black text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20 inline-block mt-0.5">
+                            +<span id="member-display-pending-points" class="font-bold">0</span> pts
+                        </span>
+                    </div>
+                    <!-- Solde Actuel permanent -->
+                    <div>
+                        <span class="block text-[10px] text-slate-500 uppercase font-bold tracking-wider">Mon Activité</span>
+                        <span class="text-md font-extrabold text-emerald-400 flex items-center gap-1.5 justify-end mt-0.5 select-none">
+                            Points : <span id="member-display-points" class="font-black text-lg">0</span>
+                        </span>
+                    </div>
                 </div>
             </div>
 
