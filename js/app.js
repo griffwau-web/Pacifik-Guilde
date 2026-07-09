@@ -1942,13 +1942,11 @@ async function loadMembersViewData() {
     const membersTeamsView = document.getElementById('members-teams-view');
     membersTeamsView.innerHTML = "";
 
-    // Filtrer les équipes visibles pour ce membre selon vos règles de gestion
+    // Filtrer les équipes visibles pour ce membre
     const visibleTeams = teamsData.filter(team => {
-        // Étape de recrutement : visible par tous les membres
         if (!team.composition_validated && !team.validated) {
             return true;
         }
-        // Étape de composition validée ou clôturée : visible UNIQUEMENT pour les participants de l'équipe
         return isPlayerAssignedToTeam(displayName, team.id);
     });
 
@@ -1960,13 +1958,16 @@ async function loadMembersViewData() {
         `;
     } else {
         visibleTeams.forEach(team => {
+            // Déterminer si le membre connecté est l'auteur créateur de l'activité
+            const isCreatorOfThisTeam = (team.creatorId === session.user.id);
+            const isDraggable = isCreatorOfThisTeam && !team.composition_validated && !team.validated;
+
             let applicationsPanelHtml = "";
             let gsBadgeHtml = ""; 
 
             let calculatedBase = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
             const isAssigned = isPlayerAssignedToTeam(displayName, team.id);
 
-            // Calcul de l'effectif réel pour l'application des pénalités à l'affichage
             let participantCount = 0;
             if (team.motif === "Raid") {
                 const playersA = team.playersA ? team.playersA.filter(p => p && p !== "") : [];
@@ -1986,12 +1987,21 @@ async function loadMembersViewData() {
                         penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif < 50% : ${participantCount}/12 joueurs)</span>`;
                     }
                 } else if (team.motif !== "Boss de guilde") { 
-                    // Exclure le Boss de guilde du message d'avertissement de pénalité
                     if (participantCount < 3) {
                         displayPoints = Math.round(calculatedBase / 2);
                         penaltyWarning = ` <span class="text-red-400 font-bold">(Pénalité effectif < 50% : ${participantCount}/6 joueurs)</span>`;
                     }
                 }
+            }
+
+            // Bouton de validation pour le créateur membre
+            let validationButtonHtml = "";
+            if (isCreatorOfThisTeam && !team.composition_validated && !team.validated) {
+                validationButtonHtml = `
+                    <button onclick="validateTeamComposition('${team.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] transition flex items-center justify-center gap-1">
+                        <i class="w-3.5 h-3.5" data-lucide="shield-alert"></i> Valider la composition
+                    </button>
+                `;
             }
 
             // Gestion de l'affichage de validation & preuves côté membres
@@ -2004,7 +2014,6 @@ async function loadMembersViewData() {
                 `;
             } else if (team.composition_validated) {
                 if (isAssigned) {
-                    // Trouver s'il existe une preuve d'équipe active (non rejetée)
                     const teamProofsList = team.proofs ? Object.entries(team.proofs) : [];
                     const activeProofEntry = teamProofsList.find(([_, p]) => p.status !== "rejected");
                     const activeProof = activeProofEntry ? activeProofEntry[1] : null;
@@ -2033,7 +2042,6 @@ async function loadMembersViewData() {
                             </div>
                         `;
                     } else {
-                        // Soit aucune preuve, soit toutes les preuves existantes sont rejetées
                         const rejectedProofEntry = teamProofsList.find(([_, p]) => p.status === "rejected");
                         const rejectedProof = rejectedProofEntry ? rejectedProofEntry[1] : null;
                         const rejectedProofAuthor = rejectedProofEntry ? rejectedProofEntry[0] : null;
@@ -2042,7 +2050,7 @@ async function loadMembersViewData() {
                         if (rejectedProof) {
                             rejectedNoteHtml = `
                                 <div class="p-2 bg-red-950/20 border border-red-500/20 rounded-lg text-red-400 text-[11px] leading-relaxed">
-                                    ⚠️ La preuve précédente déposée par <strong>${rejectedProofAuthor}</strong> a été rejetée. N'importe quel membre de l'équipe peut en soumettre une nouvelle valide.
+                                    ⚠️ La preuve précédente déposée par <strong>${rejectedProofAuthor}</strong> a été rejetée. N'importe quel membre de l'équipe peut en soumettre une nouvelle.
                                 </div>
                             `;
                         }
@@ -2077,7 +2085,7 @@ async function loadMembersViewData() {
                 applicationsPanelHtml = `
                     <div class="mt-4 p-2.5 bg-blue-950/20 border border-blue-500/20 rounded-xl text-center text-xs text-blue-400 font-bold select-none flex items-center justify-center gap-1.5">
                         <i data-lucide="shield-check" class="w-4 h-4"></i>
-                        Vous êtes assigné à cette composition (En attente de validation admin)
+                        Vous êtes assigné à cette composition (En attente de validation)
                     </div>
                 `;
             } else {
@@ -2115,6 +2123,7 @@ async function loadMembersViewData() {
                 }
             }
 
+            // Construction de la liste des postulants (draggable pour le créateur)
             let appsHtml = "";
             if (team.applications && team.applications.length > 0) {
                 team.applications.forEach(app => {
@@ -2126,8 +2135,13 @@ async function loadMembersViewData() {
                         const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === app.name);
                         const weaponsHtml = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
 
+                        // Rendre le postulant déplaçable (draggable) si autorisé
+                        const dragAttrs = isDraggable
+                            ? `draggable="true" ondragstart="dragPlayer(event, '${app.name}', '${team.id}')" class="bg-[#111622] border border-[#1e2638] p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-blue-500/30"`
+                            : `class="bg-[#111622] border border-[#1e2638] p-2 rounded-lg flex items-center justify-between gap-1.5 text-xs animate-fade-in"`;
+
                         appsHtml += `
-                            <div class="bg-[#111622] border border-[#1e2638] p-2 rounded-lg flex items-center justify-between gap-1.5 text-xs animate-fade-in">
+                            <div ${dragAttrs}>
                                 <div class="flex items-center gap-1.5">
                                     ${roleIcon}
                                     <span class="font-bold text-white truncate max-w-[120px]">${app.name}</span>
@@ -2142,6 +2156,12 @@ async function loadMembersViewData() {
                 appsHtml = `<div class="p-3 text-center text-slate-600 text-xs italic select-none">Aucun postulant</div>`;
             }
 
+            // Attributs de dépôt (Drop Zones) pour le créateur
+            const poolDropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToPool(event, '${team.id}')"` : "";
+            const teamDropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToTeam(event, '${team.id}')"` : "";
+            const raidADropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToRaidGroup(event, '${team.id}', 'A')"` : "";
+            const raidBDropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToRaidGroup(event, '${team.id}', 'B')"` : "";
+
             const maxSlots = team.motif === "Boss de guilde" ? Math.max(6, (team.players || []).length + 1) : 6;
             const totalSlotsLabel = team.motif === "Boss de guilde" ? "∞" : "6";
 
@@ -2154,9 +2174,15 @@ async function loadMembersViewData() {
                     if (pA) {
                         const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === pA);
                         const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
-                        const design = getPlayerRoleDesign(pA, team); // Récupération du style coloré
+                        const design = getPlayerRoleDesign(pA, team);
+
+                        // Joueur de la composition déplaçable
+                        const playerDragAttr = isDraggable
+                            ? `draggable="true" ondragstart="dragPlayer(event, '${pA}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-red-500/20"`
+                            : `class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 transition text-xs shadow-sm"`;
+
                         slotsAHtml += `
-                            <div class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 transition text-xs shadow-sm">
+                            <div ${playerDragAttr}>
                                 <span class="${design.text} truncate max-w-[110px]" title="${pA}">${pA}</span>
                                 <div class="flex items-center gap-1 shrink-0">${icons}</div>
                             </div>
@@ -2169,9 +2195,14 @@ async function loadMembersViewData() {
                     if (pB) {
                         const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === pB);
                         const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
-                        const design = getPlayerRoleDesign(pB, team); // Récupération du style coloré
+                        const design = getPlayerRoleDesign(pB, team);
+
+                        const playerDragAttr = isDraggable
+                            ? `draggable="true" ondragstart="dragPlayer(event, '${pB}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-red-500/20"`
+                            : `class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 transition text-xs shadow-sm"`;
+
                         slotsBHtml += `
-                            <div class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 transition text-xs shadow-sm">
+                            <div ${playerDragAttr}>
                                 <span class="${design.text} truncate max-w-[110px]" title="${pB}">${pB}</span>
                                 <div class="flex items-center gap-1 shrink-0">${icons}</div>
                             </div>
@@ -2198,39 +2229,35 @@ async function loadMembersViewData() {
                                 <span class="text-xs text-slate-500">${formatEventDate(team.date)}</span>
                                 ${gsBadgeHtml}
                             </div>
+                            <div class="flex items-center gap-2">
+                                ${validationButtonHtml}
+                            </div>
                         </div>
                         
-                        <!-- Disposition Flexbox Auto-adaptative : Postulants 250px fixe, Groupe A/B s'étire sur toute la largeur libre -->
                         <div class="flex flex-col lg:flex-row gap-6 w-full">
-                            <!-- Colonne Gauche (Largeur fixe confortable) : Postulants -->
-                            <div class="w-full lg:w-[250px] shrink-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col space-y-3">
+                            <div ${poolDropAttr} class="w-full lg:w-[250px] shrink-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col space-y-3">
                                 <span class="text-xs font-bold text-slate-300 block border-b border-[#1e2638] pb-1.5 uppercase tracking-wider">Postulants</span>
                                 <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto flex-grow">${appsHtml}</div>
                             </div>
                             
-                            <!-- Colonne Droite (S'étire sur toute la largeur restante) : Groupe A & Groupe B -->
                             <div class="flex-grow flex-1 min-w-0 space-y-4">
-                                <!-- GROUPE A -->
-                                <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
+                                <div ${raidADropAttr} class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
                                     <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
                                         <span>GROUPE A</span>
                                         <span class="text-slate-500 font-bold">${team.playersA ? team.playersA.length : 0}/6</span>
                                     </h5>
-                                    <!-- Grille de 2 colonnes et 3 lignes -->
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${slotsAHtml}</div>
                                 </div>
                                 
-                                <!-- GROUPE B -->
-                                <div class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
+                                <div ${raidBDropAttr} class="bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
                                     <h5 class="text-xs font-bold text-slate-300 flex justify-between border-b border-[#1e2638] pb-1.5">
                                         <span>GROUPE B</span>
                                         <span class="text-slate-500 font-bold">${team.playersB ? team.playersB.length : 0}/6</span>
                                     </h5>
-                                    <!-- Grille de 2 colonnes et 3 lignes -->
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${slotsBHtml}</div>
                                 </div>
                             </div>
-                        </div> <!-- Fin du conteneur Flexbox -->
+                        </div>
                         
                         ${applicationsPanelHtml}
                         <div class="flex justify-between items-center text-[10px] text-slate-500 mt-2 border-t border-[#1e2638] pt-2">
@@ -2239,7 +2266,6 @@ async function loadMembersViewData() {
                     </div>
                 `;
             } else {
-                let teamSlotsHtml = "";
                 let badgeColor = "bg-blue-500/10 text-blue-400 border-blue-500/20";
                 let labelText = team.motif;
                 if (team.motif === "PVP") {
@@ -2257,12 +2283,11 @@ async function loadMembersViewData() {
                 
                 if (team.motif === "Boss de guilde") {
                     const playersCount = team.players ? team.players.length : 0;
-                    // Pour les membres, pas de slot "+1" vide requis à la fin, on n'affiche que les groupes actifs
                     const totalGroupsToRender = Math.max(1, Math.ceil(playersCount / 6));
 
                     let groupsListHtml = "";
                     for (let g = 0; g < totalGroupsToRender; g++) {
-                        const groupLetter = getGroupLabel(g); // Utilisation du générateur de lettre extensible à l'infini (A... Z... AA...)
+                        const groupLetter = getGroupLabel(g);
                         let groupSlotsHtml = "";
                         const startIndex = g * 6;
                         let groupPlayersCount = 0;
@@ -2279,8 +2304,12 @@ async function loadMembersViewData() {
                                 }
                                 const design = getPlayerRoleDesign(playerName, team);
 
+                                const playerDragAttr = isDraggable
+                                    ? `draggable="true" ondragstart="dragPlayer(event, '${playerName}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-red-500/20"`
+                                    : `class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 text-xs shadow-sm"`;
+
                                 groupSlotsHtml += `
-                                    <div class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 text-xs shadow-sm">
+                                    <div ${playerDragAttr}>
                                         <span class="${design.text} truncate max-w-[100px]" title="${playerName}">${playerName}</span>
                                         <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
                                     </div>
@@ -2308,7 +2337,6 @@ async function loadMembersViewData() {
                     compositionHtml = `<div class="space-y-3 w-full">${groupsListHtml}</div>`;
 
                 } else {
-                    // Rendu classique à une seule colonne (PVP et Épreuves dimensionnelles)
                     let teamPlayersHtml = "";
                     for (let i = 0; i < 6; i++) {
                         const playerName = team.players ? team.players[i] : null;
@@ -2320,8 +2348,12 @@ async function loadMembersViewData() {
                             }
                             const design = getPlayerRoleDesign(playerName, team);
 
+                            const playerDragAttr = isDraggable
+                                ? `draggable="true" ondragstart="dragPlayer(event, '${playerName}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-red-500/20"`
+                                : `class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 shadow-sm"`;
+
                             teamPlayersHtml += `
-                                <div class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 shadow-sm">
+                                <div ${playerDragAttr}>
                                     <span class="${design.text} text-xs truncate max-w-[120px]" title="${playerName}">${playerName}</span>
                                     <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
                                 </div>
@@ -2345,25 +2377,25 @@ async function loadMembersViewData() {
                                 <span class="font-bold text-sm text-slate-200">${team.name}</span>
                                 <span class="text-xs text-slate-500">${formatEventDate(team.date)}</span>
                             </div>
+                            <div class="flex items-center gap-2">
+                                ${validationButtonHtml}
+                            </div>
                         </div>
                         
-                        <!-- Disposition Flexbox Auto-adaptative : Postulants 250px fixe, Composition s'étire sur toute la largeur libre -->
                         <div class="flex flex-col lg:flex-row gap-6 w-full">
-                            <!-- Colonne Gauche (Largeur fixe confortable) : Postulants -->
-                            <div class="w-full lg:w-[250px] shrink-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col space-y-3">
+                            <div ${poolDropAttr} class="w-full lg:w-[250px] shrink-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col space-y-3">
                                 <span class="text-xs font-bold text-slate-300 block border-b border-[#1e2638] pb-1.5 uppercase tracking-wider">Postulants</span>
                                 <div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto flex-grow">${appsHtml}</div>
                             </div>
                             
-                            <!-- Colonne Droite (S'étire sur tout l'espace libre) : Composition -->
-                            <div class="flex-grow flex-1 min-w-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
+                            <div ${teamDropAttr} class="flex-grow flex-1 min-w-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 space-y-3">
                                 <div class="flex justify-between items-center border-b border-[#1e2638] pb-1.5">
                                     <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Composition</span>
                                     <span class="text-[10px] text-slate-500 font-bold">${team.players ? team.players.length : 0} / ${totalSlotsLabel}</span>
                                 </div>
                                 ${compositionHtml}
                             </div>
-                        </div> <!-- Fin du conteneur Flexbox -->
+                        </div>
                         
                         ${applicationsPanelHtml}
                         <div class="flex justify-between items-center text-[10px] text-slate-500 mt-2 border-t border-[#1e2638] pt-2">
@@ -2867,7 +2899,7 @@ async function submitAddEventForm(event) {
     if (motif === 'Épreuve dimensionnelle') {
         dimensionalTier = document.getElementById('event-dimensional-tier').value;
 
-        // Validation forcée de sécurité du GearScore minimum selon le Tier d'épreuve choisi
+        // Validation du GearScore minimum selon le Tier d'épreuve
         const gsMapping = {
             "Tier 1": 7200,
             "Tier 2": 7400,
@@ -2882,14 +2914,16 @@ async function submitAddEventForm(event) {
         };
         const minGsRequired = gsMapping[dimensionalTier] || 0;
         if (gsLimit < minGsRequired) {
-            gsLimit = minGsRequired; // Ajustement forcé de sécurité au minimum requis
+            gsLimit = minGsRequired; 
         }
     }
 
-    // Récupération de l'identité de l'auteur de l'événement
+    // Récupération de l'identité et de l'ID de l'auteur de l'événement
     const { data: { session } } = await supabaseClient.auth.getSession();
     let creatorName = "un membre";
+    let creatorId = null;
     if (session) {
+        creatorId = session.user.id; // Stockage de l'ID unique Supabase du membre
         const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
         creatorName = myProfile ? (myProfile.character_name || myProfile.character_name) : "un membre"; 
         if (creatorName === "un membre" && session.user.email === ADMIN_EMAIL) {
@@ -2904,6 +2938,7 @@ async function submitAddEventForm(event) {
 
     const newEvent = {
         id: "event-" + Date.now(),
+        creatorId: creatorId, // Stocke l'auteur pour autoriser la gestion de composition
         name: name,
         date: dateVal,
         motif: motif,
@@ -2920,12 +2955,12 @@ async function submitAddEventForm(event) {
     teamsData.push(newEvent);
     await saveTeamsState();
 
-    // 1. Alerte d'administration (Uniquement si le créateur est un membre)
+    // Alerte d'administration (Uniquement si le créateur est un membre)
     if (isMemberCreator) {
         await sendDiscordMemberCreationNotification(name, dateVal, motifText, gsLimit, creatorName);
     }
     
-    // 2. Annonce publique pour les inscriptions (Si les notifications sont activées globalement)
+    // Annonce publique pour les inscriptions (Si les notifications sont activées globalement)
     if (notificationsEnabled) {
         let motifLabel = motif;
         if (motif === 'Raid' && raidDifficulty) {
@@ -2992,6 +3027,17 @@ async function dropToTeam(event, teamId) {
         const teamIndex = teamsData.findIndex(t => t.id === teamId);
         if (teamIndex !== -1) {
             const team = teamsData[teamIndex];
+
+            // Contrôle de sécurité des permissions (Admin OU Créateur)
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const isAdmin = session && session.user.email === ADMIN_EMAIL;
+            const isCreator = session && team.creatorId === session.user.id;
+
+            if (!isAdmin && !isCreator) {
+                alert("Action refusée : Seul le créateur de cette activité ou un administrateur peut modifier la composition.");
+                return;
+            }
+
             if (team.composition_validated || team.validated) {
                 alert("Action refusée : La composition de cette équipe est verrouillée.");
                 return;
@@ -3000,7 +3046,6 @@ async function dropToTeam(event, teamId) {
             if (!team.players) team.players = [];
             if (team.players.includes(playerName)) return;
 
-            // NOUVEAU : La limite de 6 joueurs ne s'applique pas au Boss de guilde (extensible à l'infini)
             if (team.motif !== "Boss de guilde" && team.players.length >= 6) {
                 alert("Cette équipe est pleine.");
                 return;
@@ -3009,7 +3054,14 @@ async function dropToTeam(event, teamId) {
             removePlayerFromCurrentTeam(playerName, teamId); 
             team.players.push(playerName);
             await saveTeamsState();
-            renderTeamMaker();
+            
+            // Rechargement selon la section active
+            const dashboardSection = document.getElementById('view-dashboard');
+            if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
+                renderTeamMaker();
+            } else {
+                await loadMembersViewData();
+            }
         }
     } catch (err) {
         console.error("Erreur dropToTeam :", err);
@@ -3031,6 +3083,17 @@ async function dropToRaidGroup(event, teamId, groupLetter) {
         const teamIndex = teamsData.findIndex(t => t.id === teamId);
         if (teamIndex !== -1) {
             const team = teamsData[teamIndex];
+
+            // Contrôle de sécurité des permissions (Admin OU Créateur)
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const isAdmin = session && session.user.email === ADMIN_EMAIL;
+            const isCreator = session && team.creatorId === session.user.id;
+
+            if (!isAdmin && !isCreator) {
+                alert("Action refusée : Seul le créateur de cette activité ou un administrateur peut modifier la composition.");
+                return;
+            }
+
             if (team.composition_validated || team.validated) {
                 alert("Action refusée : La composition de ce raid est verrouillée.");
                 return;
@@ -3049,7 +3112,14 @@ async function dropToRaidGroup(event, teamId, groupLetter) {
             removePlayerFromCurrentTeam(playerName, teamId); 
             team[groupKey].push(playerName);
             await saveTeamsState();
-            renderTeamMaker();
+
+            // Rechargement selon la section active
+            const dashboardSection = document.getElementById('view-dashboard');
+            if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
+                renderTeamMaker();
+            } else {
+                await loadMembersViewData();
+            }
         }
     } catch (err) {
         console.error("Erreur dropToRaidGroup :", err);
@@ -3071,6 +3141,17 @@ async function dropToPool(event, teamId) {
         const teamIndex = teamsData.findIndex(t => t.id === teamId);
         if (teamIndex !== -1) {
             const team = teamsData[teamIndex];
+
+            // Contrôle de sécurité des permissions (Admin OU Créateur)
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const isAdmin = session && session.user.email === ADMIN_EMAIL;
+            const isCreator = session && team.creatorId === session.user.id;
+
+            if (!isAdmin && !isCreator) {
+                alert("Action refusée : Seul le créateur de cette activité ou un administrateur peut modifier la composition.");
+                return;
+            }
+
             if (team.composition_validated || team.validated) {
                 alert("Action refusée : La composition de cette équipe est verrouillée.");
                 return;
@@ -3078,7 +3159,14 @@ async function dropToPool(event, teamId) {
 
             removePlayerFromCurrentTeam(playerName, teamId); 
             await saveTeamsState();
-            renderTeamMaker();
+
+            // Rechargement selon la section active
+            const dashboardSection = document.getElementById('view-dashboard');
+            if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
+                renderTeamMaker();
+            } else {
+                await loadMembersViewData();
+            }
         }
     } catch (err) {
         console.error("Erreur dropToPool :", err);
@@ -4064,7 +4152,17 @@ async function validateTeamComposition(teamId) {
 
     const team = teamsData[teamIndex];
 
-    // Calcul du nombre de joueurs réellement affectés à la composition (hors postulants en attente)
+    // Contrôle de sécurité des permissions (Admin OU Créateur)
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const isAdmin = session && session.user.email === ADMIN_EMAIL;
+    const isCreator = session && team.creatorId === session.user.id;
+
+    if (!isAdmin && !isCreator) {
+        alert("Action refusée : Seul le créateur de cette activité ou un administrateur peut valider la composition.");
+        return;
+    }
+
+    // Calcul du nombre de joueurs réellement affectés
     let assignedCount = 0;
     if (team.motif === "Raid") {
         const playersA = team.playersA ? team.playersA.filter(p => p && p.trim() !== "") : [];
@@ -4075,21 +4173,26 @@ async function validateTeamComposition(teamId) {
         assignedCount = players.length;
     }
 
-    // Blocage de sécurité si aucun joueur n'est assigné à la composition
     if (assignedCount === 0) {
-        alert("Validation impossible : Vous devez affecter au moins 1 joueur (en le glissant-déposant depuis la liste des postulants vers la composition d'équipe) avant de pouvoir la valider.");
+        alert("Validation impossible : Vous devez affecter au moins 1 joueur avant de pouvoir la valider.");
         return;
     }
 
-    // Si des joueurs sont bien assignés, on demande la confirmation de l'administrateur
     if (!(await showCustomConfirm("Voulez-vous valider la composition de cette équipe ? Les inscriptions seront verrouillées et les membres pourront déposer leurs preuves.", "Valider la composition"))) {
         return;
     }
 
     team.composition_validated = true;
     await saveTeamsState();
-    alert("La composition a été verrouillée avec succès. Les membres peuvent désormais déposer leurs captures.");
-    await loadDashboardData();
+    alert("La composition a été verrouillée avec succès. Les membres de l'équipe peuvent désormais déposer leurs captures de preuve.");
+    
+    // Rafraîchir l'écran approprié
+    const dashboardSection = document.getElementById('view-dashboard');
+    if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
+        await loadDashboardData();
+    } else {
+        await loadMembersViewData();
+    }
 }
 
 // Envoi d'une notification de création d'activité par un membre (destinée aux administrateurs)
