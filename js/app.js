@@ -4786,10 +4786,6 @@ function renderMemberPointsRecap() {
                 <span class="text-slate-300 font-medium">PVP (6 joueurs)</span>
                 <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["PVP"] ?? 10} pts</span>
             </div>
-            <div class="flex justify-between items-center py-1.5">
-                <span class="text-slate-300 font-medium">Boss de Guilde</span>
-                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Boss de guilde"] ?? 10} pts</span>
-            </div>
         </div>
     `;
 
@@ -4809,28 +4805,64 @@ function renderMemberPointsRecap() {
                 <span class="text-slate-300 font-medium">Raid Nightmare</span>
                 <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Raid Nightmare"] ?? 25} pts</span>
             </div>
+            <div class="flex justify-between items-center py-1.5">
+                <span class="text-slate-300 font-medium">Boss de Guilde</span>
+                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Boss de guilde"] ?? 10} pts</span>
+            </div>
         </div>
     `;
 
-    // Bloc 3 : Épreuves Dimensionnelles
+    // Bloc 3 : Épreuves Dimensionnelles (Détaillées individuellement de T1 à T10)
     const epreuveHtml = `
         <div class="bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
-            <span class="block text-[11px] font-bold text-cyan-400 uppercase tracking-wider mb-2">Épreuves Dimensionnelles</span>
-            <div class="flex justify-between items-center py-1 border-b border-[#1e2638]/40">
-                <span class="text-slate-300 font-medium">Tiers 1 à 5</span>
-                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Épreuve T1"] ?? 10} pts</span>
-            </div>
-            <div class="flex justify-between items-center py-1 border-b border-[#1e2638]/40">
-                <span class="text-slate-300 font-medium">Tier 6 / Tier 7</span>
-                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Épreuve T6"] ?? 12} / +${pointsConfig["Épreuve T7"] ?? 14} pts</span>
-            </div>
-            <div class="flex justify-between items-center py-1 border-b border-[#1e2638]/40">
-                <span class="text-slate-300 font-medium">Tier 8 / Tier 9</span>
-                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Épreuve T8"] ?? 16} / +${pointsConfig["Épreuve T9"] ?? 18} pts</span>
-            </div>
-            <div class="flex justify-between items-center py-1">
-                <span class="text-slate-300 font-medium">Tier 10</span>
-                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Épreuve T10"] ?? 20} pts</span>
+            <span class="block text-[11px] font-bold text-cyan-400 uppercase tracking-wider mb-3">Épreuves Dimensionnelles</span>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                <!-- Colonne Gauche : Tiers 1 à 5 -->
+                <div class="space-y-1.5 border-r border-[#1e2638]/40 pr-2">
+                    <div class="flex justify-between items-center text-[11px]">
+                        <span class="text-slate-400 font-medium">Tier 1</span>
+                        <span class="font-bold text-emerald-400 font-mono">+${pointsConfig["Épreuve T1"] ?? 10} pts</span>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] pt-1.5 border-t border-[#1e2638]/20">
+                        <span class="text-slate-400 font-medium">Tier 2</span>
+                        <span class="font-bold text-emerald-400 font-mono">+${pointsConfig["Épreuve T2"] ?? 10} pts</span>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] pt-1.5 border-t border-[#1e2638]/20">
+                        <span class="text-slate-400 font-medium">Tier 3</span>
+                        <span class="font-bold text-emerald-400 font-mono">+${pointsConfig["Épreuve T3"] ?? 10} pts</span>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] pt-1.5 border-t border-[#1e2638]/20">
+                        <span class="text-slate-400 font-medium">Tier 4</span>
+                        <span class="font-bold text-emerald-400 font-mono">+${pointsConfig["Épreuve T4"] ?? 10} pts</span>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] pt-1.5 border-t border-[#1e2638]/20">
+                        <span class="text-slate-400 font-medium">Tier 5</span>
+                        <span class="font-bold text-emerald-400 font-mono">+${pointsConfig["Épreuve T5"] ?? 10} pts</span>
+                    </div>
+                </div>
+                <!-- Colonne Droite : Tiers 6 à 10 -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between items-center text-[11px]">
+                        <span class="text-slate-400 font-medium">Tier 6</span>
+                        <span class="font-bold text-emerald-400 font-mono">+${pointsConfig["Épreuve T6"] ?? 12} pts</span>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] pt-1.5 border-t border-[#1e2638]/20">
+                        <span class="text-slate-400 font-medium">Tier 7</span>
+                        <span class="font-bold text-emerald-400 font-mono">+${pointsConfig["Épreuve T7"] ?? 14} pts</span>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] pt-1.5 border-t border-[#1e2638]/20">
+                        <span class="text-slate-400 font-medium">Tier 8</span>
+                        <span class="font-bold text-emerald-400 font-mono">+${pointsConfig["Épreuve T8"] ?? 16} pts</span>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] pt-1.5 border-t border-[#1e2638]/20">
+                        <span class="text-slate-400 font-medium">Tier 9</span>
+                        <span class="font-bold text-emerald-400 font-mono">+${pointsConfig["Épreuve T9"] ?? 18} pts</span>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] pt-1.5 border-t border-[#1e2638]/20">
+                        <span class="text-slate-400 font-medium">Tier 10</span>
+                        <span class="font-bold text-emerald-400 font-mono">+${pointsConfig["Épreuve T10"] ?? 20} pts</span>
+                    </div>
+                </div>
             </div>
         </div>
     `;
