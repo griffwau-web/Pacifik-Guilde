@@ -1190,7 +1190,20 @@ async function generateInviteLink() {
 }
 
 async function deleteTeam(teamId) {
-    if (await showCustomConfirm("Voulez-vous supprimer cet événement ?", "Supprimer l'événement", true)) {
+    const team = teamsData.find(t => t.id === teamId);
+    if (!team) return;
+
+    // Contrôle de sécurité des permissions (Admin OU Créateur)
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const isAdmin = session && session.user.email === ADMIN_EMAIL;
+    const isCreator = session && team.creatorId === session.user.id;
+
+    if (!isAdmin && !isCreator) {
+        alert("Action refusée : Seul le créateur de cette activité ou un administrateur peut la supprimer.");
+        return;
+    }
+
+    if (await showCustomConfirm("Voulez-vous supprimer définitivement cet événement ?", "Supprimer l'événement", true)) {
         teamsData = teamsData.filter(t => t.id !== teamId);
         await saveTeamsState();
 
@@ -1205,7 +1218,13 @@ async function deleteTeam(teamId) {
             }
         }
 
-        renderTeamMaker();
+        // Rafraîchir la bonne vue selon l'onglet actif de l'utilisateur
+        const dashboardSection = document.getElementById('view-dashboard');
+        if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
+            renderTeamMaker();
+        } else {
+            await loadMembersViewData();
+        }
     }
 }
 
@@ -1958,12 +1977,32 @@ async function loadMembersViewData() {
         `;
     } else {
         visibleTeams.forEach(team => {
-            // Déterminer si le membre connecté est l'auteur créateur de l'activité
-            const isCreatorOfThisTeam = (team.creatorId === session.user.id);
-            const isDraggable = isCreatorOfThisTeam && !team.composition_validated && !team.validated;
+        // Déterminer si le membre connecté est l'auteur créateur de l'activité
+        const isCreatorOfThisTeam = (team.creatorId === session.user.id);
+        const isDraggable = isCreatorOfThisTeam && !team.composition_validated && !team.validated;
 
-            let applicationsPanelHtml = "";
-            let gsBadgeHtml = ""; 
+        let applicationsPanelHtml = "";
+        let gsBadgeHtml = ""; 
+        
+        // Générer le bouton de suppression s'il s'agit du créateur de l'équipe
+        let deleteButtonHtml = "";
+        if (isCreatorOfThisTeam) {
+            deleteButtonHtml = `
+                <button onclick="deleteTeam('${team.id}')" class="text-slate-500 hover:text-red-400 transition ml-2" title="Supprimer l'activité">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+            `;
+        }
+
+        // Bouton de validation pour le créateur membre
+        let validationButtonHtml = "";
+        if (isCreatorOfThisTeam && !team.composition_validated && !team.validated) {
+            validationButtonHtml = `
+                <button onclick="validateTeamComposition('${team.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] transition flex items-center justify-center gap-1">
+                    <i class="w-3.5 h-3.5" data-lucide="shield-alert"></i> Valider la composition
+                </button>
+            `;
+        } 
 
             let calculatedBase = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
             const isAssigned = isPlayerAssignedToTeam(displayName, team.id);
@@ -1994,7 +2033,21 @@ async function loadMembersViewData() {
                 }
             }
 
-            // Bouton de validation pour le créateur membre
+            // 1. Détecter si le membre connecté est l'auteur créateur de l'activité
+            const isCreatorOfThisTeam = (team.creatorId === session.user.id);
+            const isDraggable = isCreatorOfThisTeam && !team.composition_validated && !team.validated;
+    
+            // 2. Générer le bouton de suppression s'il s'agit du créateur de l'équipe
+            let deleteButtonHtml = "";
+            if (isCreatorOfThisTeam) {
+                deleteButtonHtml = `
+                    <button onclick="deleteTeam('${team.id}')" class="text-slate-500 hover:text-red-400 transition ml-2" title="Supprimer l'activité">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                `;
+            }
+    
+            // 3. Bouton de validation de composition pour le créateur
             let validationButtonHtml = "";
             if (isCreatorOfThisTeam && !team.composition_validated && !team.validated) {
                 validationButtonHtml = `
@@ -2156,7 +2209,7 @@ async function loadMembersViewData() {
                 appsHtml = `<div class="p-3 text-center text-slate-600 text-xs italic select-none">Aucun postulant</div>`;
             }
 
-            // Attributs de dépôt (Drop Zones) pour le créateur
+            // Attributs de dépôt (Drop Zones) actifs uniquement si l'utilisateur est le créateur autorisé
             const poolDropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToPool(event, '${team.id}')"` : "";
             const teamDropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToTeam(event, '${team.id}')"` : "";
             const raidADropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToRaidGroup(event, '${team.id}', 'A')"` : "";
@@ -2223,16 +2276,17 @@ async function loadMembersViewData() {
                 membersTeamsView.innerHTML += `
                     <div class="col-span-full bg-[#161b26]/50 border border-[#1e2638] rounded-xl p-5 space-y-4 animate-fade-in">
                         <div class="flex justify-between items-center border-b border-[#1e2638] pb-3 flex-wrap gap-2">
-                            <div class="flex items-center gap-3">
-                                <span class="text-xs px-2.5 py-1 rounded-full border ${raidBadgeClass} font-bold uppercase tracking-wider">${difficultyText}</span>
-                                <span class="font-bold text-sm text-slate-200">${team.name}</span>
-                                <span class="text-xs text-slate-500">${formatEventDate(team.date)}</span>
-                                ${gsBadgeHtml}
-                            </div>
-                            <div class="flex items-center gap-2">
-                                ${validationButtonHtml}
-                            </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs px-2.5 py-1 rounded-full border ${raidBadgeClass} font-bold uppercase tracking-wider">${difficultyText}</span>
+                            <span class="font-bold text-sm text-slate-200">${team.name}</span>
+                            <span class="text-xs text-slate-500">${formatEventDate(team.date)}</span>
+                            ${gsBadgeHtml}
                         </div>
+                        <div class="flex items-center gap-2">
+                            ${validationButtonHtml}
+                            ${deleteButtonHtml}
+                        </div>
+                    </div>
                         
                         <div class="flex flex-col lg:flex-row gap-6 w-full">
                             <div ${poolDropAttr} class="w-full lg:w-[250px] shrink-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col space-y-3">
