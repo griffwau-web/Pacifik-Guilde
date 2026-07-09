@@ -4792,7 +4792,7 @@ function renderMemberPointsRecap() {
     // Bloc 2 : Raids
     const raidHtml = `
         <div class="bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
-            <span class="block text-[11px] font-bold text-pink-400 uppercase tracking-wider mb-2">Raids de Guilde</span>
+            <span class="block text-[11px] font-bold text-pink-400 uppercase tracking-wider mb-2">Activité de Guilde</span>
             <div class="flex justify-between items-center py-1.5 border-b border-[#1e2638]/40">
                 <span class="text-slate-300 font-medium">Raid Normal</span>
                 <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Raid Normal"] ?? 15} pts</span>
