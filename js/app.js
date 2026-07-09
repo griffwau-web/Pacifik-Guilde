@@ -1759,7 +1759,7 @@ function getRemainingTimeText(endTimeStr) {
     return `Temps restant : ${hours}h ${minutes}m`;
 }
 
-// Chargement de l'Espace Membre
+// Espace membre connecté
 async function loadMembersViewData() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) return;
@@ -1802,11 +1802,11 @@ async function loadMembersViewData() {
         console.warn("Impossible de récupérer la liste des membres.");
     }
 
-    // CORRECTION : Déclarer displayName IMMÉDIATEMENT ici pour qu'il soit disponible pour les calculs ci-dessous
+    // Déclarer displayName IMMÉDIATEMENT ici pour qu'il soit disponible pour les calculs ci-dessous
     const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
     const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
 
-    // NOUVEAU : Calculer et afficher les points de fin de semaine en attente pour le membre connecté
+    // Calculer et afficher les points de fin de semaine en attente pour le membre connecté
     let memberPendingPoints = 0;
     const memberApprovedActivities = [];
 
@@ -1977,32 +1977,11 @@ async function loadMembersViewData() {
         `;
     } else {
         visibleTeams.forEach(team => {
-        // Déterminer si le membre connecté est l'auteur créateur de l'activité
-        const isCreatorOfThisTeam = (team.creatorId === session.user.id);
-        const isDraggable = isCreatorOfThisTeam && !team.composition_validated && !team.validated;
+            const isCreatorOfThisTeam = (team.creatorId === session.user.id);
+            const isDraggable = isCreatorOfThisTeam && !team.composition_validated && !team.validated;
 
-        let applicationsPanelHtml = "";
-        let gsBadgeHtml = ""; 
-        
-        // Générer le bouton de suppression s'il s'agit du créateur de l'équipe
-        let deleteButtonHtml = "";
-        if (isCreatorOfThisTeam) {
-            deleteButtonHtml = `
-                <button onclick="deleteTeam('${team.id}')" class="text-slate-500 hover:text-red-400 transition ml-2" title="Supprimer l'activité">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                </button>
-            `;
-        }
-
-        // Bouton de validation pour le créateur membre
-        let validationButtonHtml = "";
-        if (isCreatorOfThisTeam && !team.composition_validated && !team.validated) {
-            validationButtonHtml = `
-                <button onclick="validateTeamComposition('${team.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] transition flex items-center justify-center gap-1">
-                    <i class="w-3.5 h-3.5" data-lucide="shield-alert"></i> Valider la composition
-                </button>
-            `;
-        } 
+            let applicationsPanelHtml = "";
+            let gsBadgeHtml = ""; 
 
             let calculatedBase = getActivityPointsValue(team.motif, team.dimensionalTier, team.raidDifficulty);
             const isAssigned = isPlayerAssignedToTeam(displayName, team.id);
@@ -2033,11 +2012,7 @@ async function loadMembersViewData() {
                 }
             }
 
-            // 1. Détecter si le membre connecté est l'auteur créateur de l'activité
-            const isCreatorOfThisTeam = (team.creatorId === session.user.id);
-            const isDraggable = isCreatorOfThisTeam && !team.composition_validated && !team.validated;
-    
-            // 2. Générer le bouton de suppression s'il s'agit du créateur de l'équipe
+            // Bouton de suppression pour le créateur membre
             let deleteButtonHtml = "";
             if (isCreatorOfThisTeam) {
                 deleteButtonHtml = `
@@ -2046,14 +2021,28 @@ async function loadMembersViewData() {
                     </button>
                 `;
             }
-    
-            // 3. Bouton de validation de composition pour le créateur
+
+            // Bouton de validation de composition pour le créateur
             let validationButtonHtml = "";
             if (isCreatorOfThisTeam && !team.composition_validated && !team.validated) {
                 validationButtonHtml = `
                     <button onclick="validateTeamComposition('${team.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg text-[10px] transition flex items-center justify-center gap-1">
                         <i class="w-3.5 h-3.5" data-lucide="shield-alert"></i> Valider la composition
                     </button>
+                `;
+            }
+
+            // Attributs de dépôt (Drop Zones) actifs uniquement si l'utilisateur est le créateur autorisé
+            const poolDropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToPool(event, '${team.id}')"` : "";
+            const teamDropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToTeam(event, '${team.id}')"` : "";
+            const raidADropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToRaidGroup(event, '${team.id}', 'A')"` : "";
+            const raidBDropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToRaidGroup(event, '${team.id}', 'B')"` : "";
+
+            if (team.gearScoreLimit && team.gearScoreLimit > 0) {
+                gsBadgeHtml = `
+                    <span class="text-[9px] px-2 py-0.5 rounded border border-red-500/20 bg-red-500/10 text-red-400 font-extrabold tracking-wide uppercase flex items-center gap-1 font-sans">
+                        <i data-lucide="shield-alert" class="w-3 h-3"></i> Requis: ${team.gearScoreLimit} GS
+                    </span>
                 `;
             }
 
@@ -2097,7 +2086,7 @@ async function loadMembersViewData() {
                     } else {
                         const rejectedProofEntry = teamProofsList.find(([_, p]) => p.status === "rejected");
                         const rejectedProof = rejectedProofEntry ? rejectedProofEntry[1] : null;
-                        const rejectedProofAuthor = rejectedProofEntry ? rejectedProofEntry[0] : null;
+                        const rejectedProofAuthor = rejectedProofEntry ? rejectedProofEntry[1] : null;
 
                         let rejectedNoteHtml = "";
                         if (rejectedProof) {
@@ -2138,7 +2127,7 @@ async function loadMembersViewData() {
                 applicationsPanelHtml = `
                     <div class="mt-4 p-2.5 bg-blue-950/20 border border-blue-500/20 rounded-xl text-center text-xs text-blue-400 font-bold select-none flex items-center justify-center gap-1.5">
                         <i data-lucide="shield-check" class="w-4 h-4"></i>
-                        Vous êtes assigné à cette composition (En attente de validation)
+                        Vous êtes assigné à cette composition (En attente de validation admin)
                     </div>
                 `;
             } else {
@@ -2176,7 +2165,7 @@ async function loadMembersViewData() {
                 }
             }
 
-            // Construction de la liste des postulants (draggable pour le créateur)
+            // Rendu de la liste des postulants (déplaçable si l'utilisateur connecté est l'auteur)
             let appsHtml = "";
             if (team.applications && team.applications.length > 0) {
                 team.applications.forEach(app => {
@@ -2188,7 +2177,6 @@ async function loadMembersViewData() {
                         const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === app.name);
                         const weaponsHtml = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
 
-                        // Rendre le postulant déplaçable (draggable) si autorisé
                         const dragAttrs = isDraggable
                             ? `draggable="true" ondragstart="dragPlayer(event, '${app.name}', '${team.id}')" class="bg-[#111622] border border-[#1e2638] p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-blue-500/30"`
                             : `class="bg-[#111622] border border-[#1e2638] p-2 rounded-lg flex items-center justify-between gap-1.5 text-xs animate-fade-in"`;
@@ -2209,12 +2197,6 @@ async function loadMembersViewData() {
                 appsHtml = `<div class="p-3 text-center text-slate-600 text-xs italic select-none">Aucun postulant</div>`;
             }
 
-            // Attributs de dépôt (Drop Zones) actifs uniquement si l'utilisateur est le créateur autorisé
-            const poolDropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToPool(event, '${team.id}')"` : "";
-            const teamDropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToTeam(event, '${team.id}')"` : "";
-            const raidADropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToRaidGroup(event, '${team.id}', 'A')"` : "";
-            const raidBDropAttr = isDraggable ? `ondragover="allowDrop(event)" ondrop="dropToRaidGroup(event, '${team.id}', 'B')"` : "";
-
             const maxSlots = team.motif === "Boss de guilde" ? Math.max(6, (team.players || []).length + 1) : 6;
             const totalSlotsLabel = team.motif === "Boss de guilde" ? "∞" : "6";
 
@@ -2229,7 +2211,6 @@ async function loadMembersViewData() {
                         const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
                         const design = getPlayerRoleDesign(pA, team);
 
-                        // Joueur de la composition déplaçable
                         const playerDragAttr = isDraggable
                             ? `draggable="true" ondragstart="dragPlayer(event, '${pA}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-red-500/20"`
                             : `class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 transition text-xs shadow-sm"`;
@@ -2276,17 +2257,17 @@ async function loadMembersViewData() {
                 membersTeamsView.innerHTML += `
                     <div class="col-span-full bg-[#161b26]/50 border border-[#1e2638] rounded-xl p-5 space-y-4 animate-fade-in">
                         <div class="flex justify-between items-center border-b border-[#1e2638] pb-3 flex-wrap gap-2">
-                        <div class="flex items-center gap-3">
-                            <span class="text-xs px-2.5 py-1 rounded-full border ${raidBadgeClass} font-bold uppercase tracking-wider">${difficultyText}</span>
-                            <span class="font-bold text-sm text-slate-200">${team.name}</span>
-                            <span class="text-xs text-slate-500">${formatEventDate(team.date)}</span>
-                            ${gsBadgeHtml}
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs px-2.5 py-1 rounded-full border ${raidBadgeClass} font-bold uppercase tracking-wider">${difficultyText}</span>
+                                <span class="font-bold text-sm text-slate-200">${team.name}</span>
+                                <span class="text-xs text-slate-500">${formatEventDate(team.date)}</span>
+                                ${gsBadgeHtml}
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${validationButtonHtml}
+                                ${deleteButtonHtml}
+                            </div>
                         </div>
-                        <div class="flex items-center gap-2">
-                            ${validationButtonHtml}
-                            ${deleteButtonHtml}
-                        </div>
-                    </div>
                         
                         <div class="flex flex-col lg:flex-row gap-6 w-full">
                             <div ${poolDropAttr} class="w-full lg:w-[250px] shrink-0 bg-[#0b0e14]/40 border border-[#1e2638] rounded-xl p-4 flex flex-col space-y-3">
@@ -2433,6 +2414,7 @@ async function loadMembersViewData() {
                             </div>
                             <div class="flex items-center gap-2">
                                 ${validationButtonHtml}
+                                ${deleteButtonHtml}
                             </div>
                         </div>
                         
@@ -2484,7 +2466,6 @@ async function loadMembersViewData() {
 
                 const weaponsHtml = m.weapon1 ? getWeaponIcon(m.weapon1) + getWeaponIcon(m.weapon2) : "";
 
-                // NOUVEAU : Si le joueur possède un lien de build, son pseudo devient cliquable vers Questlog
                 const memberNameHtml = m.build_url
                     ? `<a href="${m.build_url}" target="_blank" class="block text-xs font-bold text-blue-400 hover:text-blue-300 hover:underline truncate flex items-center gap-1 select-none" title="Consulter le build Questlog de ${displayName}">
                         ${displayName} <i data-lucide="external-link" class="w-3 h-3 opacity-70"></i>
@@ -2508,9 +2489,8 @@ async function loadMembersViewData() {
             }).join('');
         }
     }
-    // NOUVEAU : Rendu du planning hebdomadaire de guilde pour le membre connecté
-    renderWeeklyCalendar(session.user);
     
+    renderWeeklyCalendar(session.user);
     lucide.createIcons();
 }
 
