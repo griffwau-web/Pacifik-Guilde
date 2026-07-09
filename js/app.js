@@ -2491,6 +2491,7 @@ async function loadMembersViewData() {
     }
     
     renderWeeklyCalendar(session.user);
+    renderMemberPointsRecap();
     lucide.createIcons();
 }
 
@@ -4770,4 +4771,69 @@ function getGroupLabel(index) {
         temp = Math.floor(temp / 26) - 1;
     }
     return label;
+}
+
+// Analyse et affiche le barème de points d'activité dynamique (en lecture seule) pour les membres
+function renderMemberPointsRecap() {
+    const container = document.getElementById('member-points-grid');
+    if (!container) return;
+
+    // Bloc 1 : Activités Générales
+    const baseHtml = `
+        <div class="bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
+            <span class="block text-[11px] font-bold text-purple-400 uppercase tracking-wider mb-2">Activités Générales</span>
+            <div class="flex justify-between items-center py-1.5 border-b border-[#1e2638]/40">
+                <span class="text-slate-300 font-medium">PVP (6 joueurs)</span>
+                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["PVP"] ?? 10} pts</span>
+            </div>
+            <div class="flex justify-between items-center py-1.5">
+                <span class="text-slate-300 font-medium">Boss de Guilde</span>
+                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Boss de guilde"] ?? 10} pts</span>
+            </div>
+        </div>
+    `;
+
+    // Bloc 2 : Raids
+    const raidHtml = `
+        <div class="bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
+            <span class="block text-[11px] font-bold text-pink-400 uppercase tracking-wider mb-2">Raids de Guilde</span>
+            <div class="flex justify-between items-center py-1.5 border-b border-[#1e2638]/40">
+                <span class="text-slate-300 font-medium">Raid Normal</span>
+                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Raid Normal"] ?? 15} pts</span>
+            </div>
+            <div class="flex justify-between items-center py-1.5 border-b border-[#1e2638]/40">
+                <span class="text-slate-300 font-medium">Raid Hardcore</span>
+                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Raid Hardcore"] ?? 20} pts</span>
+            </div>
+            <div class="flex justify-between items-center py-1.5">
+                <span class="text-slate-300 font-medium">Raid Nightmare</span>
+                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Raid Nightmare"] ?? 25} pts</span>
+            </div>
+        </div>
+    `;
+
+    // Bloc 3 : Épreuves Dimensionnelles
+    const epreuveHtml = `
+        <div class="bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl p-3.5 space-y-2">
+            <span class="block text-[11px] font-bold text-cyan-400 uppercase tracking-wider mb-2">Épreuves Dimensionnelles</span>
+            <div class="flex justify-between items-center py-1 border-b border-[#1e2638]/40">
+                <span class="text-slate-300 font-medium">Tiers 1 à 5</span>
+                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Épreuve T1"] ?? 10} pts</span>
+            </div>
+            <div class="flex justify-between items-center py-1 border-b border-[#1e2638]/40">
+                <span class="text-slate-300 font-medium">Tier 6 / Tier 7</span>
+                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Épreuve T6"] ?? 12} / +${pointsConfig["Épreuve T7"] ?? 14} pts</span>
+            </div>
+            <div class="flex justify-between items-center py-1 border-b border-[#1e2638]/40">
+                <span class="text-slate-300 font-medium">Tier 8 / Tier 9</span>
+                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Épreuve T8"] ?? 16} / +${pointsConfig["Épreuve T9"] ?? 18} pts</span>
+            </div>
+            <div class="flex justify-between items-center py-1">
+                <span class="text-slate-300 font-medium">Tier 10</span>
+                <span class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono">+${pointsConfig["Épreuve T10"] ?? 20} pts</span>
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = baseHtml + raidHtml + epreuveHtml;
 }
