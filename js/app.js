@@ -3153,14 +3153,7 @@ function renderTeamMaker() {
         // Génération du tableau de contrôle des captures d'écran des membres
         let proofsReviewHtml = "";
         if (team.composition_validated && !team.validated) {
-            let assignedPlayers = [];
-            if (team.motif === "Raid") {
-                if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
-                if (team.playersB) assignedPlayers = assignedPlayers.concat(team.playersB);
-            } else {
-                if (team.players) assignedPlayers = assignedPlayers.concat(team.players);
-            }
-            assignedPlayers = assignedPlayers.filter(p => p && p !== "");
+            const assignedPlayers = getAssignedPlayers(team);
 
             let proofsRows = "";
             assignedPlayers.forEach(p => {
@@ -3859,14 +3852,7 @@ async function distributeWeeklyPoints(isSilent = false) {
         }
 
         if (hasApprovedProof) {
-            let assignedPlayers = [];
-            if (team.motif === "Raid") {
-                if (team.playersA) assignedPlayers = assignedPlayers.concat(team.playersA);
-                if (team.playersB) assignedPlayers = assignedPlayers.concat(team.playersB);
-            } else {
-                if (team.players) assignedPlayers = assignedPlayers.concat(team.players);
-            }
-            assignedPlayers = assignedPlayers.filter(p => p && p !== "");
+            const assignedPlayers = getAssignedPlayers(team);
 
             assignedPlayers.forEach(playerName => {
                 if (!playerApprovedActivities[playerName]) {
