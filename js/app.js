@@ -2928,6 +2928,17 @@ function removePlayerFromCurrentTeam(playerName, teamId) {
     if (team.playersB) team.playersB = team.playersB.filter(p => p !== playerName);
 }
 
+// Retire un joueur de TOUTES les équipes/groupes de raid (utilisé lors de la suppression
+// définitive d'un compte/candidature), contrairement à removePlayerFromCurrentTeam qui ne
+// cible qu'une seule équipe.
+function removePlayerFromAllTeams(playerName) {
+    teamsData.forEach(team => {
+        if (team.players) team.players = team.players.filter(p => p !== playerName);
+        if (team.playersA) team.playersA = team.playersA.filter(p => p !== playerName);
+        if (team.playersB) team.playersB = team.playersB.filter(p => p !== playerName);
+    });
+}
+
 function dragPlayer(event, playerName, teamId) {
     const dragData = { playerName, teamId };
     event.dataTransfer.setData("application/json", JSON.stringify(dragData));
@@ -2937,57 +2948,69 @@ function allowDrop(event) {
     event.preventDefault();
 }
 
+// Valide un événement de drag & drop de joueur : payload, appartenance à la bonne activité,
+// permissions (admin OU créateur) et verrou de composition. Affiche l'alerte appropriée et
+// retourne null si l'action doit être refusée ; sinon { playerName, team } prêt à modifier.
+async function _resolveTeamDropContext(event, teamId, lockedMessage) {
+    const dataStr = event.dataTransfer.getData("application/json");
+    if (!dataStr) return null;
+    const { playerName, teamId: sourceTeamId } = JSON.parse(dataStr);
+
+    if (sourceTeamId !== teamId) {
+        alert("Vous ne pouvez glisser-déposer un joueur que dans le cadre de sa propre activité.");
+        return null;
+    }
+
+    const team = teamsData.find(t => t.id === teamId);
+    if (!team) return null;
+
+    // Contrôle de sécurité des permissions (Admin OU Créateur)
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const isAdmin = session && session.user.email === ADMIN_EMAIL;
+    const isCreator = session && team.creatorId === session.user.id;
+
+    if (!isAdmin && !isCreator) {
+        alert("Action refusée : Seul le créateur de cette activité ou un administrateur peut modifier la composition.");
+        return null;
+    }
+
+    if (team.composition_validated || team.validated) {
+        alert(lockedMessage);
+        return null;
+    }
+
+    return { playerName, team };
+}
+
+// Recharge l'affichage des équipes selon la section actuellement active (Dashboard admin ou espace membre)
+async function _refreshTeamsView() {
+    const dashboardSection = document.getElementById('view-dashboard');
+    if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
+        renderTeamMaker();
+    } else {
+        await loadMembersViewData();
+    }
+}
+
 async function dropToTeam(event, teamId) {
     event.preventDefault();
     try {
-        const dataStr = event.dataTransfer.getData("application/json");
-        if (!dataStr) return;
-        const { playerName, teamId: sourceTeamId } = JSON.parse(dataStr);
+        const ctx = await _resolveTeamDropContext(event, teamId, "Action refusée : La composition de cette équipe est verrouillée.");
+        if (!ctx) return;
+        const { playerName, team } = ctx;
 
-        if (sourceTeamId !== teamId) {
-            alert("Vous ne pouvez glisser-déposer un joueur que dans le cadre de sa propre activité.");
+        if (!team.players) team.players = [];
+        if (team.players.includes(playerName)) return;
+
+        if (team.motif !== "Boss de guilde" && team.players.length >= 6) {
+            alert("Cette équipe est pleine.");
             return;
         }
 
-        const teamIndex = teamsData.findIndex(t => t.id === teamId);
-        if (teamIndex !== -1) {
-            const team = teamsData[teamIndex];
-
-            // Contrôle de sécurité des permissions (Admin OU Créateur)
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            const isAdmin = session && session.user.email === ADMIN_EMAIL;
-            const isCreator = session && team.creatorId === session.user.id;
-
-            if (!isAdmin && !isCreator) {
-                alert("Action refusée : Seul le créateur de cette activité ou un administrateur peut modifier la composition.");
-                return;
-            }
-
-            if (team.composition_validated || team.validated) {
-                alert("Action refusée : La composition de cette équipe est verrouillée.");
-                return;
-            }
-
-            if (!team.players) team.players = [];
-            if (team.players.includes(playerName)) return;
-
-            if (team.motif !== "Boss de guilde" && team.players.length >= 6) {
-                alert("Cette équipe est pleine.");
-                return;
-            }
-
-            removePlayerFromCurrentTeam(playerName, teamId); 
-            team.players.push(playerName);
-            await saveTeamsState();
-            
-            // Rechargement selon la section active
-            const dashboardSection = document.getElementById('view-dashboard');
-            if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
-                renderTeamMaker();
-            } else {
-                await loadMembersViewData();
-            }
-        }
+        removePlayerFromCurrentTeam(playerName, teamId);
+        team.players.push(playerName);
+        await saveTeamsState();
+        await _refreshTeamsView();
     } catch (err) {
         console.error("Erreur dropToTeam :", err);
     }
@@ -2996,56 +3019,23 @@ async function dropToTeam(event, teamId) {
 async function dropToRaidGroup(event, teamId, groupLetter) {
     event.preventDefault();
     try {
-        const dataStr = event.dataTransfer.getData("application/json");
-        if (!dataStr) return;
-        const { playerName, teamId: sourceTeamId } = JSON.parse(dataStr);
+        const ctx = await _resolveTeamDropContext(event, teamId, "Action refusée : La composition de ce raid est verrouillée.");
+        if (!ctx) return;
+        const { playerName, team } = ctx;
 
-        if (sourceTeamId !== teamId) {
-            alert("Vous ne pouvez glisser-déposer un joueur que dans le cadre de sa propre activité.");
+        const groupKey = groupLetter === 'A' ? 'playersA' : 'playersB';
+        if (!team[groupKey]) team[groupKey] = [];
+        if (team[groupKey].includes(playerName)) return;
+
+        if (team[groupKey].length >= 6) {
+            alert(`Le Groupe ${groupLetter} est complet.`);
             return;
         }
 
-        const teamIndex = teamsData.findIndex(t => t.id === teamId);
-        if (teamIndex !== -1) {
-            const team = teamsData[teamIndex];
-
-            // Contrôle de sécurité des permissions (Admin OU Créateur)
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            const isAdmin = session && session.user.email === ADMIN_EMAIL;
-            const isCreator = session && team.creatorId === session.user.id;
-
-            if (!isAdmin && !isCreator) {
-                alert("Action refusée : Seul le créateur de cette activité ou un administrateur peut modifier la composition.");
-                return;
-            }
-
-            if (team.composition_validated || team.validated) {
-                alert("Action refusée : La composition de ce raid est verrouillée.");
-                return;
-            }
-
-            const groupKey = groupLetter === 'A' ? 'playersA' : 'playersB';
-            if (!team[groupKey]) team[groupKey] = [];
-
-            if (team[groupKey].includes(playerName)) return;
-
-            if (team[groupKey].length >= 6) {
-                alert(`Le Groupe ${groupLetter} est complet.`);
-                return;
-            }
-
-            removePlayerFromCurrentTeam(playerName, teamId); 
-            team[groupKey].push(playerName);
-            await saveTeamsState();
-
-            // Rechargement selon la section active
-            const dashboardSection = document.getElementById('view-dashboard');
-            if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
-                renderTeamMaker();
-            } else {
-                await loadMembersViewData();
-            }
-        }
+        removePlayerFromCurrentTeam(playerName, teamId);
+        team[groupKey].push(playerName);
+        await saveTeamsState();
+        await _refreshTeamsView();
     } catch (err) {
         console.error("Erreur dropToRaidGroup :", err);
     }
@@ -3054,45 +3044,13 @@ async function dropToRaidGroup(event, teamId, groupLetter) {
 async function dropToPool(event, teamId) {
     event.preventDefault();
     try {
-        const dataStr = event.dataTransfer.getData("application/json");
-        if (!dataStr) return;
-        const { playerName, teamId: sourceTeamId } = JSON.parse(dataStr);
+        const ctx = await _resolveTeamDropContext(event, teamId, "Action refusée : La composition de cette équipe est verrouillée.");
+        if (!ctx) return;
+        const { playerName } = ctx;
 
-        if (sourceTeamId !== teamId) {
-            alert("Vous ne pouvez glisser-déposer un joueur que dans le cadre de sa propre activité.");
-            return;
-        }
-
-        const teamIndex = teamsData.findIndex(t => t.id === teamId);
-        if (teamIndex !== -1) {
-            const team = teamsData[teamIndex];
-
-            // Contrôle de sécurité des permissions (Admin OU Créateur)
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            const isAdmin = session && session.user.email === ADMIN_EMAIL;
-            const isCreator = session && team.creatorId === session.user.id;
-
-            if (!isAdmin && !isCreator) {
-                alert("Action refusée : Seul le créateur de cette activité ou un administrateur peut modifier la composition.");
-                return;
-            }
-
-            if (team.composition_validated || team.validated) {
-                alert("Action refusée : La composition de cette équipe est verrouillée.");
-                return;
-            }
-
-            removePlayerFromCurrentTeam(playerName, teamId); 
-            await saveTeamsState();
-
-            // Rechargement selon la section active
-            const dashboardSection = document.getElementById('view-dashboard');
-            if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
-                renderTeamMaker();
-            } else {
-                await loadMembersViewData();
-            }
-        }
+        removePlayerFromCurrentTeam(playerName, teamId);
+        await saveTeamsState();
+        await _refreshTeamsView();
     } catch (err) {
         console.error("Erreur dropToPool :", err);
     }
