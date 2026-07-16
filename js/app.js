@@ -1746,14 +1746,10 @@ function buildMemberLeaderboardHtml() {
     }).join('');
 }
 
-async function loadMembersViewData() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) return;
-
-    document.getElementById('member-display-email').innerText = session.user.email;
-
+// Affiche les 3 dernières annonces de la guilde dans le bandeau de notifications
+async function renderMemberNotificationsBanner() {
     try {
-        const { data: notices, error } = await supabaseClient
+        const { data: notices } = await supabaseClient
             .from('notifications')
             .select('*')
             .order('created_at', { ascending: false })
@@ -1772,51 +1768,18 @@ async function loadMembersViewData() {
     } catch (err) {
         console.log("Lecture des notifications non disponible.");
     }
+}
 
-    // La liste des membres est récupérée en parallèle des autres chargements : elle sert
-    // à la fois au profil du membre connecté, au classement et aux compositions d'équipe.
-    const [, , , membersResult] = await Promise.all([
-        loadTeamsFromStorage(),
-        loadAuctionsFromStorage(),
-        loadFormStatus(),
-        supabaseClient.from('member_profiles').select('*')
-    ]);
-
-    if (membersResult.error) {
-        console.warn("Impossible de récupérer la liste des membres.");
-    } else {
-        allDatabaseMembers = membersResult.data;
-    }
-
-    // Déclarer displayName IMMÉDIATEMENT ici pour qu'il soit disponible pour les calculs ci-dessous
-    const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
-    const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
-
-    renderMemberProfileForm(myProfile);
-
-    // Calculer et afficher les points de fin de semaine en attente pour le membre connecté
-    let memberPendingPoints = 0;
-    const memberApprovedActivities = [];
-
-    teamsData.forEach(team => {
-        let hasApprovedProof = false;
-        if (team.proofs) {
-            Object.entries(team.proofs).forEach(([playerName, proof]) => {
-                if (proof.status === "approved") {
-                    hasApprovedProof = true;
-                }
-            });
-        }
-
-        if (hasApprovedProof) {
-            if (isPlayerAssignedToTeam(displayName, team.id)) {
-                memberApprovedActivities.push(team);
-            }
-        }
-    });
+// Calcule et affiche les points de fin de semaine en attente pour le membre connecté
+function renderMemberPendingPoints(displayName) {
+    const memberApprovedActivities = teamsData.filter(team =>
+        team.proofs
+        && Object.values(team.proofs).some(proof => proof.status === "approved")
+        && isPlayerAssignedToTeam(displayName, team.id)
+    );
 
     // Application des règles de dédoublonnage (1 épreuve max, 1 raid max par difficulté par semaine)
-    memberPendingPoints = computeApprovedPointsForPlayer(memberApprovedActivities);
+    const memberPendingPoints = computeApprovedPointsForPlayer(memberApprovedActivities);
 
     const pendingContainer = document.getElementById('member-pending-points-container');
     const pendingDisplay = document.getElementById('member-display-pending-points');
@@ -1829,105 +1792,101 @@ async function loadMembersViewData() {
             pendingContainer.classList.add('hidden');
         }
     }
+}
 
+// Affiche les enchères actives (mise à l'aveugle) dans l'espace membre
+function renderMemberAuctions(sessionUserId) {
     const memberAuctionsContainer = document.getElementById('members-auctions-container');
     const memberAuctionsView = document.getElementById('members-auctions-view');
-    
     const activeAuctions = auctionsData.filter(a => a.status === 'active');
-    
-    if (activeAuctions.length > 0 && memberAuctionsContainer && memberAuctionsView) {
-        memberAuctionsView.classList.remove('hidden');
-        memberAuctionsContainer.innerHTML = activeAuctions.map((auc, index) => {
-            const bidsMap = auc.bids || {};
-            const myBid = bidsMap[session.user.id] ? bidsMap[session.user.id].amount : null;
-            const remainingText = getRemainingTimeText(auc.end_time);
 
-            const itemObj = findItemByName(auc.item_name);
-            const iconHtml = itemObj ? getItemIconHTML(itemObj) : `<div class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-500/20 bg-[#0b0e14]/40 text-slate-400 shrink-0"><i data-lucide="help-circle" class="w-4 h-4"></i></div>`;
-
-            const otherBids = Object.entries(bidsMap)
-                .filter(([userId]) => userId !== session.user.id)
-                .map(([_, bid]) => ({
-                    char_name: bid.char_name || "Joueur anonyme",
-                    amount: bid.amount,
-                    timestamp: bid.timestamp
-                }))
-                .sort((a, b) => b.amount - a.amount);
-
-            let otherBidsListHtml = "";
-            if (otherBids.length > 0) {
-                otherBidsListHtml = `
-                    <div class="w-full mt-4 pt-3 border-t border-[#1e2638] space-y-2">
-                        <span class="block text-[10px] text-slate-500 uppercase font-bold tracking-wider">Offres des autres membres (${otherBids.length})</span>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-28 overflow-y-auto pr-1">
-                            ${otherBids.map(b => `
-                                <div class="flex items-center justify-between p-2 bg-[#0b0e14]/40 border border-[#1e2638]/60 rounded-lg text-xs">
-                                    <span class="font-semibold text-slate-300">${b.char_name}</span>
-                                    <span class="font-bold text-amber-400">
-                                        ${b.amount} pts 
-                                        <span class="text-[9px] text-slate-500 font-normal">
-                                            (${new Date(b.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})})
-                                        </span>
-                                    </span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            } else {
-                otherBidsListHtml = `
-                    <div class="w-full mt-4 pt-3 border-t border-[#1e2638] text-center">
-                        <span class="text-xs text-slate-500 italic">Aucune autre offre soumise pour le moment.</span>
-                    </div>
-                `;
-            }
-
-            return `
-                <div class="bg-[#161b26] border border-[#1e2638] rounded-xl p-4 flex flex-col gap-2 animate-fade-in">
-                    <div class="flex flex-wrap justify-between items-center gap-4">
-                        <div class="flex items-center gap-3">
-                            ${iconHtml}
-                            <div>
-                                <h4 class="font-bold text-sm text-amber-400 flex items-center gap-1.5 uppercase font-sans">
-                                    <a href="${itemObj ? itemObj.questlogUrl : '#'}" target="_blank" class="hover:text-amber-300 transition">${auc.item_name}</a>
-                                </h4>
-                                <p class="text-xs text-slate-400 mt-1">${remainingText}</p>
-                            </div>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-4">
-                            <div class="text-right">
-                                <span class="block text-[10px] text-slate-500 uppercase font-bold">Votre mise actuelle</span>
-                                <span class="text-sm font-extrabold text-[#38bdf8]">${myBid !== null ? `${myBid} points` : 'Aucune'}</span>
-                            </div>
-                            <div class="flex gap-2">
-                                <input type="number" id="member-bid-input-${index}" placeholder="Mise" class="bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-100 outline-none w-20">
-                                <button onclick="submitBlindBid('${auc.id}', 'member-bid-input-${index}')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition duration-150">
-                                    Miser
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    ${otherBidsListHtml}
-                </div>
-            `;
-        }).join('');
-    } else {
+    if (!(activeAuctions.length > 0 && memberAuctionsContainer && memberAuctionsView)) {
         memberAuctionsView?.classList.add('hidden');
+        return;
     }
 
-    const membersTeamsView = document.getElementById('members-teams-view');
-    membersTeamsView.innerHTML = "";
+    memberAuctionsView.classList.remove('hidden');
+    memberAuctionsContainer.innerHTML = activeAuctions.map((auc, index) => {
+        const bidsMap = auc.bids || {};
+        const myBid = bidsMap[sessionUserId] ? bidsMap[sessionUserId].amount : null;
+        const remainingText = getRemainingTimeText(auc.end_time);
 
-    // Filtrer les équipes visibles pour ce membre
-    const visibleTeams = teamsData.filter(team => {
-        if (!team.composition_validated && !team.validated) {
-            return true;
+        const itemObj = findItemByName(auc.item_name);
+        const iconHtml = itemObj ? getItemIconHTML(itemObj) : `<div class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-500/20 bg-[#0b0e14]/40 text-slate-400 shrink-0"><i data-lucide="help-circle" class="w-4 h-4"></i></div>`;
+
+        const otherBids = Object.entries(bidsMap)
+            .filter(([userId]) => userId !== sessionUserId)
+            .map(([_, bid]) => ({
+                char_name: bid.char_name || "Joueur anonyme",
+                amount: bid.amount,
+                timestamp: bid.timestamp
+            }))
+            .sort((a, b) => b.amount - a.amount);
+
+        let otherBidsListHtml = "";
+        if (otherBids.length > 0) {
+            otherBidsListHtml = `
+                <div class="w-full mt-4 pt-3 border-t border-[#1e2638] space-y-2">
+                    <span class="block text-[10px] text-slate-500 uppercase font-bold tracking-wider">Offres des autres membres (${otherBids.length})</span>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-28 overflow-y-auto pr-1">
+                        ${otherBids.map(b => `
+                            <div class="flex items-center justify-between p-2 bg-[#0b0e14]/40 border border-[#1e2638]/60 rounded-lg text-xs">
+                                <span class="font-semibold text-slate-300">${b.char_name}</span>
+                                <span class="font-bold text-amber-400">
+                                    ${b.amount} pts
+                                    <span class="text-[9px] text-slate-500 font-normal">
+                                        (${new Date(b.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})})
+                                    </span>
+                                </span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            otherBidsListHtml = `
+                <div class="w-full mt-4 pt-3 border-t border-[#1e2638] text-center">
+                    <span class="text-xs text-slate-500 italic">Aucune autre offre soumise pour le moment.</span>
+                </div>
+            `;
         }
-        return isPlayerAssignedToTeam(displayName, team.id);
-    });
 
+        return `
+            <div class="bg-[#161b26] border border-[#1e2638] rounded-xl p-4 flex flex-col gap-2 animate-fade-in">
+                <div class="flex flex-wrap justify-between items-center gap-4">
+                    <div class="flex items-center gap-3">
+                        ${iconHtml}
+                        <div>
+                            <h4 class="font-bold text-sm text-amber-400 flex items-center gap-1.5 uppercase font-sans">
+                                <a href="${itemObj ? itemObj.questlogUrl : '#'}" target="_blank" class="hover:text-amber-300 transition">${auc.item_name}</a>
+                            </h4>
+                            <p class="text-xs text-slate-400 mt-1">${remainingText}</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <div class="text-right">
+                            <span class="block text-[10px] text-slate-500 uppercase font-bold">Votre mise actuelle</span>
+                            <span class="text-sm font-extrabold text-[#38bdf8]">${myBid !== null ? `${myBid} points` : 'Aucune'}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="number" id="member-bid-input-${index}" placeholder="Mise" class="bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-lg px-3 py-1.5 text-xs text-slate-100 outline-none w-20">
+                            <button onclick="submitBlindBid('${auc.id}', 'member-bid-input-${index}')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition duration-150">
+                                Miser
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                ${otherBidsListHtml}
+            </div>
+        `;
+    }).join('');
+}
+
+// Construit le HTML des cartes d'activite affichees dans l'espace membre.
+// Pure : ne depend que de ses arguments et des donnees deja chargees en memoire.
+function buildMemberTeamCardsHtml(visibleTeams, sessionUserId, displayName) {
     if (visibleTeams.length === 0) {
-        membersTeamsView.innerHTML = `
+        return `
             <div class="col-span-full p-6 text-center text-slate-500 bg-[#161b26]/30 border border-[#1e2638] rounded-xl select-none animate-fade-in">
                 Aucune activité en cours d'inscription ou disponible pour vous actuellement.
             </div>
@@ -1937,7 +1896,7 @@ async function loadMembersViewData() {
         const memberByName = new Map(allDatabaseMembers.map(m => [m.character_name || m.email, m]));
 
         visibleTeams.forEach(team => {
-            const isCreatorOfThisTeam = (team.creatorId === session.user.id);
+            const isCreatorOfThisTeam = (team.creatorId === sessionUserId);
             const isDraggable = isCreatorOfThisTeam && !team.composition_validated && !team.validated;
 
             let applicationsPanelHtml = "";
@@ -2333,8 +2292,52 @@ async function loadMembersViewData() {
             }
         });
 
-        membersTeamsView.innerHTML = teamCardsHtml.join('');
+        return teamCardsHtml.join('');
     }
+}
+
+async function loadMembersViewData() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) return;
+
+    document.getElementById('member-display-email').innerText = session.user.email;
+
+    await renderMemberNotificationsBanner();
+
+    // La liste des membres est récupérée en parallèle des autres chargements : elle sert
+    // à la fois au profil du membre connecté, au classement et aux compositions d'équipe.
+    const [, , , membersResult] = await Promise.all([
+        loadTeamsFromStorage(),
+        loadAuctionsFromStorage(),
+        loadFormStatus(),
+        supabaseClient.from('member_profiles').select('*')
+    ]);
+
+    if (membersResult.error) {
+        console.warn("Impossible de récupérer la liste des membres.");
+    } else {
+        allDatabaseMembers = membersResult.data;
+    }
+
+    // Déclarer displayName IMMÉDIATEMENT ici pour qu'il soit disponible pour les calculs ci-dessous
+    const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
+    const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
+
+    renderMemberProfileForm(myProfile);
+    renderMemberPendingPoints(displayName);
+
+    renderMemberAuctions(session.user.id);
+
+    // Filtrer les équipes visibles pour ce membre
+    const visibleTeams = teamsData.filter(team => {
+        if (!team.composition_validated && !team.validated) {
+            return true;
+        }
+        return isPlayerAssignedToTeam(displayName, team.id);
+    });
+
+    document.getElementById('members-teams-view').innerHTML =
+        buildMemberTeamCardsHtml(visibleTeams, session.user.id, displayName);
 
     const leaderboardContainer = document.getElementById('members-leaderboard-container');
     if (leaderboardContainer) {
