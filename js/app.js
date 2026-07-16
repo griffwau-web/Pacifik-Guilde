@@ -16,6 +16,14 @@ const DISCORD_ROLE_MEMBRE_ID = "429892301272383489"; // Remplacez ces chiffres f
 // LISTE DES ARMES DU JEU
 const WEAPONS_LIST = ["Arbalète", "Bâton", "Épée bouclier", "Espadon", "Dague", "Orbe", "Lance", "Arc", "Grimoire", "Gantelet"];
 
+// Identifiants des lignes de la table "guild_teams" utilisée comme mini key-value store
+const GUILD_TEAMS_ROW_ID = 1;     // Composition des équipes/activités
+const GUILD_SETTINGS_ROW_ID = 2;  // Réglages globaux (formulaire, notifications, points, vidéo)
+const ADMIN_NOTES_ROW_ID = 3;     // Notes partagées de l'administration
+
+// Taille standard (nombre de slots) d'une équipe / d'un groupe de raid
+const TEAM_SLOT_SIZE = 6;
+
 // Variables d'état globales
 let supabaseClient = null;
 let pieChartInstance = null;
@@ -51,6 +59,27 @@ let pointsConfig = {
     "Épreuve T9": 18,
     "Épreuve T10": 20
 };
+
+// Correspondance champ DOM <-> clé pointsConfig <-> valeur par défaut, utilisée par
+// enablePointsConfigEdit / savePointsConfig / applyPointsConfigToUI pour éviter de
+// répéter la liste des 15 champs à trois endroits.
+const POINTS_CONFIG_FIELD_MAP = [
+    { id: 'config-pts-pvp', key: 'PVP', default: 10 },
+    { id: 'config-pts-boss', key: 'Boss de guilde', default: 10 },
+    { id: 'config-pts-raid-normal', key: 'Raid Normal', default: 15 },
+    { id: 'config-pts-raid-hardcore', key: 'Raid Hardcore', default: 20 },
+    { id: 'config-pts-raid-nightmare', key: 'Raid Nightmare', default: 25 },
+    { id: 'config-pts-epreuve-t1', key: 'Épreuve T1', default: 10 },
+    { id: 'config-pts-epreuve-t2', key: 'Épreuve T2', default: 10 },
+    { id: 'config-pts-epreuve-t3', key: 'Épreuve T3', default: 10 },
+    { id: 'config-pts-epreuve-t4', key: 'Épreuve T4', default: 10 },
+    { id: 'config-pts-epreuve-t5', key: 'Épreuve T5', default: 10 },
+    { id: 'config-pts-epreuve-t6', key: 'Épreuve T6', default: 12 },
+    { id: 'config-pts-epreuve-t7', key: 'Épreuve T7', default: 14 },
+    { id: 'config-pts-epreuve-t8', key: 'Épreuve T8', default: 16 },
+    { id: 'config-pts-epreuve-t9', key: 'Épreuve T9', default: 18 },
+    { id: 'config-pts-epreuve-t10', key: 'Épreuve T10', default: 20 }
+];
 
 // Variables temporaires pour suppression
 let playerToDeleteId = null;
@@ -145,6 +174,28 @@ function getItemIconHTML(item) {
             </div>`;
 }
 
+// Lecture de l'objet de réglages globaux (ligne unique de guild_teams, voir GUILD_SETTINGS_ROW_ID)
+async function getGuildSettings() {
+    if (!supabaseClient) return null;
+    const { data } = await supabaseClient
+        .from('guild_teams')
+        .select('data')
+        .eq('id', GUILD_SETTINGS_ROW_ID)
+        .single();
+    return (data && data.data) ? data.data : null;
+}
+
+// Fusionne "partial" dans les réglages globaux existants et persiste le résultat (read-modify-write centralisé)
+async function patchGuildSettings(partial) {
+    if (!supabaseClient) return null;
+    const current = (await getGuildSettings()) || {};
+    const merged = { ...current, ...partial };
+    await supabaseClient
+        .from('guild_teams')
+        .upsert({ id: GUILD_SETTINGS_ROW_ID, data: merged });
+    return merged;
+}
+
 // Vérification de la réinitialisation mensuelle des souhaits et des paliers de d'épreuves
 async function checkMonthlyWishReset() {
     if (!supabaseClient) return;
@@ -153,14 +204,9 @@ async function checkMonthlyWishReset() {
     const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     try {
-        const { data, error } = await supabaseClient
-            .from('guild_teams')
-            .select('data')
-            .eq('id', 2)
-            .single();
+        const settings = await getGuildSettings();
 
-        if (data && data.data) {
-            const settings = data.data;
+        if (settings) {
             const lastReset = settings.lastWishReset || "";
 
             if (lastReset !== currentMonthKey) {
@@ -173,10 +219,10 @@ async function checkMonthlyWishReset() {
                 if (fetchErr) throw fetchErr;
 
                 if (members && members.length > 0) {
-                    const resetPromises = members.map(m => 
+                    const resetPromises = members.map(m =>
                         supabaseClient
                             .from('member_profiles')
-                            .update({ 
+                            .update({
                                 wish_tokens: 2,
                                 highest_tier: 0 // Réinitialise la progression d'épreuves pour le nouveau mois
                             })
@@ -185,11 +231,7 @@ async function checkMonthlyWishReset() {
                     await Promise.all(resetPromises);
                 }
 
-                settings.lastWishReset = currentMonthKey;
-                await supabaseClient
-                    .from('guild_teams')
-                    .update({ data: settings })
-                    .eq('id', 2);
+                await patchGuildSettings({ lastWishReset: currentMonthKey });
 
                 console.log("Restauration mensuelle automatique effectuée.");
             }
@@ -624,32 +666,28 @@ async function loadFormStatus() {
 
     if (supabaseClient) {
         try {
-            const { data, error } = await supabaseClient
-                .from('guild_teams')
-                .select('data')
-                .eq('id', 2)
-                .single();
-            if (data && data.data) {
-                isFormActive = data.data.formActive;
+            const settingsData = await getGuildSettings();
+            if (settingsData) {
+                isFormActive = settingsData.formActive;
                 localStorage.setItem('lespacific_form_active', isFormActive);
                 updateFormStatusUI();
 
-                if (data.data.notificationsEnabled !== undefined) {
-                    notificationsEnabled = data.data.notificationsEnabled;
+                if (settingsData.notificationsEnabled !== undefined) {
+                    notificationsEnabled = settingsData.notificationsEnabled;
                     localStorage.setItem('lespacific_notif_enabled', notificationsEnabled);
                     updateNotifToggleButton();
                 }
 
                 // Récupération et application globale du barème de points d'activité
-                if (data.data.pointsConfig !== undefined) {
-                    pointsConfig = data.data.pointsConfig;
+                if (settingsData.pointsConfig !== undefined) {
+                    pointsConfig = settingsData.pointsConfig;
                     localStorage.setItem('lespacific_points_config', JSON.stringify(pointsConfig));
                     applyPointsConfigToUI();
                 }
 
                 // Récupération et synchronisation de la vidéo stratégique
-                if (data.data.weeklyVideoUrl !== undefined) {
-                    const videoUrl = data.data.weeklyVideoUrl;
+                if (settingsData.weeklyVideoUrl !== undefined) {
+                    const videoUrl = settingsData.weeklyVideoUrl;
                     localStorage.setItem('lespacific_weekly_video_url', videoUrl);
                     updateWeeklyVideoUI(videoUrl);
                 } else {
@@ -670,19 +708,10 @@ async function toggleFormStatus() {
 
     if (supabaseClient) {
         try {
-            const { data } = await supabaseClient
-                .from('guild_teams')
-                .select('data')
-                .eq('id', 2)
-                .single();
-            
-            const settings = data && data.data ? data.data : {};
-            settings.formActive = isFormActive;
-            settings.notificationsEnabled = notificationsEnabled;
-
-            await supabaseClient
-                .from('guild_teams')
-                .upsert({ id: 2, data: settings });
+            await patchGuildSettings({
+                formActive: isFormActive,
+                notificationsEnabled: notificationsEnabled
+            });
         } catch (err) {
             console.error("Échec de synchronisation du formulaire :", err);
         }
@@ -743,23 +772,9 @@ function loadPointsConfig() {
 
 // Active la modification des champs du barème
 function enablePointsConfigEdit() {
-    document.getElementById('config-pts-pvp').disabled = false;
-    document.getElementById('config-pts-boss').disabled = false;
-    
-    document.getElementById('config-pts-raid-normal').disabled = false;
-    document.getElementById('config-pts-raid-hardcore').disabled = false;
-    document.getElementById('config-pts-raid-nightmare').disabled = false;
-    
-    document.getElementById('config-pts-epreuve-t1').disabled = false;
-    document.getElementById('config-pts-epreuve-t2').disabled = false;
-    document.getElementById('config-pts-epreuve-t3').disabled = false;
-    document.getElementById('config-pts-epreuve-t4').disabled = false;
-    document.getElementById('config-pts-epreuve-t5').disabled = false;
-    document.getElementById('config-pts-epreuve-t6').disabled = false;
-    document.getElementById('config-pts-epreuve-t7').disabled = false;
-    document.getElementById('config-pts-epreuve-t8').disabled = false;
-    document.getElementById('config-pts-epreuve-t9').disabled = false;
-    document.getElementById('config-pts-epreuve-t10').disabled = false;
+    POINTS_CONFIG_FIELD_MAP.forEach(field => {
+        document.getElementById(field.id).disabled = false;
+    });
 
     document.getElementById('btn-edit-pts').classList.add('hidden');
     document.getElementById('btn-save-pts').classList.remove('hidden');
@@ -767,43 +782,15 @@ function enablePointsConfigEdit() {
 
 // Sauvegarde les configurations de points dans le stockage local et sur Supabase
 async function savePointsConfig() {
-    pointsConfig["PVP"] = parsePointsValue(document.getElementById('config-pts-pvp').value, 10);
-    pointsConfig["Boss de guilde"] = parsePointsValue(document.getElementById('config-pts-boss').value, 10);
-    
-    pointsConfig["Raid Normal"] = parsePointsValue(document.getElementById('config-pts-raid-normal').value, 15);
-    pointsConfig["Raid Hardcore"] = parsePointsValue(document.getElementById('config-pts-raid-hardcore').value, 20);
-    pointsConfig["Raid Nightmare"] = parsePointsValue(document.getElementById('config-pts-raid-nightmare').value, 25);
-    
-    pointsConfig["Épreuve T1"] = parsePointsValue(document.getElementById('config-pts-epreuve-t1').value, 10);
-    pointsConfig["Épreuve T2"] = parsePointsValue(document.getElementById('config-pts-epreuve-t2').value, 10);
-    pointsConfig["Épreuve T3"] = parsePointsValue(document.getElementById('config-pts-epreuve-t3').value, 10);
-    pointsConfig["Épreuve T4"] = parsePointsValue(document.getElementById('config-pts-epreuve-t4').value, 10);
-    pointsConfig["Épreuve T5"] = parsePointsValue(document.getElementById('config-pts-epreuve-t5').value, 10);
-    pointsConfig["Épreuve T6"] = parsePointsValue(document.getElementById('config-pts-epreuve-t6').value, 12);
-    pointsConfig["Épreuve T7"] = parsePointsValue(document.getElementById('config-pts-epreuve-t7').value, 14);
-    pointsConfig["Épreuve T8"] = parsePointsValue(document.getElementById('config-pts-epreuve-t8').value, 16);
-    pointsConfig["Épreuve T9"] = parsePointsValue(document.getElementById('config-pts-epreuve-t9').value, 18);
-    pointsConfig["Épreuve T10"] = parsePointsValue(document.getElementById('config-pts-epreuve-t10').value, 20);
+    POINTS_CONFIG_FIELD_MAP.forEach(field => {
+        pointsConfig[field.key] = parsePointsValue(document.getElementById(field.id).value, field.default);
+    });
 
     localStorage.setItem('lespacific_points_config', JSON.stringify(pointsConfig));
 
-    document.getElementById('config-pts-pvp').disabled = true;
-    document.getElementById('config-pts-boss').disabled = true;
-    
-    document.getElementById('config-pts-raid-normal').disabled = true;
-    document.getElementById('config-pts-raid-hardcore').disabled = true;
-    document.getElementById('config-pts-raid-nightmare').disabled = true;
-    
-    document.getElementById('config-pts-epreuve-t1').disabled = true;
-    document.getElementById('config-pts-epreuve-t2').disabled = true;
-    document.getElementById('config-pts-epreuve-t3').disabled = true;
-    document.getElementById('config-pts-epreuve-t4').disabled = true;
-    document.getElementById('config-pts-epreuve-t5').disabled = true;
-    document.getElementById('config-pts-epreuve-t6').disabled = true;
-    document.getElementById('config-pts-epreuve-t7').disabled = true;
-    document.getElementById('config-pts-epreuve-t8').disabled = true;
-    document.getElementById('config-pts-epreuve-t9').disabled = true;
-    document.getElementById('config-pts-epreuve-t10').disabled = true;
+    POINTS_CONFIG_FIELD_MAP.forEach(field => {
+        document.getElementById(field.id).disabled = true;
+    });
 
     document.getElementById('btn-save-pts').classList.add('hidden');
     document.getElementById('btn-edit-pts').classList.remove('hidden');
@@ -811,18 +798,7 @@ async function savePointsConfig() {
     // Sauvegarde et synchronisation globale sur Supabase
     if (supabaseClient) {
         try {
-            const { data } = await supabaseClient
-                .from('guild_teams')
-                .select('data')
-                .eq('id', 2)
-                .single();
-            
-            const settings = data && data.data ? data.data : {};
-            settings.pointsConfig = pointsConfig;
-
-            await supabaseClient
-                .from('guild_teams')
-                .upsert({ id: 2, data: settings });
+            await patchGuildSettings({ pointsConfig: pointsConfig });
         } catch (err) {
             console.error("Échec de synchronisation des points globaux :", err);
         }
@@ -840,19 +816,10 @@ async function toggleNotifications() {
 
     if (supabaseClient) {
         try {
-            const { data } = await supabaseClient
-                .from('guild_teams')
-                .select('data')
-                .eq('id', 2)
-                .single();
-            
-            const settings = data && data.data ? data.data : {};
-            settings.notificationsEnabled = notificationsEnabled;
-            settings.formActive = isFormActive;
-
-            await supabaseClient
-                .from('guild_teams')
-                .upsert({ id: 2, data: settings });
+            await patchGuildSettings({
+                notificationsEnabled: notificationsEnabled,
+                formActive: isFormActive
+            });
         } catch (err) {
             console.error("Échec de synchronisation des notifications globales :", err);
         }
@@ -970,7 +937,7 @@ async function loadTeamsFromStorage() {
             const { data, error } = await supabaseClient
                 .from('guild_teams')
                 .select('data')
-                .eq('id', 1)
+                .eq('id', GUILD_TEAMS_ROW_ID)
                 .single();
             if (data && data.data) {
                 teamsData = data.data;
@@ -990,7 +957,7 @@ async function saveTeamsState() {
             try {
                 await supabaseClient
                     .from('guild_teams')
-                    .upsert({ id: 1, data: teamsData });
+                    .upsert({ id: GUILD_TEAMS_ROW_ID, data: teamsData });
             } catch (err) {
                 console.error("Échec de la synchronisation des équipes :", err);
             }
@@ -3790,7 +3757,7 @@ async function loadAdminNotes() {
             const { data, error } = await supabaseClient
                 .from('guild_teams')
                 .select('data')
-                .eq('id', 3)
+                .eq('id', ADMIN_NOTES_ROW_ID)
                 .single();
 
             if (data && data.data) {
@@ -3822,7 +3789,7 @@ async function saveAdminNotes() {
         try {
             const { error } = await supabaseClient
                 .from('guild_teams')
-                .upsert({ id: 3, data: { notes: notesText } });
+                .upsert({ id: ADMIN_NOTES_ROW_ID, data: { notes: notesText } });
 
             if (error) throw error;
 
@@ -4307,23 +4274,9 @@ function applyPointsConfigToUI() {
     const inputEpreuveT1 = document.getElementById('config-pts-epreuve-t1');
     if (!inputEpreuveT1) return; // Permet de ne pas exécuter si on n'est pas sur le Dashboard Admin
 
-    document.getElementById('config-pts-pvp').value = pointsConfig["PVP"] ?? 10;
-    document.getElementById('config-pts-boss').value = pointsConfig["Boss de guilde"] ?? 10;
-    
-    document.getElementById('config-pts-raid-normal').value = pointsConfig["Raid Normal"] ?? 15;
-    document.getElementById('config-pts-raid-hardcore').value = pointsConfig["Raid Hardcore"] ?? 20;
-    document.getElementById('config-pts-raid-nightmare').value = pointsConfig["Raid Nightmare"] ?? 25;
-    
-    document.getElementById('config-pts-epreuve-t1').value = pointsConfig["Épreuve T1"] ?? 10;
-    document.getElementById('config-pts-epreuve-t2').value = pointsConfig["Épreuve T2"] ?? 10;
-    document.getElementById('config-pts-epreuve-t3').value = pointsConfig["Épreuve T3"] ?? 10;
-    document.getElementById('config-pts-epreuve-t4').value = pointsConfig["Épreuve T4"] ?? 10;
-    document.getElementById('config-pts-epreuve-t5').value = pointsConfig["Épreuve T5"] ?? 10;
-    document.getElementById('config-pts-epreuve-t6').value = pointsConfig["Épreuve T6"] ?? 12;
-    document.getElementById('config-pts-epreuve-t7').value = pointsConfig["Épreuve T7"] ?? 14;
-    document.getElementById('config-pts-epreuve-t8').value = pointsConfig["Épreuve T8"] ?? 16;
-    document.getElementById('config-pts-epreuve-t9').value = pointsConfig["Épreuve T9"] ?? 18;
-    document.getElementById('config-pts-epreuve-t10').value = pointsConfig["Épreuve T10"] ?? 20;
+    POINTS_CONFIG_FIELD_MAP.forEach(field => {
+        document.getElementById(field.id).value = pointsConfig[field.key] ?? field.default;
+    });
 }
 
 // Analyse la saisie de points en acceptant la valeur 0 sans appliquer la valeur par défaut
@@ -4559,20 +4512,7 @@ async function saveWeeklyVideo() {
 
     if (supabaseClient) {
         try {
-            const { data } = await supabaseClient
-                .from('guild_teams')
-                .select('data')
-                .eq('id', 2)
-                .single();
-            
-            const settings = data && data.data ? data.data : {};
-            settings.weeklyVideoUrl = url;
-
-            const { error } = await supabaseClient
-                .from('guild_teams')
-                .upsert({ id: 2, data: settings });
-
-            if (error) throw error;
+            await patchGuildSettings({ weeklyVideoUrl: url });
 
             localStorage.setItem('lespacific_weekly_video_url', url);
             updateWeeklyVideoUI(url);
