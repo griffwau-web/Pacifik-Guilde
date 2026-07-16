@@ -36,10 +36,7 @@ let isFormActive = true; // État d'activation du formulaire public
 let allDatabasePlayers = []; 
 let allDatabaseMembers = []; 
 let teamsData = [];         
-let auctionsData = []; 
-
-let membersCurrentPage = 1;
-const membersPerPage = 10;
+let auctionsData = [];
 
 // Configuration par défaut des barèmes de points d'activité
 let pointsConfig = {
@@ -1285,36 +1282,6 @@ async function submitForm(event) {
 // GESTION DU PROFIL DU JOUEUR (Membres)
 // ==========================================
 
-// Décodeur universel pour lire les formats de tableaux PostgreSQL et JS (Focalisé sur 2 souhaits)
-function parseWishlistArray(wishlistVal) {
-    if (!wishlistVal) return ["", ""];
-    if (Array.isArray(wishlistVal)) {
-        let arr = [...wishlistVal];
-        if (arr.length > 2) arr = arr.slice(0, 2);
-        while (arr.length < 2) {
-            arr.push("");
-        }
-        return arr;
-    }
-    if (typeof wishlistVal === 'string') {
-        let cleaned = wishlistVal.replace(/[{}]/g, '');
-        if (cleaned.trim() === "") return ["", ""];
-        let parsed = cleaned.split(',').map(item => {
-            let trimmed = item.trim();
-            if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-                trimmed = trimmed.substring(1, trimmed.length - 1);
-            }
-            return (trimmed === "NULL" || trimmed === "null" || !trimmed) ? "" : trimmed;
-        });
-        if (parsed.length > 2) parsed = parsed.slice(0, 2);
-        while (parsed.length < 2) {
-            parsed.push("");
-        }
-        return parsed;
-    }
-    return ["", ""];
-}
-
 function renderWeaponCheckboxes() {
     const container = document.getElementById('weapons-checkboxes-container');
     if (!container) return;
@@ -1813,38 +1780,7 @@ async function loadMembersViewData() {
     });
 
     // Application des règles de dédoublonnage (1 épreuve max, 1 raid max par difficulté par semaine)
-    let highestDimensionalTier = 0;
-    let highestDimensionalPoints = 0;
-    
-    const raidMaxPoints = {
-        "Raid Normal": 0,
-        "Raid Hardcore": 0,
-        "Raid Nightmare": 0
-    };
-
-    let otherActivitiesPoints = 0;
-
-    memberApprovedActivities.forEach(team => {
-        const pts = getCalculatedTeamPoints(team);
-        if (team.motif === "Épreuve dimensionnelle") {
-            const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
-            const tierNum = match ? parseInt(match[0], 10) : 0;
-            if (tierNum > highestDimensionalTier) {
-                highestDimensionalTier = tierNum;
-                highestDimensionalPoints = pts;
-            }
-        } else if (team.motif === "Raid") {
-            const diff = team.raidDifficulty || "Raid Normal";
-            if (pts > raidMaxPoints[diff]) {
-                raidMaxPoints[diff] = pts;
-            }
-        } else {
-            otherActivitiesPoints += pts;
-        }
-    });
-
-    const totalRaidPoints = Object.values(raidMaxPoints).reduce((sum, val) => sum + val, 0);
-    memberPendingPoints = otherActivitiesPoints + highestDimensionalPoints + totalRaidPoints;
+    memberPendingPoints = computeApprovedPointsForPlayer(memberApprovedActivities);
 
     const pendingContainer = document.getElementById('member-pending-points-container');
     const pendingDisplay = document.getElementById('member-display-pending-points');
@@ -2552,39 +2488,7 @@ async function loadDashboardData() {
         // Calcul exact des points cumulés en attente par joueur avec dédoublonnage (Limitation d'un seul raid par difficulté par semaine)
         const playerPointsMap = {};
         Object.entries(playerPendingActivities).forEach(([playerName, activities]) => {
-            let highestDimensionalTier = 0;
-            let highestDimensionalPoints = 0;
-            
-            const raidMaxPoints = {
-                "Raid Normal": 0,
-                "Raid Hardcore": 0,
-                "Raid Nightmare": 0
-            };
-
-            let otherActivitiesPoints = 0; // PVP, Boss de guilde, etc.
-
-            activities.forEach(({ team }) => {
-                const pts = getCalculatedTeamPoints(team);
-                if (team.motif === "Épreuve dimensionnelle") {
-                    const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
-                    const tierNum = match ? parseInt(match[0], 10) : 0;
-                    if (tierNum > highestDimensionalTier) {
-                        highestDimensionalTier = tierNum;
-                        highestDimensionalPoints = pts;
-                    }
-                } else if (team.motif === "Raid") {
-                    const diff = team.raidDifficulty || "Raid Normal";
-                    if (pts > raidMaxPoints[diff]) {
-                        raidMaxPoints[diff] = pts; // Conserve uniquement le score maximal de cette difficulté
-                    }
-                } else {
-                    otherActivitiesPoints += pts;
-                }
-            });
-
-            const totalRaidPoints = Object.values(raidMaxPoints).reduce((sum, val) => sum + val, 0);
-            const totalPoints = otherActivitiesPoints + highestDimensionalPoints + totalRaidPoints;
-            
+            const totalPoints = computeApprovedPointsForPlayer(activities.map(a => a.team));
             playerPointsMap[playerName] = totalPoints;
             pendingPointsTotal += totalPoints;
         });
@@ -4078,40 +3982,7 @@ async function distributeWeeklyPoints(isSilent = false) {
     // 2. Traiter chaque joueur (avec dédoublonnage des épreuves et des raids de même difficulté)
     playersToProcess.forEach(playerName => {
         const activities = playerApprovedActivities[playerName];
-
-        let highestDimensionalTier = 0;
-        let highestDimensionalPoints = 0;
-
-        const raidMaxPoints = {
-            "Raid Normal": 0,
-            "Raid Hardcore": 0,
-            "Raid Nightmare": 0
-        };
-
-        let otherActivitiesPoints = 0;
-
-        activities.forEach(({ team, proof }) => { // Ajout de proof ici pour corriger l'erreur de référence
-            const pts = getCalculatedTeamPoints(team);
-            if (team.motif === "Épreuve dimensionnelle") {
-                const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
-                const tierNum = match ? parseInt(match[0], 10) : 0;
-                
-                if (tierNum > highestDimensionalTier) {
-                    highestDimensionalTier = tierNum;
-                    highestDimensionalPoints = pts;
-                }
-            } else if (team.motif === "Raid") {
-                const diff = team.raidDifficulty || "Raid Normal";
-                if (pts > raidMaxPoints[diff]) {
-                    raidMaxPoints[diff] = pts;
-                }
-            } else {
-                otherActivitiesPoints += pts;
-            }
-        });
-
-        const totalRaidPoints = Object.values(raidMaxPoints).reduce((sum, val) => sum + val, 0);
-        approvedPointsByPlayer[playerName] = otherActivitiesPoints + highestDimensionalPoints + totalRaidPoints;
+        approvedPointsByPlayer[playerName] = computeApprovedPointsForPlayer(activities.map(a => a.team));
     });
 
     try {
@@ -4286,37 +4157,63 @@ function parsePointsValue(valueStr, defaultValue = 10) {
 }
 
 // Affiche une boîte d'alerte stylisée (Surcharge de la fonction native window.alert)
-function showCustomAlert(message, title = "Notification Pacifique") {
+function _getDialogElements() {
+    return {
+        modal: document.getElementById('custom-dialog-modal'),
+        titleEl: document.getElementById('dialog-title'),
+        msgEl: document.getElementById('dialog-message'),
+        iconContainer: document.getElementById('dialog-icon-container'),
+        icon: document.getElementById('dialog-icon'),
+        inputContainer: document.getElementById('dialog-input-container'),
+        input: document.getElementById('dialog-input'),
+        btnCancel: document.getElementById('dialog-btn-cancel'),
+        btnConfirm: document.getElementById('dialog-btn-confirm')
+    };
+}
+
+// Primitive interne partagée par showCustomAlert/showCustomConfirm/showCustomPrompt : centralise la
+// récupération des noeuds DOM et l'affichage/fermeture de la modale. `configure` personnalise
+// l'icône/les boutons/le champ de saisie ; `onConfirm`/`onCancel` calculent la valeur résolue.
+function _openDialog({ title, message, configure, onConfirm, onCancel, resolveOnMissingModal }) {
     return new Promise((resolve) => {
-        const modal = document.getElementById('custom-dialog-modal');
-        const titleEl = document.getElementById('dialog-title');
-        const msgEl = document.getElementById('dialog-message');
-        const iconContainer = document.getElementById('dialog-icon-container');
-        const icon = document.getElementById('dialog-icon');
-        const inputContainer = document.getElementById('dialog-input-container');
-        const btnCancel = document.getElementById('dialog-btn-cancel');
-        const btnConfirm = document.getElementById('dialog-btn-confirm');
+        const els = _getDialogElements();
+        if (!els.modal) return resolve(resolveOnMissingModal);
 
-        if (!modal) return resolve();
+        els.titleEl.innerText = title;
+        els.msgEl.innerText = message;
+        configure(els);
 
-        titleEl.innerText = title;
-        msgEl.innerText = message;
-        
-        icon.setAttribute('data-lucide', 'info');
-        iconContainer.className = "p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto border border-blue-500/20 bg-blue-500/10 text-blue-400";
-        
-        inputContainer.classList.add('hidden');
-        btnCancel.classList.add('hidden'); // Pas de bouton annuler sur une alerte simple
-        btnConfirm.innerText = "OK";
-        btnConfirm.className = "w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition";
-
-        modal.classList.remove('hidden');
+        els.modal.classList.remove('hidden');
         lucide.createIcons();
 
-        btnConfirm.onclick = () => {
-            modal.classList.add('hidden');
-            resolve();
+        els.btnConfirm.onclick = () => {
+            els.modal.classList.add('hidden');
+            resolve(onConfirm(els));
         };
+
+        if (onCancel) {
+            els.btnCancel.onclick = () => {
+                els.modal.classList.add('hidden');
+                resolve(onCancel());
+            };
+        }
+    });
+}
+
+function showCustomAlert(message, title = "Notification Pacifique") {
+    return _openDialog({
+        title, message,
+        resolveOnMissingModal: undefined,
+        configure: (els) => {
+            els.icon.setAttribute('data-lucide', 'info');
+            els.iconContainer.className = "p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto border border-blue-500/20 bg-blue-500/10 text-blue-400";
+
+            els.inputContainer.classList.add('hidden');
+            els.btnCancel.classList.add('hidden'); // Pas de bouton annuler sur une alerte simple
+            els.btnConfirm.innerText = "OK";
+            els.btnConfirm.className = "w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition";
+        },
+        onConfirm: () => undefined
     });
 }
 
@@ -4327,90 +4224,46 @@ window.alert = function(message) {
 
 // Affiche une boîte de confirmation stylisée (Remplace confirm())
 function showCustomConfirm(message, title = "Confirmation", isDanger = false) {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('custom-dialog-modal');
-        const titleEl = document.getElementById('dialog-title');
-        const msgEl = document.getElementById('dialog-message');
-        const iconContainer = document.getElementById('dialog-icon-container');
-        const icon = document.getElementById('dialog-icon');
-        const inputContainer = document.getElementById('dialog-input-container');
-        const btnCancel = document.getElementById('dialog-btn-cancel');
-        const btnConfirm = document.getElementById('dialog-btn-confirm');
+    return _openDialog({
+        title, message,
+        resolveOnMissingModal: false,
+        configure: (els) => {
+            if (isDanger) {
+                els.icon.setAttribute('data-lucide', 'alert-triangle');
+                els.iconContainer.className = "p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto border border-red-500/20 bg-red-500/10 text-red-400";
+                els.btnConfirm.className = "w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl text-xs transition";
+            } else {
+                els.icon.setAttribute('data-lucide', 'help-circle');
+                els.iconContainer.className = "p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto border border-amber-500/20 bg-amber-500/10 text-amber-400";
+                els.btnConfirm.className = "w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition";
+            }
 
-        if (!modal) return resolve(false);
-
-        titleEl.innerText = title;
-        msgEl.innerText = message;
-        
-        if (isDanger) {
-            icon.setAttribute('data-lucide', 'alert-triangle');
-            iconContainer.className = "p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto border border-red-500/20 bg-red-500/10 text-red-400";
-            btnConfirm.className = "w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl text-xs transition";
-        } else {
-            icon.setAttribute('data-lucide', 'help-circle');
-            iconContainer.className = "p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto border border-amber-500/20 bg-amber-500/10 text-amber-400";
-            btnConfirm.className = "w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition";
-        }
-
-        inputContainer.classList.add('hidden');
-        btnCancel.classList.remove('hidden');
-        btnConfirm.innerText = "Confirmer";
-
-        modal.classList.remove('hidden');
-        lucide.createIcons();
-
-        btnConfirm.onclick = () => {
-            modal.classList.add('hidden');
-            resolve(true);
-        };
-
-        btnCancel.onclick = () => {
-            modal.classList.add('hidden');
-            resolve(false);
-        };
+            els.inputContainer.classList.add('hidden');
+            els.btnCancel.classList.remove('hidden');
+            els.btnConfirm.innerText = "Confirmer";
+        },
+        onConfirm: () => true,
+        onCancel: () => false
     });
 }
 
 // Affiche une boîte de saisie textuelle stylisée (Remplace prompt())
 function showCustomPrompt(message, defaultValue = "", title = "Saisie") {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('custom-dialog-modal');
-        const titleEl = document.getElementById('dialog-title');
-        const msgEl = document.getElementById('dialog-message');
-        const iconContainer = document.getElementById('dialog-icon-container');
-        const icon = document.getElementById('dialog-icon');
-        const inputContainer = document.getElementById('dialog-input-container');
-        const input = document.getElementById('dialog-input');
-        const btnCancel = document.getElementById('dialog-btn-cancel');
-        const btnConfirm = document.getElementById('dialog-btn-confirm');
+    return _openDialog({
+        title, message,
+        resolveOnMissingModal: null,
+        configure: (els) => {
+            els.icon.setAttribute('data-lucide', 'edit-2');
+            els.iconContainer.className = "p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto border border-blue-500/20 bg-blue-500/10 text-blue-400";
 
-        if (!modal) return resolve(null);
-
-        titleEl.innerText = title;
-        msgEl.innerText = message;
-        
-        icon.setAttribute('data-lucide', 'edit-2');
-        iconContainer.className = "p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto border border-blue-500/20 bg-blue-500/10 text-blue-400";
-        
-        inputContainer.classList.remove('hidden');
-        input.value = defaultValue;
-        btnCancel.classList.remove('hidden');
-        btnConfirm.innerText = "Valider";
-        btnConfirm.className = "w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition";
-
-        modal.classList.remove('hidden');
-        lucide.createIcons();
-
-        btnConfirm.onclick = () => {
-            const val = input.value;
-            modal.classList.add('hidden');
-            resolve(val);
-        };
-
-        btnCancel.onclick = () => {
-            modal.classList.add('hidden');
-            resolve(null);
-        };
+            els.inputContainer.classList.remove('hidden');
+            els.input.value = defaultValue;
+            els.btnCancel.classList.remove('hidden');
+            els.btnConfirm.innerText = "Valider";
+            els.btnConfirm.className = "w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-xs transition";
+        },
+        onConfirm: (els) => els.input.value,
+        onCancel: () => null
     });
 }
 
@@ -4446,10 +4299,42 @@ function getCalculatedTeamPoints(team) {
     return basePoints;
 }
 
-// Gère le changement de page de l'affichage des membres d'administration
-async function changeMembersPage(page) {
-    membersCurrentPage = page;
-    await loadDashboardData();
+// Calcule le total de points en attente pour un joueur à partir de ses activités approuvées de la
+// semaine, en appliquant les règles de dédoublonnage : une seule épreuve dimensionnelle comptée
+// (la plus haute), un seul raid compté par difficulté (le mieux payé), le reste cumulé normalement.
+function computeApprovedPointsForPlayer(teams) {
+    let highestDimensionalTier = 0;
+    let highestDimensionalPoints = 0;
+
+    const raidMaxPoints = {
+        "Raid Normal": 0,
+        "Raid Hardcore": 0,
+        "Raid Nightmare": 0
+    };
+
+    let otherActivitiesPoints = 0;
+
+    teams.forEach(team => {
+        const pts = getCalculatedTeamPoints(team);
+        if (team.motif === "Épreuve dimensionnelle") {
+            const match = team.dimensionalTier ? team.dimensionalTier.match(/\d+/) : null;
+            const tierNum = match ? parseInt(match[0], 10) : 0;
+            if (tierNum > highestDimensionalTier) {
+                highestDimensionalTier = tierNum;
+                highestDimensionalPoints = pts;
+            }
+        } else if (team.motif === "Raid") {
+            const diff = team.raidDifficulty || "Raid Normal";
+            if (pts > raidMaxPoints[diff]) {
+                raidMaxPoints[diff] = pts;
+            }
+        } else {
+            otherActivitiesPoints += pts;
+        }
+    });
+
+    const totalRaidPoints = Object.values(raidMaxPoints).reduce((sum, val) => sum + val, 0);
+    return otherActivitiesPoints + highestDimensionalPoints + totalRaidPoints;
 }
 
 // Récupère les points de base d'un palier d'épreuve dimensionnelle spécifique
