@@ -868,15 +868,22 @@ function subscribeToRealtimeTeams() {
 
 // Fonction de centralisation des mises à jour en direct
 async function handleLiveUpdate() {
-    await loadFormStatus(); // Synchronise l'état d'ouverture/fermeture du formulaire pour tout le monde
-
     const dashboardSection = document.getElementById('view-dashboard');
-    if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
-        await loadDashboardData();
+    const membersSection = document.getElementById('view-members');
+    const dashboardVisible = dashboardSection && !dashboardSection.classList.contains('hidden');
+    const membersVisible = membersSection && !membersSection.classList.contains('hidden');
+
+    // loadDashboardData et loadMembersViewData synchronisent déjà l'état du formulaire :
+    // on ne l'interroge séparément que si aucune des deux vues n'est ouverte (vue publique).
+    if (!dashboardVisible && !membersVisible) {
+        await loadFormStatus();
+        return;
     }
 
-    const membersSection = document.getElementById('view-members');
-    if (membersSection && !membersSection.classList.contains('hidden')) {
+    if (dashboardVisible) {
+        await loadDashboardData();
+    }
+    if (membersVisible) {
         await loadMembersViewData();
     }
 }
@@ -1301,59 +1308,42 @@ function handleWeaponLimit(checkbox) {
     }
 }
 
-async function loadMemberProfile() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) return;
-
+// Remplit le formulaire de profil à partir du profil déjà présent dans allDatabaseMembers.
+// Évite une requête member_profiles dédiée : la liste complète est récupérée juste avant.
+function renderMemberProfileForm(data) {
     renderWeaponCheckboxes();
 
-    try {
-        const { data, error } = await supabaseClient
-            .from('member_profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-        if (data) {
-            document.getElementById('profile-char-name').value = data.character_name || '';
-            document.getElementById('profile-gear-score').value = data.gear_score || 0; 
-            
-            // NOUVEAU : Récupération du lien de build
-            const buildInput = document.getElementById('profile-build-url');
-            if (buildInput) {
-                buildInput.value = data.build_url || '';
-                buildInput.disabled = true;
-            }
-            
-            const checkboxes = document.querySelectorAll('.weapon-checkbox');
-            checkboxes.forEach(cb => {
-                if (cb.value === data.weapon1 || cb.value === data.weapon2) {
-                    cb.checked = true;
-                } else {
-                    cb.checked = false;
-                }
-                cb.disabled = true;
-            });
-
-            // AJOUT : Injection dynamique du solde de points dans le bandeau supérieur de l'espace membre
-            const pointsDisplay = document.getElementById('member-display-points');
-            if (pointsDisplay) {
-                pointsDisplay.innerText = data.points ?? 0;
-            }
-
-            document.getElementById('btn-edit-profile').classList.remove('hidden');
-            document.getElementById('btn-save-profile').classList.add('hidden');
-            document.getElementById('profile-char-name').disabled = true;
-            document.getElementById('profile-gear-score').disabled = true; 
-        } else {
-            enableProfileEdit();
-            document.getElementById('btn-edit-profile').classList.add('hidden');
-        }
-    } catch (err) {
-        console.warn("Profil vide, prêt pour l'édition.");
+    if (!data) {
         enableProfileEdit();
         document.getElementById('btn-edit-profile').classList.add('hidden');
+        return;
     }
+
+    document.getElementById('profile-char-name').value = data.character_name || '';
+    document.getElementById('profile-gear-score').value = data.gear_score || 0;
+
+    const buildInput = document.getElementById('profile-build-url');
+    if (buildInput) {
+        buildInput.value = data.build_url || '';
+        buildInput.disabled = true;
+    }
+
+    const checkboxes = document.querySelectorAll('.weapon-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = (cb.value === data.weapon1 || cb.value === data.weapon2);
+        cb.disabled = true;
+    });
+
+    // Injection dynamique du solde de points dans le bandeau supérieur de l'espace membre
+    const pointsDisplay = document.getElementById('member-display-points');
+    if (pointsDisplay) {
+        pointsDisplay.innerText = data.points ?? 0;
+    }
+
+    document.getElementById('btn-edit-profile').classList.remove('hidden');
+    document.getElementById('btn-save-profile').classList.add('hidden');
+    document.getElementById('profile-char-name').disabled = true;
+    document.getElementById('profile-gear-score').disabled = true;
 }
 
 function enableProfileEdit() {
@@ -1783,26 +1773,26 @@ async function loadMembersViewData() {
         console.log("Lecture des notifications non disponible.");
     }
 
-    await Promise.all([
-        loadMemberProfile(),
+    // La liste des membres est récupérée en parallèle des autres chargements : elle sert
+    // à la fois au profil du membre connecté, au classement et aux compositions d'équipe.
+    const [, , , membersResult] = await Promise.all([
         loadTeamsFromStorage(),
         loadAuctionsFromStorage(),
-        loadFormStatus()
+        loadFormStatus(),
+        supabaseClient.from('member_profiles').select('*')
     ]);
 
-    try {
-        const { data: members, error } = await supabaseClient
-            .from('member_profiles')
-            .select('*');
-        if (error) throw error;
-        allDatabaseMembers = members;
-    } catch (err) {
+    if (membersResult.error) {
         console.warn("Impossible de récupérer la liste des membres.");
+    } else {
+        allDatabaseMembers = membersResult.data;
     }
 
     // Déclarer displayName IMMÉDIATEMENT ici pour qu'il soit disponible pour les calculs ci-dessous
     const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
     const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
+
+    renderMemberProfileForm(myProfile);
 
     // Calculer et afficher les points de fin de semaine en attente pour le membre connecté
     let memberPendingPoints = 0;
