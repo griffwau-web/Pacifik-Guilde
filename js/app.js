@@ -199,25 +199,41 @@ async function checkMonthlyWishReset() {
     }
 }
 
+// Index de recherche par nom normalisé (construit une seule fois, évite un scan linéaire de TL_ITEMS_DB à chaque appel)
+const TL_ITEMS_MAP = new Map(
+    (typeof TL_ITEMS_DB !== 'undefined' ? TL_ITEMS_DB : [])
+        .filter(item => item && item.name)
+        .map(item => [cleanCompareString(item.name), item])
+);
+
 // Trouver un équipement par son nom
 function findItemByName(name) {
     if (!name) return null;
-    const cleanSearchName = cleanCompareString(name);
-    return TL_ITEMS_DB.find(item => item && cleanCompareString(item.name) === cleanSearchName) || null;
+    return TL_ITEMS_MAP.get(cleanCompareString(name)) || null;
 }
 
 // Moteur d'autocomplétion dynamique pour les suggestions d'objets
+// Le rendu est débouncé (150ms) pour éviter de refiltrer/re-rendre à chaque frappe.
+const _itemSuggestionsTimers = {};
 function showItemSuggestions(inputElement, containerId) {
-    const query = inputElement.value.trim().toLowerCase();
+    clearTimeout(_itemSuggestionsTimers[containerId]);
+
     const container = document.getElementById(containerId);
     if (!container) return;
 
+    const query = inputElement.value.trim().toLowerCase();
     if (!query) {
         container.classList.add('hidden');
         container.innerHTML = '';
         return;
     }
 
+    _itemSuggestionsTimers[containerId] = setTimeout(() => {
+        renderItemSuggestions(inputElement, container, containerId, query);
+    }, 150);
+}
+
+function renderItemSuggestions(inputElement, container, containerId, query) {
     const matches = TL_ITEMS_DB.filter(item => item.name.toLowerCase().includes(query));
 
     if (matches.length === 0) {
@@ -229,7 +245,7 @@ function showItemSuggestions(inputElement, containerId) {
     container.classList.remove('hidden');
     container.innerHTML = matches.map(item => {
         const iconHtml = getItemIconHTML(item);
-        const rarityBadge = item.rarity === 'legendary' 
+        const rarityBadge = item.rarity === 'legendary'
             ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 uppercase font-bold">Légendaire</span>`
             : `<span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase font-bold">Épique ${item.tier || ''}</span>`;
 
@@ -1787,10 +1803,12 @@ async function loadMembersViewData() {
         console.log("Lecture des notifications non disponible.");
     }
 
-    await loadMemberProfile();
-    await loadTeamsFromStorage();
-    await loadAuctionsFromStorage();
-    await loadFormStatus();
+    await Promise.all([
+        loadMemberProfile(),
+        loadTeamsFromStorage(),
+        loadAuctionsFromStorage(),
+        loadFormStatus()
+    ]);
 
     try {
         const { data: members, error } = await supabaseClient
@@ -1976,6 +1994,9 @@ async function loadMembersViewData() {
             </div>
         `;
     } else {
+        const teamCardsHtml = [];
+        const memberByName = new Map(allDatabaseMembers.map(m => [m.character_name || m.email, m]));
+
         visibleTeams.forEach(team => {
             const isCreatorOfThisTeam = (team.creatorId === session.user.id);
             const isDraggable = isCreatorOfThisTeam && !team.composition_validated && !team.validated;
@@ -2174,7 +2195,7 @@ async function loadMembersViewData() {
                         if (app.role === 'DPS') roleIcon = '<i data-lucide="swords" class="w-3.5 h-3.5 text-red-400"></i>';
                         if (app.role === 'Healer') roleIcon = '<i data-lucide="heart" class="w-3.5 h-3.5 text-emerald-400"></i>';
                         
-                        const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === app.name);
+                        const dbMember = memberByName.get(app.name);
                         const weaponsHtml = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
 
                         const dragAttrs = isDraggable
@@ -2207,7 +2228,7 @@ async function loadMembersViewData() {
                 for (let i = 0; i < 6; i++) {
                     const pA = team.playersA ? team.playersA[i] : null;
                     if (pA) {
-                        const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === pA);
+                        const dbMember = memberByName.get(pA);
                         const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
                         const design = getPlayerRoleDesign(pA, team);
 
@@ -2227,7 +2248,7 @@ async function loadMembersViewData() {
 
                     const pB = team.playersB ? team.playersB[i] : null;
                     if (pB) {
-                        const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === pB);
+                        const dbMember = memberByName.get(pB);
                         const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
                         const design = getPlayerRoleDesign(pB, team);
 
@@ -2254,7 +2275,7 @@ async function loadMembersViewData() {
                     raidBadgeClass = "bg-purple-600/10 text-purple-600/20";
                 }
 
-                membersTeamsView.innerHTML += `
+                teamCardsHtml.push(`
                     <div class="col-span-full bg-[#161b26]/50 border border-[#1e2638] rounded-xl p-5 space-y-4 animate-fade-in">
                         <div class="flex justify-between items-center border-b border-[#1e2638] pb-3 flex-wrap gap-2">
                             <div class="flex items-center gap-3">
@@ -2299,7 +2320,7 @@ async function loadMembersViewData() {
                             <span>Prévu le : ${formatEventDate(team.date)} | Valeur : ${displayPoints} pts${penaltyWarning}</span>
                         </div>
                     </div>
-                `;
+                `);
             } else {
                 let badgeColor = "bg-blue-500/10 text-blue-400 border-blue-500/20";
                 let labelText = team.motif;
@@ -2332,7 +2353,7 @@ async function loadMembersViewData() {
                             const playerName = team.players ? team.players[playerIndex] : null;
                             if (playerName) {
                                 groupPlayersCount++;
-                                const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
+                                const dbMember = memberByName.get(playerName);
                                 let iconsHtml = "";
                                 if (dbMember) {
                                     iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
@@ -2376,7 +2397,7 @@ async function loadMembersViewData() {
                     for (let i = 0; i < 6; i++) {
                         const playerName = team.players ? team.players[i] : null;
                         if (playerName) {
-                            const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
+                            const dbMember = memberByName.get(playerName);
                             let iconsHtml = "";
                             if (dbMember) {
                                 iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
@@ -2404,7 +2425,7 @@ async function loadMembersViewData() {
                     compositionHtml = `<div class="space-y-1.5">${teamPlayersHtml}</div>`;
                 }
 
-                membersTeamsView.innerHTML += `
+                teamCardsHtml.push(`
                     <div class="col-span-full bg-[#161b26]/50 border border-[#1e2638] rounded-xl p-5 space-y-4 animate-fade-in">
                         <div class="flex justify-between items-center border-b border-[#1e2638] pb-3 flex-wrap gap-2">
                             <div class="flex items-center gap-3">
@@ -2438,9 +2459,11 @@ async function loadMembersViewData() {
                             <span>Prévu le : ${formatEventDate(team.date)} | Valeur : ${displayPoints} pts${penaltyWarning}</span>
                         </div>
                     </div>
-                `;
+                `);
             }
         });
+
+        membersTeamsView.innerHTML = teamCardsHtml.join('');
     }
 
     const leaderboardContainer = document.getElementById('members-leaderboard-container');
@@ -2497,9 +2520,8 @@ async function loadMembersViewData() {
 
 async function loadDashboardData() {
     try {
-        await loadFormStatus();
-        await loadAdminNotes();
-        
+        await Promise.all([loadFormStatus(), loadAdminNotes()]);
+
         // 1. Récupérer les profils des membres dès le départ pour assurer l'affichage correct des armes/icônes
         const { data: members, error: membersError } = await supabaseClient
             .from('member_profiles')
@@ -2697,7 +2719,7 @@ async function loadDashboardData() {
         if (players.length === 0) {
             tableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">Aucune candidature enregistrée.</td></tr>`;
         } else {
-            players.forEach(p => {
+            tableBody.innerHTML = players.map(p => {
                 const dateFormatted = new Date(p.created_at).toLocaleDateString('fr-FR', {
                     day: '2-digit',
                     month: '2-digit',
@@ -2715,7 +2737,7 @@ async function loadDashboardData() {
                     badgeClass += "bg-blue-500/10 text-blue-400 border-blue-500/20";
                 }
 
-                tableBody.innerHTML += `
+                return `
                     <tr class="hover:bg-[#161b26]/40 transition duration-150">
                         <td class="p-4 font-semibold text-white">${p.name}</td>
                         <td class="p-4 text-[#38bdf8] font-bold text-base">${p.score}</td>
@@ -2736,21 +2758,20 @@ async function loadDashboardData() {
                         </td>
                     </tr>
                 `;
-            });
+            }).join('');
         }
 
         // 5. Remplissage de l'affichage de la table des membres actifs
         const membersTableBody = document.getElementById('members-table-body');
         if (membersTableBody) {
-            membersTableBody.innerHTML = "";
             if (allDatabaseMembers.length === 0) {
                 membersTableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">Aucun membre enregistré.</td></tr>`;
             } else {
-                allDatabaseMembers.forEach(m => {
+                membersTableBody.innerHTML = allDatabaseMembers.map(m => {
                     let deleteButtonHtml = "";
                     const maskedEmail = maskEmail(m.email);
                     const displayName = m.character_name || maskedEmail;
-        
+
                     if (m.email !== ADMIN_EMAIL) {
                         deleteButtonHtml = `
                             <div class="flex flex-wrap justify-center gap-1.5">
@@ -2763,8 +2784,8 @@ async function loadDashboardData() {
                     } else {
                         deleteButtonHtml = `<span class="text-xs text-slate-500 font-semibold italic select-none">Administrateur</span>`;
                     }
-        
-                    membersTableBody.innerHTML += `
+
+                    return `
                         <tr class="hover:bg-[#161b26]/40 transition duration-150">
                             <td class="p-4 font-semibold text-slate-400">${maskedEmail}</td>
                             <td class="p-4 text-[#38bdf8] font-bold text-sm">${m.character_name || 'Non configuré'}</td>
@@ -2777,26 +2798,24 @@ async function loadDashboardData() {
                             </td>
                         </tr>
                     `;
-                });
+                }).join('');
             }
         }
 
         // 6. Charger l'état des compositions et enchères
-        await loadTeamsFromStorage();
-        await loadAuctionsFromStorage();
+        await Promise.all([loadTeamsFromStorage(), loadAuctionsFromStorage()]);
 
         const adminAuctionsTableBody = document.getElementById('admin-auctions-table-body');
         if (adminAuctionsTableBody) {
-            adminAuctionsTableBody.innerHTML = "";
             if (auctionsData.length === 0) {
                 adminAuctionsTableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">Aucune enchère active ou passée.</td></tr>`;
             } else {
-                auctionsData.forEach(auc => {
+                adminAuctionsTableBody.innerHTML = auctionsData.map(auc => {
                     const bidsCount = Object.keys(auc.bids || {}).length;
                     const isExpired = new Date(auc.end_time) < new Date();
-                    const statusLabel = auc.status === 'resolved' 
+                    const statusLabel = auc.status === 'resolved'
                         ? `<span class="text-xs px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-500/30">Résolue</span>`
-                        : (isExpired 
+                        : (isExpired
                             ? `<span class="text-xs px-2 py-0.5 rounded bg-red-950/40 text-red-400 border-red-900/30 animate-pulse">Expirée</span>`
                             : `<span class="text-xs px-2 py-0.5 rounded bg-blue-950/40 text-blue-400 border-blue-500/30">En cours</span>`
                         );
@@ -2813,7 +2832,7 @@ async function loadDashboardData() {
                            </div>`
                         : `<span class="text-xs text-slate-500 italic">Terminé</span>`;
 
-                    adminAuctionsTableBody.innerHTML += `
+                    return `
                         <tr class="hover:bg-[#161b26]/40 transition duration-150">
                             <td class="p-4 font-bold text-slate-200">
                                 <div class="flex items-center gap-2.5">
@@ -2829,7 +2848,7 @@ async function loadDashboardData() {
                             <td class="p-4 text-center">${actionButtonHtml}</td>
                         </tr>
                     `;
-                });
+                }).join('');
             }
         }
 
@@ -3240,7 +3259,9 @@ function renderTeamMaker() {
 
     const teamsContainer = document.getElementById('teams-container');
     if (!teamsContainer) return;
-    teamsContainer.innerHTML = "";
+
+    const teamCardsHtml = [];
+    const memberByName = new Map(allDatabaseMembers.map(m => [m.character_name || m.email, m]));
 
     // 2. Boucle principale de génération des cartes d'activité
     teamsData.forEach(team => {
@@ -3253,7 +3274,7 @@ function renderTeamMaker() {
                     if (app.role === 'DPS') roleIcon = '<i data-lucide="swords" class="w-3.5 h-3.5 text-red-400"></i>';
                     if (app.role === 'Healer') roleIcon = '<i data-lucide="heart" class="w-3.5 h-3.5 text-emerald-400"></i>';
                     
-                    const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === app.name);
+                    const dbMember = memberByName.get(app.name);
                     const weaponsHtml = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
                     const memberGsLabel = dbMember ? `<span class="text-[9px] text-amber-500 font-bold ml-1">${dbMember.gear_score || 0} GS</span>` : "";
 
@@ -3378,7 +3399,7 @@ function renderTeamMaker() {
                 for (let i = 0; i < 6; i++) {
                     const pA = team.playersA ? team.playersA[i] : null;
                     if (pA) {
-                        const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === pA);
+                        const dbMember = memberByName.get(pA);
                         const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
                         const design = getPlayerRoleDesign(pA, team); // Récupération du style coloré
                         slotsAHtml += `
@@ -3393,7 +3414,7 @@ function renderTeamMaker() {
 
                     const pB = team.playersB ? team.playersB[i] : null;
                     if (pB) {
-                        const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === pB);
+                        const dbMember = memberByName.get(pB);
                         const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
                         const design = getPlayerRoleDesign(pB, team); // Récupération du style coloré
                         slotsBHtml += `
@@ -3415,7 +3436,7 @@ function renderTeamMaker() {
                 raidBadgeClass = "bg-purple-600/10 text-purple-600/20";
             }
 
-            teamsContainer.innerHTML += `
+            teamCardsHtml.push(`
                 <div class="col-span-full bg-[#161b26]/50 border border-[#1e2638] rounded-xl p-5 space-y-4 animate-fade-in">
                     <div class="flex justify-between items-center border-b border-[#1e2638] pb-3 flex-wrap gap-2">
                         <div class="flex items-center gap-3">
@@ -3465,7 +3486,7 @@ function renderTeamMaker() {
                     </div>
                     ${proofsReviewHtml}
                 </div>
-            `;
+            `);
         } else {
             let teamSlotsHtml = "";
             let badgeColor = "bg-blue-500/10 text-blue-400 border-blue-500/20";
@@ -3506,7 +3527,7 @@ function renderTeamMaker() {
                         const playerName = team.players ? team.players[playerIndex] : null;
                         if (playerName) {
                             groupPlayersCount++;
-                            const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
+                            const dbMember = memberByName.get(playerName);
                             let iconsHtml = "";
                             if (dbMember) {
                                 iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
@@ -3547,7 +3568,7 @@ function renderTeamMaker() {
                 for (let i = 0; i < 6; i++) {
                     const playerName = team.players ? team.players[i] : null;
                     if (playerName) {
-                        const dbMember = allDatabaseMembers.find(dbM => (dbM.character_name || dbM.email) === playerName);
+                        const dbMember = memberByName.get(playerName);
                         let iconsHtml = "";
                         if (dbMember) {
                             iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
@@ -3571,7 +3592,7 @@ function renderTeamMaker() {
                 compositionHtml = `<div class="space-y-1.5">${teamSlotsHtml}</div>`;
             }
 
-            teamsContainer.innerHTML += `
+            teamCardsHtml.push(`
                 <div class="col-span-full xl:col-span-1 bg-[#161b26]/50 border border-[#1e2638] rounded-xl p-5 space-y-4 animate-fade-in">
                     <div class="flex justify-between items-center border-b border-[#1e2638] pb-3 flex-wrap gap-2">
                         <div class="flex flex-col gap-1 w-full sm:w-auto">
@@ -3613,9 +3634,11 @@ function renderTeamMaker() {
                     </div>
                     ${proofsReviewHtml}
                 </div>
-            `;
+            `);
         }
     });
+
+    teamsContainer.innerHTML = teamCardsHtml.join('');
 
     lucide.createIcons();
 }
@@ -3638,31 +3661,33 @@ function openInfoModal(playerId) {
     document.getElementById('modal-submit-date').innerText = dateFormatted;
 
     const answersList = document.getElementById('modal-answers-list');
-    answersList.innerHTML = "";
+    const answersHtml = [];
 
     for (let i = 1; i <= 7; i++) {
         const responseValue = player[`q${i}`];
         const qMap = QUESTIONS_MAPPING[`q${i}`];
-        
+
         let answerText = "Information indisponible.";
         if (responseValue && qMap && qMap.options[responseValue]) {
             answerText = qMap.options[responseValue];
         }
 
-        answersList.innerHTML += `
+        answersHtml.push(`
             <div class="bg-[#161b26] border border-[#1e2638] p-4 rounded-xl space-y-1">
                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wide">${qMap.title}</h4>
                 <p class="text-sm text-white font-semibold">${answerText}</p>
             </div>
-        `;
+        `);
     }
 
-    answersList.innerHTML += `
+    answersHtml.push(`
         <div class="bg-[#ff3355]/5 border border-[#ff3355]/20 p-4 rounded-xl space-y-1">
             <h4 class="text-xs font-bold text-[#ff3355] uppercase tracking-wide">Groupe Souhaité par le Joueur</h4>
             <p class="text-sm text-white font-bold">${player.desired_level}</p>
         </div>
-    `;
+    `);
+
+    answersList.innerHTML = answersHtml.join('');
 
     const modal = document.getElementById('info-modal');
     modal.classList.remove('hidden');
