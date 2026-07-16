@@ -2094,26 +2094,14 @@ async function loadMembersViewData() {
             if (team.applications && team.applications.length > 0) {
                 team.applications.forEach(app => {
                     if (!isPlayerAssignedToTeam(app.name, team.id)) {
-                        let roleIcon = '<i data-lucide="shield" class="w-3.5 h-3.5 text-blue-400"></i>';
-                        if (app.role === 'DPS') roleIcon = '<i data-lucide="swords" class="w-3.5 h-3.5 text-red-400"></i>';
-                        if (app.role === 'Healer') roleIcon = '<i data-lucide="heart" class="w-3.5 h-3.5 text-emerald-400"></i>';
-                        
-                        const dbMember = memberByName.get(app.name);
-                        const weaponsHtml = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
-
-                        const dragAttrs = isDraggable
-                            ? `draggable="true" ondragstart="dragPlayer(event, '${app.name}', '${team.id}')" class="bg-[#111622] border border-[#1e2638] p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-blue-500/30"`
-                            : `class="bg-[#111622] border border-[#1e2638] p-2 rounded-lg flex items-center justify-between gap-1.5 text-xs animate-fade-in"`;
-
-                        appsHtml += `
-                            <div ${dragAttrs}>
-                                <div class="flex items-center gap-1.5">
-                                    ${roleIcon}
-                                    <span class="font-bold text-white truncate max-w-[120px]">${app.name}</span>
-                                </div>
-                                <div class="flex items-center gap-1 shrink-0">${weaponsHtml}</div>
-                            </div>
-                        `;
+                        appsHtml += renderApplicantChip(app, team, memberByName, {
+                            draggable: isDraggable,
+                            containerClasses: isDraggable
+                                ? "bg-[#111622] border border-[#1e2638] p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-blue-500/30"
+                                : "bg-[#111622] border border-[#1e2638] p-2 rounded-lg flex items-center justify-between gap-1.5 text-xs animate-fade-in",
+                            spanMaxWidth: "max-w-[120px]",
+                            showGearScore: false
+                        });
                     }
                 });
             }
@@ -2127,56 +2115,28 @@ async function loadMembersViewData() {
             if (team.motif === "Raid") {
                 let slotsAHtml = "";
                 let slotsBHtml = "";
+                const raidSlotOpts = {
+                    draggable: isDraggable,
+                    containerClasses: isDraggable
+                        ? "p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-red-500/20"
+                        : "p-2 rounded-lg flex items-center justify-between gap-1.5 transition text-xs shadow-sm",
+                    spanClasses: "truncate max-w-[110px]"
+                };
                 // Groupe A (Membres)
                 for (let i = 0; i < 6; i++) {
                     const pA = team.playersA ? team.playersA[i] : null;
-                    if (pA) {
-                        const dbMember = memberByName.get(pA);
-                        const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
-                        const design = getPlayerRoleDesign(pA, team);
-
-                        const playerDragAttr = isDraggable
-                            ? `draggable="true" ondragstart="dragPlayer(event, '${pA}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-red-500/20"`
-                            : `class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 transition text-xs shadow-sm"`;
-
-                        slotsAHtml += `
-                            <div ${playerDragAttr}>
-                                <span class="${design.text} truncate max-w-[110px]" title="${pA}">${pA}</span>
-                                <div class="flex items-center gap-1 shrink-0">${icons}</div>
-                            </div>
-                        `;
-                    } else {
-                        slotsAHtml += `<div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-700 text-[10px]">Vide</div>`;
-                    }
+                    slotsAHtml += pA
+                        ? renderPlayerSlot(pA, team, memberByName, raidSlotOpts)
+                        : `<div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-700 text-[10px]">Vide</div>`;
 
                     const pB = team.playersB ? team.playersB[i] : null;
-                    if (pB) {
-                        const dbMember = memberByName.get(pB);
-                        const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
-                        const design = getPlayerRoleDesign(pB, team);
-
-                        const playerDragAttr = isDraggable
-                            ? `draggable="true" ondragstart="dragPlayer(event, '${pB}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-red-500/20"`
-                            : `class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 transition text-xs shadow-sm"`;
-
-                        slotsBHtml += `
-                            <div ${playerDragAttr}>
-                                <span class="${design.text} truncate max-w-[110px]" title="${pB}">${pB}</span>
-                                <div class="flex items-center gap-1 shrink-0">${icons}</div>
-                            </div>
-                        `;
-                    } else {
-                        slotsBHtml += `<div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-700 text-[10px]">Vide</div>`;
-                    }
+                    slotsBHtml += pB
+                        ? renderPlayerSlot(pB, team, memberByName, raidSlotOpts)
+                        : `<div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-700 text-[10px]">Vide</div>`;
                 }
 
-                let raidBadgeClass = "bg-pink-500/10 text-pink-400 border-pink-500/20";
                 const difficultyText = team.raidDifficulty || "Raid Normal";
-                if (difficultyText === "Raid Hardcore") {
-                    raidBadgeClass = "bg-red-500/10 text-red-400 border-red-500/20";
-                } else if (difficultyText === "Raid Nightmare") {
-                    raidBadgeClass = "bg-purple-600/10 text-purple-600/20";
-                }
+                const raidBadgeClass = getRaidBadgeClass(difficultyText);
 
                 teamCardsHtml.push(`
                     <div class="col-span-full bg-[#161b26]/50 border border-[#1e2638] rounded-xl p-5 space-y-4 animate-fade-in">
@@ -2225,21 +2185,10 @@ async function loadMembersViewData() {
                     </div>
                 `);
             } else {
-                let badgeColor = "bg-blue-500/10 text-blue-400 border-blue-500/20";
-                let labelText = team.motif;
-                if (team.motif === "PVP") {
-                    badgeColor = "bg-purple-500/10 text-purple-400 border-purple-500/20";
-                } else if (team.motif === "Boss de guilde") {
-                    badgeColor = "bg-amber-500/10 text-amber-400 border-amber-500/20";
-                } else if (team.motif === "Épreuve dimensionnelle") {
-                    badgeColor = "bg-cyan-500/10 text-cyan-400 border-cyan-500/20";
-                    if (team.dimensionalTier) {
-                        labelText = `Épreuve (${team.dimensionalTier})`;
-                    }
-                }
+                const { badgeColor, labelText } = getActivityBadge(team);
 
                 let compositionHtml = "";
-                
+
                 if (team.motif === "Boss de guilde") {
                     const playersCount = team.players ? team.players.length : 0;
                     const totalGroupsToRender = Math.max(1, Math.ceil(playersCount / 6));
@@ -2251,28 +2200,19 @@ async function loadMembersViewData() {
                         const startIndex = g * 6;
                         let groupPlayersCount = 0;
 
+                        const bossSlotOpts = {
+                            draggable: isDraggable,
+                            containerClasses: isDraggable
+                                ? "p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-red-500/20"
+                                : "p-2 rounded-lg flex items-center justify-between gap-1.5 text-xs shadow-sm",
+                            spanClasses: "truncate max-w-[100px]"
+                        };
                         for (let i = 0; i < 6; i++) {
                             const playerIndex = startIndex + i;
                             const playerName = team.players ? team.players[playerIndex] : null;
                             if (playerName) {
                                 groupPlayersCount++;
-                                const dbMember = memberByName.get(playerName);
-                                let iconsHtml = "";
-                                if (dbMember) {
-                                    iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
-                                }
-                                const design = getPlayerRoleDesign(playerName, team);
-
-                                const playerDragAttr = isDraggable
-                                    ? `draggable="true" ondragstart="dragPlayer(event, '${playerName}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-red-500/20"`
-                                    : `class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 text-xs shadow-sm"`;
-
-                                groupSlotsHtml += `
-                                    <div ${playerDragAttr}>
-                                        <span class="${design.text} truncate max-w-[100px]" title="${playerName}">${playerName}</span>
-                                        <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
-                                    </div>
-                                `;
+                                groupSlotsHtml += renderPlayerSlot(playerName, team, memberByName, bossSlotOpts);
                             } else {
                                 groupSlotsHtml += `
                                     <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-700 text-[10px] select-none">
@@ -2297,26 +2237,17 @@ async function loadMembersViewData() {
 
                 } else {
                     let teamPlayersHtml = "";
+                    const singleSlotOpts = {
+                        draggable: isDraggable,
+                        containerClasses: isDraggable
+                            ? "p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-red-500/20"
+                            : "p-2 rounded-lg flex items-center justify-between gap-1.5 shadow-sm",
+                        spanClasses: "text-xs truncate max-w-[120px]"
+                    };
                     for (let i = 0; i < 6; i++) {
                         const playerName = team.players ? team.players[i] : null;
                         if (playerName) {
-                            const dbMember = memberByName.get(playerName);
-                            let iconsHtml = "";
-                            if (dbMember) {
-                                iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
-                            }
-                            const design = getPlayerRoleDesign(playerName, team);
-
-                            const playerDragAttr = isDraggable
-                                ? `draggable="true" ondragstart="dragPlayer(event, '${playerName}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm hover:border-red-500/20"`
-                                : `class="bg-[#111622] ${design.border} p-2 rounded-lg flex items-center justify-between gap-1.5 shadow-sm"`;
-
-                            teamPlayersHtml += `
-                                <div ${playerDragAttr}>
-                                    <span class="${design.text} text-xs truncate max-w-[120px]" title="${playerName}">${playerName}</span>
-                                    <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
-                                </div>
-                            `;
+                            teamPlayersHtml += renderPlayerSlot(playerName, team, memberByName, singleSlotOpts);
                         } else {
                             teamPlayersHtml += `
                                 <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-600 text-xs select-none">
@@ -3064,6 +2995,81 @@ async function renameTeam(teamId, newName) {
     }
 }
 
+// ============================================================================
+// Helpers de rendu partagés entre le Team Maker (admin) et les cartes d'équipe
+// de l'espace membre. Les classes CSS propres à chaque contexte (largeur, hover,
+// transition…) restent passées par l'appelant, pour un rendu strictement identique.
+// ============================================================================
+
+// Classe CSS du badge de difficulté d'un raid
+function getRaidBadgeClass(difficultyText) {
+    if (difficultyText === "Raid Hardcore") return "bg-red-500/10 text-red-400 border-red-500/20";
+    if (difficultyText === "Raid Nightmare") return "bg-purple-600/10 text-purple-600/20";
+    return "bg-pink-500/10 text-pink-400 border-pink-500/20";
+}
+
+// Couleur du badge + libellé d'une activité non-raid (PVP, Boss, Épreuve dimensionnelle)
+function getActivityBadge(team) {
+    let badgeColor = "bg-blue-500/10 text-blue-400 border-blue-500/20";
+    let labelText = team.motif;
+    if (team.motif === "PVP") {
+        badgeColor = "bg-purple-500/10 text-purple-400 border-purple-500/20";
+    } else if (team.motif === "Boss de guilde") {
+        badgeColor = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+    } else if (team.motif === "Épreuve dimensionnelle") {
+        badgeColor = "bg-cyan-500/10 text-cyan-400 border-cyan-500/20";
+        if (team.dimensionalTier) {
+            labelText = `Épreuve (${team.dimensionalTier})`;
+        }
+    }
+    return { badgeColor, labelText };
+}
+
+// Icône Lucide correspondant au rôle d'un postulant
+function getRoleIcon(role) {
+    if (role === 'DPS') return '<i data-lucide="swords" class="w-3.5 h-3.5 text-red-400"></i>';
+    if (role === 'Healer') return '<i data-lucide="heart" class="w-3.5 h-3.5 text-emerald-400"></i>';
+    return '<i data-lucide="shield" class="w-3.5 h-3.5 text-blue-400"></i>';
+}
+
+// Puce d'un joueur assigné à une équipe/un groupe. `domId` ajoute id="drag-<nom>" ;
+// containerClasses/spanClasses portent les classes propres au contexte d'appel.
+function renderPlayerSlot(playerName, team, memberByName, { draggable, domId = false, containerClasses, spanClasses }) {
+    const dbMember = memberByName.get(playerName);
+    const iconsHtml = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
+    const design = getPlayerRoleDesign(playerName, team);
+    const idAttr = domId ? `id="drag-${playerName}" ` : "";
+    const dragAttr = draggable
+        ? `${idAttr}draggable="true" ondragstart="dragPlayer(event, '${playerName}', '${team.id}')" `
+        : "";
+    return `
+        <div ${dragAttr}class="bg-[#111622] ${design.border} ${containerClasses}">
+            <span class="${design.text} ${spanClasses}" title="${playerName}">${playerName}</span>
+            <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
+        </div>
+    `;
+}
+
+// Puce d'un postulant dans le volet "Postulants". `showGearScore` (admin) ajoute le GS.
+function renderApplicantChip(app, team, memberByName, { draggable, containerClasses, spanMaxWidth, showGearScore }) {
+    const dbMember = memberByName.get(app.name);
+    const weaponsHtml = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
+    const gsLabel = (showGearScore && dbMember) ? `<span class="text-[9px] text-amber-500 font-bold ml-1">${dbMember.gear_score || 0} GS</span>` : "";
+    const dragAttr = draggable
+        ? `draggable="true" ondragstart="dragPlayer(event, '${app.name}', '${team.id}')" `
+        : "";
+    return `
+        <div ${dragAttr}class="${containerClasses}">
+            <div class="flex items-center gap-1.5">
+                ${getRoleIcon(app.role)}
+                <span class="font-bold text-white truncate ${spanMaxWidth}">${app.name}</span>
+                ${gsLabel}
+            </div>
+            <div class="flex items-center gap-1 shrink-0">${weaponsHtml}</div>
+        </div>
+    `;
+}
+
 function renderTeamMaker() {
     // 1. Nettoyage de sécurité des listes de joueurs (Membres désinscrits)
     if (allDatabaseMembers && allDatabaseMembers.length > 0) {
@@ -3099,24 +3105,12 @@ function renderTeamMaker() {
         if (team.applications && team.applications.length > 0) {
             team.applications.forEach(app => {
                 if (!isPlayerAssignedToTeam(app.name, team.id)) {
-                    let roleIcon = '<i data-lucide="shield" class="w-3.5 h-3.5 text-blue-400"></i>';
-                    if (app.role === 'DPS') roleIcon = '<i data-lucide="swords" class="w-3.5 h-3.5 text-red-400"></i>';
-                    if (app.role === 'Healer') roleIcon = '<i data-lucide="heart" class="w-3.5 h-3.5 text-emerald-400"></i>';
-                    
-                    const dbMember = memberByName.get(app.name);
-                    const weaponsHtml = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
-                    const memberGsLabel = dbMember ? `<span class="text-[9px] text-amber-500 font-bold ml-1">${dbMember.gear_score || 0} GS</span>` : "";
-
-                    appsHtml += `
-                        <div draggable="true" ondragstart="dragPlayer(event, '${app.name}', '${team.id}')" class="bg-[#111622] border border-[#1e2638] p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs">
-                            <div class="flex items-center gap-1.5">
-                                ${roleIcon}
-                                <span class="font-bold text-white truncate max-w-[80px]">${app.name}</span>
-                                ${memberGsLabel}
-                            </div>
-                            <div class="flex items-center gap-1 shrink-0">${weaponsHtml}</div>
-                        </div>
-                    `;
+                    appsHtml += renderApplicantChip(app, team, memberByName, {
+                        draggable: true,
+                        containerClasses: "bg-[#111622] border border-[#1e2638] p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs",
+                        spanMaxWidth: "max-w-[80px]",
+                        showGearScore: true
+                    });
                 }
             });
         }
@@ -3225,45 +3219,25 @@ function renderTeamMaker() {
             // Remplissage de l'affichage des groupes de raid
                 let slotsAHtml = "";
                 let slotsBHtml = "";
+                const raidSlotOpts = {
+                    draggable: true,
+                    containerClasses: "p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm",
+                    spanClasses: "truncate max-w-[110px]"
+                };
                 for (let i = 0; i < 6; i++) {
                     const pA = team.playersA ? team.playersA[i] : null;
-                    if (pA) {
-                        const dbMember = memberByName.get(pA);
-                        const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
-                        const design = getPlayerRoleDesign(pA, team); // Récupération du style coloré
-                        slotsAHtml += `
-                            <div draggable="true" ondragstart="dragPlayer(event, '${pA}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm">
-                                <span class="${design.text} truncate max-w-[110px]" title="${pA}">${pA}</span>
-                                <div class="flex items-center gap-1 shrink-0">${icons}</div>
-                            </div>
-                        `;
-                    } else {
-                        slotsAHtml += `<div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-700 text-[10px] select-none">Vide</div>`;
-                    }
+                    slotsAHtml += pA
+                        ? renderPlayerSlot(pA, team, memberByName, raidSlotOpts)
+                        : `<div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-700 text-[10px] select-none">Vide</div>`;
 
                     const pB = team.playersB ? team.playersB[i] : null;
-                    if (pB) {
-                        const dbMember = memberByName.get(pB);
-                        const icons = dbMember ? getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2) : "";
-                        const design = getPlayerRoleDesign(pB, team); // Récupération du style coloré
-                        slotsBHtml += `
-                            <div draggable="true" ondragstart="dragPlayer(event, '${pB}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm">
-                                <span class="${design.text} truncate max-w-[110px]" title="${pB}">${pB}</span>
-                                <div class="flex items-center gap-1 shrink-0">${icons}</div>
-                            </div>
-                        `;
-                    } else {
-                        slotsBHtml += `<div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-700 text-[10px] select-none">Vide</div>`;
-                    }
+                    slotsBHtml += pB
+                        ? renderPlayerSlot(pB, team, memberByName, raidSlotOpts)
+                        : `<div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-700 text-[10px] select-none">Vide</div>`;
                 }
 
-            let raidBadgeClass = "bg-pink-500/10 text-pink-400 border-pink-500/20";
             const difficultyText = team.raidDifficulty || "Raid Normal";
-            if (difficultyText === "Raid Hardcore") {
-                raidBadgeClass = "bg-red-500/10 text-red-400 border-red-500/20";
-            } else if (difficultyText === "Raid Nightmare") {
-                raidBadgeClass = "bg-purple-600/10 text-purple-600/20";
-            }
+            const raidBadgeClass = getRaidBadgeClass(difficultyText);
 
             teamCardsHtml.push(`
                 <div class="col-span-full bg-[#161b26]/50 border border-[#1e2638] rounded-xl p-5 space-y-4 animate-fade-in">
@@ -3317,28 +3291,23 @@ function renderTeamMaker() {
                 </div>
             `);
         } else {
-            let teamSlotsHtml = "";
-            let badgeColor = "bg-blue-500/10 text-blue-400 border-blue-500/20";
-            let labelText = team.motif;
-            if (team.motif === "PVP") {
-                badgeColor = "bg-purple-500/10 text-purple-400 border-purple-500/20";
-            } else if (team.motif === "Boss de guilde") {
-                badgeColor = "bg-amber-500/10 text-amber-400 border-amber-500/20";
-            } else if (team.motif === "Épreuve dimensionnelle") {
-                badgeColor = "bg-cyan-500/10 text-cyan-400 border-cyan-500/20";
-                if (team.dimensionalTier) {
-                    labelText = `Épreuve (${team.dimensionalTier})`;
-                }
-            }
+            const { badgeColor, labelText } = getActivityBadge(team);
 
             // Détermination du label et du rendu dynamique de la composition
             const totalSlotsLabel = team.motif === "Boss de guilde" ? "∞" : "6";
             let compositionHtml = "";
-            
+
+            const bossSlotOpts = {
+                draggable: true,
+                domId: true,
+                containerClasses: "p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm",
+                spanClasses: "truncate max-w-[100px]"
+            };
+
             if (team.motif === "Boss de guilde") {
                 const playersCount = team.players ? team.players.length : 0;
                 let totalGroupsToRender = 1;
-                
+
                 // On rajoute dynamiquement un groupe de 6 si le précédent est complet
                 if (playersCount >= 6) {
                     totalGroupsToRender = Math.floor(playersCount / 6) + 1;
@@ -3356,19 +3325,7 @@ function renderTeamMaker() {
                         const playerName = team.players ? team.players[playerIndex] : null;
                         if (playerName) {
                             groupPlayersCount++;
-                            const dbMember = memberByName.get(playerName);
-                            let iconsHtml = "";
-                            if (dbMember) {
-                                iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
-                            }
-                            const design = getPlayerRoleDesign(playerName, team);
-
-                            groupSlotsHtml += `
-                                <div id="drag-${playerName}" draggable="true" ondragstart="dragPlayer(event, '${playerName}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm">
-                                    <span class="${design.text} truncate max-w-[100px]" title="${playerName}">${playerName}</span>
-                                    <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
-                                </div>
-                            `;
+                            groupSlotsHtml += renderPlayerSlot(playerName, team, memberByName, bossSlotOpts);
                         } else {
                             groupSlotsHtml += `
                                 <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-700 text-[10px] select-none">
@@ -3394,22 +3351,16 @@ function renderTeamMaker() {
             } else {
                 // Rendu classique à une seule colonne (PVP et Épreuves dimensionnelles)
                 let teamSlotsHtml = "";
+                const singleSlotOpts = {
+                    draggable: true,
+                    domId: true,
+                    containerClasses: "p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm",
+                    spanClasses: "truncate max-w-[110px]"
+                };
                 for (let i = 0; i < 6; i++) {
                     const playerName = team.players ? team.players[i] : null;
                     if (playerName) {
-                        const dbMember = memberByName.get(playerName);
-                        let iconsHtml = "";
-                        if (dbMember) {
-                            iconsHtml = getWeaponIcon(dbMember.weapon1) + getWeaponIcon(dbMember.weapon2);
-                        }
-                        const design = getPlayerRoleDesign(playerName, team);
-
-                        teamSlotsHtml += `
-                            <div id="drag-${playerName}" draggable="true" ondragstart="dragPlayer(event, '${playerName}', '${team.id}')" class="bg-[#111622] ${design.border} p-2 rounded-lg cursor-grab active:cursor-grabbing flex items-center justify-between gap-1.5 transition text-xs shadow-sm">
-                                <span class="${design.text} truncate max-w-[110px]" title="${playerName}">${playerName}</span>
-                                <div class="flex items-center gap-1 shrink-0">${iconsHtml}</div>
-                            </div>
-                        `;
+                        teamSlotsHtml += renderPlayerSlot(playerName, team, memberByName, singleSlotOpts);
                     } else {
                         teamSlotsHtml += `
                             <div class="border border-dashed border-[#1e2638] p-2 rounded-lg text-center text-slate-600 text-xs select-none">
