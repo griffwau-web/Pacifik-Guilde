@@ -1710,6 +1710,52 @@ function getRemainingTimeText(endTimeStr) {
 }
 
 // Espace membre connecté
+// Construit le HTML du classement des membres (trié par points décroissants)
+function buildMemberLeaderboardHtml() {
+    const sortedMembers = [...allDatabaseMembers].sort((a, b) => {
+        const ptsA = a.points || 0;
+        const ptsB = b.points || 0;
+        return ptsB - ptsA;
+    });
+
+    if (sortedMembers.length === 0) {
+        return `<span class="text-xs text-slate-500 italic block text-center">Aucun membre enregistré</span>`;
+    }
+    return sortedMembers.map((m, idx) => {
+        const maskedEmail = maskEmail(m.email);
+        const displayName = m.character_name || maskedEmail;
+        const points = m.points || 0;
+
+        let rankBadge = `<span class="text-xs text-slate-500 font-bold shrink-0 w-6">#${idx + 1}</span>`;
+        if (idx === 0) rankBadge = `<span class="text-base shrink-0 w-6" title="1er">🥇</span>`;
+        else if (idx === 1) rankBadge = `<span class="text-base shrink-0 w-6" title="2ème">🥈</span>`;
+        else if (idx === 2) rankBadge = `<span class="text-base shrink-0 w-6" title="3ème">🥉</span>`;
+
+        const weaponsHtml = m.weapon1 ? getWeaponIcon(m.weapon1) + getWeaponIcon(m.weapon2) : "";
+
+        const memberNameHtml = m.build_url
+            ? `<a href="${m.build_url}" target="_blank" class="block text-xs font-bold text-blue-400 hover:text-blue-300 hover:underline truncate flex items-center gap-1 select-none" title="Consulter le build Questlog de ${displayName}">
+                ${displayName} <i data-lucide="external-link" class="w-3 h-3 opacity-70"></i>
+               </a>`
+            : `<span class="block text-xs font-bold text-slate-200 truncate" title="${displayName}">${displayName}</span>`;
+
+        return `
+            <div class="flex items-center justify-between gap-3 p-2 bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl hover:border-blue-500/20 transition">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    ${rankBadge}
+                    <div class="truncate">
+                        ${memberNameHtml}
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <div class="flex items-center gap-0.5">${weaponsHtml}</div>
+                    <span class="text-xs font-bold text-emerald-400">${points} pts</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
 async function loadMembersViewData() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) return;
@@ -2302,54 +2348,134 @@ async function loadMembersViewData() {
 
     const leaderboardContainer = document.getElementById('members-leaderboard-container');
     if (leaderboardContainer) {
-        const sortedMembers = [...allDatabaseMembers].sort((a, b) => {
-            const ptsA = a.points || 0;
-            const ptsB = b.points || 0;
-            return ptsB - ptsA;
-        });
-
-        if (sortedMembers.length === 0) {
-            leaderboardContainer.innerHTML = `<span class="text-xs text-slate-500 italic block text-center">Aucun membre enregistré</span>`;
-        } else {
-            leaderboardContainer.innerHTML = sortedMembers.map((m, idx) => {
-                const maskedEmail = maskEmail(m.email);
-                const displayName = m.character_name || maskedEmail;
-                const points = m.points || 0;
-                
-                let rankBadge = `<span class="text-xs text-slate-500 font-bold shrink-0 w-6">#${idx + 1}</span>`;
-                if (idx === 0) rankBadge = `<span class="text-base shrink-0 w-6" title="1er">🥇</span>`;
-                else if (idx === 1) rankBadge = `<span class="text-base shrink-0 w-6" title="2ème">🥈</span>`;
-                else if (idx === 2) rankBadge = `<span class="text-base shrink-0 w-6" title="3ème">🥉</span>`;
-
-                const weaponsHtml = m.weapon1 ? getWeaponIcon(m.weapon1) + getWeaponIcon(m.weapon2) : "";
-
-                const memberNameHtml = m.build_url
-                    ? `<a href="${m.build_url}" target="_blank" class="block text-xs font-bold text-blue-400 hover:text-blue-300 hover:underline truncate flex items-center gap-1 select-none" title="Consulter le build Questlog de ${displayName}">
-                        ${displayName} <i data-lucide="external-link" class="w-3 h-3 opacity-70"></i>
-                       </a>`
-                    : `<span class="block text-xs font-bold text-slate-200 truncate" title="${displayName}">${displayName}</span>`;
-
-                return `
-                    <div class="flex items-center justify-between gap-3 p-2 bg-[#0b0e14]/50 border border-[#1e2638] rounded-xl hover:border-blue-500/20 transition">
-                        <div class="flex items-center gap-2.5 min-w-0">
-                            ${rankBadge}
-                            <div class="truncate">
-                                ${memberNameHtml}
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                            <div class="flex items-center gap-0.5">${weaponsHtml}</div>
-                            <span class="text-xs font-bold text-emerald-400">${points} pts</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
+        leaderboardContainer.innerHTML = buildMemberLeaderboardHtml();
     }
-    
+
     renderWeeklyCalendar(session.user);
     renderMemberPointsRecap();
     lucide.createIcons();
+}
+
+// Lignes du tableau des candidatures (formulaire d'évaluation) pour le Dashboard admin
+function buildPlayersTableRowsHtml(players) {
+    return players.map(p => {
+        const dateFormatted = new Date(p.created_at).toLocaleDateString('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+
+        let badgeClass = "text-xs px-2.5 py-1 rounded-full border ";
+        if (p.calculated_level === "Très haut niveau") {
+            badgeClass += "bg-[#ff3355]/10 text-[#ff3355] border-[#ff3355]/20";
+        } else if (p.calculated_level === "Haut niveau") {
+            badgeClass += "bg-orange-500/10 text-orange-400 border-orange-500/20";
+        } else if (p.calculated_level === "Niveau moyen") {
+            badgeClass += "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
+        } else {
+            badgeClass += "bg-blue-500/10 text-blue-400 border-blue-500/20";
+        }
+
+        return `
+            <tr class="hover:bg-[#161b26]/40 transition duration-150">
+                <td class="p-4 font-semibold text-white">${p.name}</td>
+                <td class="p-4 text-[#38bdf8] font-bold text-base">${p.score}</td>
+                <td class="p-4"><span class="${badgeClass}">${p.calculated_level}</span></td>
+                <td class="p-4 text-slate-400">${p.desired_level}</td>
+                <td class="p-4 text-slate-500 text-xs">${dateFormatted}</td>
+                <td class="p-4 text-center">
+                    <div class="flex items-center justify-center gap-2">
+                        <button onclick="openInfoModal('${p.id}')" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-white px-2.5 py-1 rounded border border-blue-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Voir les réponses">
+                            <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                            Fiche
+                        </button>
+                        <button onclick="deletePlayerFromDatabase('${p.id}', '${p.name}')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-white px-2.5 py-1 rounded border border-red-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Supprimer définitivement">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            Supprimer
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Lignes du tableau des membres actifs pour le Dashboard admin
+function buildMembersTableRowsHtml(members) {
+    return members.map(m => {
+        let deleteButtonHtml = "";
+        const maskedEmail = maskEmail(m.email);
+        const displayName = m.character_name || maskedEmail;
+
+        if (m.email !== ADMIN_EMAIL) {
+            deleteButtonHtml = `
+                <div class="flex flex-wrap justify-center gap-1.5">
+                    <button onclick="deleteMemberAccount('${m.id}', '${displayName}')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-white px-2.5 py-1 rounded border border-red-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Supprimer le compte de la guilde">
+                        <i data-lucide="user-minus" class="w-3.5 h-3.5"></i>
+                        Supprimer
+                    </button>
+                </div>
+            `;
+        } else {
+            deleteButtonHtml = `<span class="text-xs text-slate-500 font-semibold italic select-none">Administrateur</span>`;
+        }
+
+        return `
+            <tr class="hover:bg-[#161b26]/40 transition duration-150">
+                <td class="p-4 font-semibold text-slate-400">${maskedEmail}</td>
+                <td class="p-4 text-[#38bdf8] font-bold text-sm">${m.character_name || 'Non configuré'}</td>
+                <td class="p-4 font-extrabold text-amber-500 text-sm">${m.gear_score || 0} GS</td>
+                <td class="p-4"><span class="text-xs px-2.5 py-1 rounded bg-[#161b26] border border-[#252f44] text-slate-300 font-semibold flex items-center gap-1.5">${getWeaponIcon(m.weapon1)} ${m.weapon1 || '--'}</span></td>
+                <td class="p-4"><span class="text-xs px-2.5 py-1 rounded bg-[#161b26] border border-[#252f44] text-slate-300 font-semibold flex items-center gap-1.5">${getWeaponIcon(m.weapon2)} ${m.weapon2 || '--'}</span></td>
+                <td class="p-4 font-bold text-emerald-400">${m.points || 0} pts</td>
+                <td class="p-4 text-center">
+                    ${deleteButtonHtml}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Lignes du tableau des enchères pour le Dashboard admin
+function buildAdminAuctionsTableRowsHtml(auctions) {
+    return auctions.map(auc => {
+        const bidsCount = Object.keys(auc.bids || {}).length;
+        const isExpired = new Date(auc.end_time) < new Date();
+        const statusLabel = auc.status === 'resolved'
+            ? `<span class="text-xs px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-500/30">Résolue</span>`
+            : (isExpired
+                ? `<span class="text-xs px-2 py-0.5 rounded bg-red-950/40 text-red-400 border-red-900/30 animate-pulse">Expirée</span>`
+                : `<span class="text-xs px-2 py-0.5 rounded bg-blue-950/40 text-blue-400 border-blue-500/30">En cours</span>`
+            );
+
+        const itemObj = findItemByName(auc.item_name);
+        const iconHtml = itemObj ? getItemIconHTML(itemObj) : `<div class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-500/20 bg-slate-500/5 text-slate-400 shrink-0"><i data-lucide="help-circle" class="w-4 h-4"></i></div>`;
+
+        const actionButtonHtml = auc.status === 'active'
+            ? `<div class="flex flex-col sm:flex-row gap-1.5 justify-center items-center">
+                <button onclick="resolveAuction('${auc.id}')" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-1 px-2.5 rounded text-xs transition flex items-center gap-1" title="Désigner le vainqueur éligible">
+                    <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Clôturer
+                </button>
+               </div>`
+            : `<span class="text-xs text-slate-500 italic">Terminé</span>`;
+
+        return `
+            <tr class="hover:bg-[#161b26]/40 transition duration-150">
+                <td class="p-4 font-bold text-slate-200">
+                    <div class="flex items-center gap-2.5">
+                        ${iconHtml}
+                        <a href="${itemObj ? itemObj.questlogUrl : '#'}" target="_blank" class="hover:text-purple-400 transition">${auc.item_name}</a>
+                    </div>
+                </td>
+                <td class="p-4 text-slate-400 text-xs">${formatEventDate(auc.end_time)}</td>
+                <td class="p-4 text-center font-semibold text-slate-300">${bidsCount}</td>
+                <td class="p-4">${statusLabel}</td>
+                <td class="p-4 text-slate-300 font-bold">${auc.winner_name || '--'}</td>
+                <td class="p-4 text-[#38bdf8] font-bold">${auc.winning_bid !== null ? `${auc.winning_bid} pts` : '--'}</td>
+                <td class="p-4 text-center">${actionButtonHtml}</td>
+            </tr>
+        `;
+    }).join('');
 }
 
 async function loadDashboardData() {
@@ -2521,46 +2647,7 @@ async function loadDashboardData() {
         if (players.length === 0) {
             tableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">Aucune candidature enregistrée.</td></tr>`;
         } else {
-            tableBody.innerHTML = players.map(p => {
-                const dateFormatted = new Date(p.created_at).toLocaleDateString('fr-FR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric'
-                });
-
-                let badgeClass = "text-xs px-2.5 py-1 rounded-full border ";
-                if (p.calculated_level === "Très haut niveau") {
-                    badgeClass += "bg-[#ff3355]/10 text-[#ff3355] border-[#ff3355]/20";
-                } else if (p.calculated_level === "Haut niveau") {
-                    badgeClass += "bg-orange-500/10 text-orange-400 border-orange-500/20";
-                } else if (p.calculated_level === "Niveau moyen") {
-                    badgeClass += "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
-                } else {
-                    badgeClass += "bg-blue-500/10 text-blue-400 border-blue-500/20";
-                }
-
-                return `
-                    <tr class="hover:bg-[#161b26]/40 transition duration-150">
-                        <td class="p-4 font-semibold text-white">${p.name}</td>
-                        <td class="p-4 text-[#38bdf8] font-bold text-base">${p.score}</td>
-                        <td class="p-4"><span class="${badgeClass}">${p.calculated_level}</span></td>
-                        <td class="p-4 text-slate-400">${p.desired_level}</td>
-                        <td class="p-4 text-slate-500 text-xs">${dateFormatted}</td>
-                        <td class="p-4 text-center">
-                            <div class="flex items-center justify-center gap-2">
-                                <button onclick="openInfoModal('${p.id}')" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-white px-2.5 py-1 rounded border border-blue-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Voir les réponses">
-                                    <i data-lucide="info" class="w-3.5 h-3.5"></i>
-                                    Fiche
-                                </button>
-                                <button onclick="deletePlayerFromDatabase('${p.id}', '${p.name}')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-white px-2.5 py-1 rounded border border-red-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Supprimer définitivement">
-                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                                    Supprimer
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            tableBody.innerHTML = buildPlayersTableRowsHtml(players);
         }
 
         // 5. Remplissage de l'affichage de la table des membres actifs
@@ -2569,38 +2656,7 @@ async function loadDashboardData() {
             if (allDatabaseMembers.length === 0) {
                 membersTableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">Aucun membre enregistré.</td></tr>`;
             } else {
-                membersTableBody.innerHTML = allDatabaseMembers.map(m => {
-                    let deleteButtonHtml = "";
-                    const maskedEmail = maskEmail(m.email);
-                    const displayName = m.character_name || maskedEmail;
-
-                    if (m.email !== ADMIN_EMAIL) {
-                        deleteButtonHtml = `
-                            <div class="flex flex-wrap justify-center gap-1.5">
-                                <button onclick="deleteMemberAccount('${m.id}', '${displayName}')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-white px-2.5 py-1 rounded border border-red-500/20 text-xs font-semibold transition inline-flex items-center gap-1" title="Supprimer le compte de la guilde">
-                                    <i data-lucide="user-minus" class="w-3.5 h-3.5"></i>
-                                    Supprimer
-                                </button>
-                            </div>
-                        `;
-                    } else {
-                        deleteButtonHtml = `<span class="text-xs text-slate-500 font-semibold italic select-none">Administrateur</span>`;
-                    }
-
-                    return `
-                        <tr class="hover:bg-[#161b26]/40 transition duration-150">
-                            <td class="p-4 font-semibold text-slate-400">${maskedEmail}</td>
-                            <td class="p-4 text-[#38bdf8] font-bold text-sm">${m.character_name || 'Non configuré'}</td>
-                            <td class="p-4 font-extrabold text-amber-500 text-sm">${m.gear_score || 0} GS</td>
-                            <td class="p-4"><span class="text-xs px-2.5 py-1 rounded bg-[#161b26] border border-[#252f44] text-slate-300 font-semibold flex items-center gap-1.5">${getWeaponIcon(m.weapon1)} ${m.weapon1 || '--'}</span></td>
-                            <td class="p-4"><span class="text-xs px-2.5 py-1 rounded bg-[#161b26] border border-[#252f44] text-slate-300 font-semibold flex items-center gap-1.5">${getWeaponIcon(m.weapon2)} ${m.weapon2 || '--'}</span></td>
-                            <td class="p-4 font-bold text-emerald-400">${m.points || 0} pts</td>
-                            <td class="p-4 text-center">
-                                ${deleteButtonHtml}
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
+                membersTableBody.innerHTML = buildMembersTableRowsHtml(allDatabaseMembers);
             }
         }
 
@@ -2612,45 +2668,7 @@ async function loadDashboardData() {
             if (auctionsData.length === 0) {
                 adminAuctionsTableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">Aucune enchère active ou passée.</td></tr>`;
             } else {
-                adminAuctionsTableBody.innerHTML = auctionsData.map(auc => {
-                    const bidsCount = Object.keys(auc.bids || {}).length;
-                    const isExpired = new Date(auc.end_time) < new Date();
-                    const statusLabel = auc.status === 'resolved'
-                        ? `<span class="text-xs px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-500/30">Résolue</span>`
-                        : (isExpired
-                            ? `<span class="text-xs px-2 py-0.5 rounded bg-red-950/40 text-red-400 border-red-900/30 animate-pulse">Expirée</span>`
-                            : `<span class="text-xs px-2 py-0.5 rounded bg-blue-950/40 text-blue-400 border-blue-500/30">En cours</span>`
-                        );
-
-                    const cleanItemName = auc.item_name.replace(/'/g, "\\'");
-                    const itemObj = findItemByName(auc.item_name);
-                    const iconHtml = itemObj ? getItemIconHTML(itemObj) : `<div class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-500/20 bg-slate-500/5 text-slate-400 shrink-0"><i data-lucide="help-circle" class="w-4 h-4"></i></div>`;
-
-                    const actionButtonHtml = auc.status === 'active'
-                        ? `<div class="flex flex-col sm:flex-row gap-1.5 justify-center items-center">
-                            <button onclick="resolveAuction('${auc.id}')" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-1 px-2.5 rounded text-xs transition flex items-center gap-1" title="Désigner le vainqueur éligible">
-                                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Clôturer
-                            </button>
-                           </div>`
-                        : `<span class="text-xs text-slate-500 italic">Terminé</span>`;
-
-                    return `
-                        <tr class="hover:bg-[#161b26]/40 transition duration-150">
-                            <td class="p-4 font-bold text-slate-200">
-                                <div class="flex items-center gap-2.5">
-                                    ${iconHtml}
-                                    <a href="${itemObj ? itemObj.questlogUrl : '#'}" target="_blank" class="hover:text-purple-400 transition">${auc.item_name}</a>
-                                </div>
-                            </td>
-                            <td class="p-4 text-slate-400 text-xs">${formatEventDate(auc.end_time)}</td>
-                            <td class="p-4 text-center font-semibold text-slate-300">${bidsCount}</td>
-                            <td class="p-4">${statusLabel}</td>
-                            <td class="p-4 text-slate-300 font-bold">${auc.winner_name || '--'}</td>
-                            <td class="p-4 text-[#38bdf8] font-bold">${auc.winning_bid !== null ? `${auc.winning_bid} pts` : '--'}</td>
-                            <td class="p-4 text-center">${actionButtonHtml}</td>
-                        </tr>
-                    `;
-                }).join('');
+                adminAuctionsTableBody.innerHTML = buildAdminAuctionsTableRowsHtml(auctionsData);
             }
         }
 
