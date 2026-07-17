@@ -503,6 +503,18 @@
                         </div>
                     </div>
 
+                    <!-- CONSEILS DE L'ÉPREUVE DIMENSIONNELLE (MEMBRES)
+                         Carte indépendante de la vidéo : les conseils s'affichent même sans vidéo,
+                         et la vidéo s'affiche même sans conseils. -->
+                    <div id="member-dimensional-tips-card" class="hidden bg-[#111622] border border-[#1e2638] rounded-xl p-6 shadow-xl space-y-4">
+                        <h3 class="text-md font-bold text-white flex items-center gap-2 border-b border-[#1e2638] pb-3 uppercase tracking-wide">
+                            <i data-lucide="lightbulb" class="w-5 h-5 text-amber-400"></i>
+                            Conseils de l'Épreuve Dimensionnelle
+                        </h3>
+                        <!-- whitespace-pre-line : conserve les retours à la ligne saisis par l'administrateur -->
+                        <p id="member-dimensional-tips-text" class="text-sm text-slate-300 leading-relaxed whitespace-pre-line"></p>
+                    </div>
+
                     <!-- COMPOSITIONS D'ÉQUIPES -->
                     <div class="bg-[#111622] border border-[#1e2638] rounded-xl p-6 shadow-xl space-y-6">
                         <div class="flex justify-between items-center border-b border-[#1e2638] pb-3 flex-wrap gap-2">
@@ -807,17 +819,22 @@
                                 <i data-lucide="youtube" class="w-5 h-5"></i>
                             </div>
                             <div>
-                                <h4 class="text-sm font-bold text-white uppercase tracking-wide">Vidéo Stratégique de la Semaine</h4>
-                                <p class="text-xs text-slate-400">Déposez un lien YouTube pour guider les membres sur l'épreuve dimensionnelle en cours.</p>
+                                <h4 class="text-sm font-bold text-white uppercase tracking-wide">Stratégie de l'Épreuve Dimensionnelle</h4>
+                                <p class="text-xs text-slate-400">Vidéo et conseils affichés aux membres pour l'épreuve dimensionnelle en cours.</p>
                             </div>
                         </div>
-                        <button onclick="saveWeeklyVideo()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5">
+                        <button onclick="saveWeeklyStrategy()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5">
                             <i data-lucide="save" class="w-3.5 h-3.5"></i> Sauvegarder
                         </button>
                     </div>
                     <div class="text-left">
-                        <label class="block text-xs font-semibold mb-1 text-slate-300">Lien de la vidéo YouTube *</label>
+                        <label class="block text-xs font-semibold mb-1 text-slate-300">Lien de la vidéo YouTube</label>
                         <input type="text" id="admin-weekly-video-url" placeholder="Ex: https://www.youtube.com/watch?v=dQw4w9WgXcQ" class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-100 outline-none text-xs transition">
+                    </div>
+                    <div class="text-left">
+                        <label class="block text-xs font-semibold mb-1 text-slate-300">Conseils pour les membres</label>
+                        <textarea id="admin-dimensional-tips" rows="5" placeholder="Ex: Prenez le boss à 3 tanks. Esquivez la charge au sol dès l'animation de recul. Gardez le heal pour la phase 2..." class="w-full bg-[#0b0e14] border border-[#252f44] focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-100 outline-none text-xs transition resize-none"></textarea>
+                        <p class="text-[10px] text-slate-500 mt-1">Affichés aux membres sous la vidéo. Laissez vide pour masquer la section. Les retours à la ligne sont conservés.</p>
                     </div>
                 </div>
 
@@ -1148,8 +1165,8 @@
          l'ancienne version du fichier après un déploiement : objets manquants, bugs déjà
          corrigés qui réapparaissent... Changer le numéro change l'URL, ce qui force le
          téléchargement de la nouvelle version pour tout le monde. -->
-    <script src="js/items.js?v=3"></script>
-    <script src="js/app.js?v=3"></script>
+    <script src="js/items.js?v=4"></script>
+    <script src="js/app.js?v=4"></script>
 </body>
 </html>
 

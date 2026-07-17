@@ -754,6 +754,7 @@ async function loadFormStatus() {
     // Chargement initial rapide depuis le cache local pour éviter les latences de chargement
     const cachedVideo = localStorage.getItem('lespacific_weekly_video_url') || "";
     updateWeeklyVideoUI(cachedVideo);
+    updateDimensionalTipsUI(localStorage.getItem('lespacific_dimensional_tips') || "");
 
     if (supabaseClient) {
         try {
@@ -784,6 +785,11 @@ async function loadFormStatus() {
                 } else {
                     updateWeeklyVideoUI("");
                 }
+
+                // Récupération et synchronisation des conseils de l'épreuve dimensionnelle
+                const tips = settingsData.dimensionalTips !== undefined ? settingsData.dimensionalTips : "";
+                localStorage.setItem('lespacific_dimensional_tips', tips);
+                updateDimensionalTipsUI(tips);
             }
         } catch (err) {
             console.log("Lecture de configuration Supabase indisponible, utilisation du cache.");
@@ -4535,23 +4541,48 @@ function updateWeeklyVideoUI(url) {
     }
 }
 
-// Enregistre de manière persistante le lien de la vidéo sur Supabase
-async function saveWeeklyVideo() {
+// Affiche les conseils de l'épreuve dimensionnelle côté membre et pré-remplit le champ admin.
+// Le texte est injecté via textContent (pas innerHTML) : c'est de la saisie libre, on ne veut
+// pas qu'un caractère type < ou & casse l'affichage — ni qu'on y injecte du HTML.
+function updateDimensionalTipsUI(tips) {
+    const texte = (tips || "").trim();
+
+    const card = document.getElementById('member-dimensional-tips-card');
+    const paragraphe = document.getElementById('member-dimensional-tips-text');
+    if (card && paragraphe) {
+        paragraphe.textContent = texte;
+        card.classList.toggle('hidden', texte === "");
+    }
+
+    // Côté Dashboard : pré-remplissage sans écraser une saisie en cours de l'administrateur
+    const adminTextarea = document.getElementById('admin-dimensional-tips');
+    if (adminTextarea && tips !== undefined && adminTextarea.value !== texte) {
+        adminTextarea.value = texte;
+    }
+}
+
+// Enregistre la vidéo ET les conseils de l'épreuve dimensionnelle.
+// Les deux vivent dans les mêmes réglages : une seule écriture suffit, au lieu de deux.
+async function saveWeeklyStrategy() {
     const input = document.getElementById('admin-weekly-video-url');
-    if (!input) return;
-    const url = input.value.trim();
+    const textarea = document.getElementById('admin-dimensional-tips');
+    if (!input && !textarea) return;
+    if (!supabaseClient) return;
 
-    if (supabaseClient) {
-        try {
-            await patchGuildSettings({ weeklyVideoUrl: url });
+    const url = input ? input.value.trim() : "";
+    const tips = textarea ? textarea.value.trim() : "";
 
-            localStorage.setItem('lespacific_weekly_video_url', url);
-            updateWeeklyVideoUI(url);
-            alert("Vidéo stratégique de la semaine mise à jour avec succès !");
-        } catch (err) {
-            console.error("Échec de mise à jour de la vidéo :", err);
-            alert("Une erreur est survenue lors de l'enregistrement du lien.");
-        }
+    try {
+        await patchGuildSettings({ weeklyVideoUrl: url, dimensionalTips: tips });
+
+        localStorage.setItem('lespacific_weekly_video_url', url);
+        localStorage.setItem('lespacific_dimensional_tips', tips);
+        updateWeeklyVideoUI(url);
+        updateDimensionalTipsUI(tips);
+        alert("Stratégie de l'épreuve dimensionnelle mise à jour avec succès !");
+    } catch (err) {
+        console.error("Échec de mise à jour de la stratégie :", err);
+        alert("Une erreur est survenue lors de l'enregistrement.");
     }
 }
 
