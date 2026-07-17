@@ -154,25 +154,41 @@ function getWeaponIcon(weaponName) {
 }
 
 // Rendu HTML d'icône dynamique d'équipement selon la Rareté
+// Grade Questlog : 51 = légendaire, 41 = épique
+const ITEM_GRADE_LEGENDARY = 51;
+
+// Fiche Questlog d'un objet, déduite de son slug
+function getItemQuestlogUrl(item) {
+    return item && item.id
+        ? `https://questlog.gg/throne-and-liberty/fr/db/item/${item.id}`
+        : '#';
+}
+
+// Icône officielle de l'objet, servie par le CDN de Questlog
+function getItemIconUrl(item) {
+    return item && item.icon ? `https://cdn.questlog.gg/throne-and-liberty${item.icon}` : '';
+}
+
+// Vignette d'un objet : véritable icône du jeu, encadrée selon la rareté.
+// En cas d'icône indisponible (CDN modifié ou hors ligne), on retombe sur une
+// icône générique plutôt que d'afficher une image cassée.
 function getItemIconHTML(item) {
     if (!item) return "";
-    let borderClass = "border-purple-500/30 bg-purple-500/10 text-purple-400";
-    if (item.rarity === 'legendary') {
-        borderClass = "border-red-500/30 bg-red-500/10 text-red-400";
+    const borderClass = item.grade === ITEM_GRADE_LEGENDARY
+        ? "border-red-500/30 bg-red-500/10"
+        : "border-purple-500/30 bg-purple-500/10";
+
+    const iconUrl = getItemIconUrl(item);
+    if (!iconUrl) {
+        return `<div class="w-7 h-7 flex items-center justify-center rounded-lg border ${borderClass} text-slate-400 shrink-0">
+                    <i data-lucide="gem" class="w-4 h-4"></i>
+                </div>`;
     }
-    
-    let lucideName = "gem";
-    if (item.type === 'weapon') {
-        if (item.icon === 'bow' || item.icon === 'crossbow') lucideName = "crosshair";
-        else if (item.icon === 'staff') lucideName = "wand-2";
-        else if (item.icon === 'wand') lucideName = "book-open";
-        else lucideName = "swords";
-    } else if (item.type === 'armor') {
-        lucideName = "shield";
-    }
-    
-    return `<div class="w-7 h-7 flex items-center justify-center rounded-lg border ${borderClass} shrink-0">
-                <i data-lucide="${lucideName}" class="w-4 h-4"></i>
+
+    const alt = item.name ? item.name.replace(/"/g, '&quot;') : '';
+    return `<div class="w-7 h-7 rounded-lg border ${borderClass} shrink-0 overflow-hidden">
+                <img src="${iconUrl}" alt="${alt}" title="${alt}" loading="lazy" class="w-full h-full object-contain"
+                     onerror="this.remove()">
             </div>`;
 }
 
@@ -250,10 +266,39 @@ const TL_ITEMS_MAP = new Map(
         .map(item => [cleanCompareString(item.name), item])
 );
 
-// Trouver un équipement par son nom
+// Anciens noms d'objets vers leur libellé actuel.
+// Les enchères stockent le NOM de l'objet ; or Questlog a retraduit certains items depuis
+// que la liste avait été saisie. Sans cette table, une enchère passée référençant un ancien
+// libellé perdrait son icône et son lien. Chaque entrée a été vérifiée : même slug Questlog.
+const TL_ITEM_ALIASES = {
+    "Arc de la mort brûlante de Tevent": "Arc ascendant de Tevent",
+    "Aube de la Lamentation Noire Chapeau": "Chapeau de l'aube de la complainte noire",
+    "Marque du Chapeau du Serment des Cendres": "Chapeau de la marque du serment cendré",
+    "Aube du Lamento Noir Armure Légère": "Armure légère de l'aube de la complainte noire",
+    "Marque du Serment des Cendres": "Armure de la marque du serment cendré",
+    "Aube des Gants de Lamentation Noire": "Gants de l'aube de la complainte noire",
+    "Marque des Gants du Serment des Cendres": "Gants de la marque du serment cendré",
+    "Gaiters de la complainte noire de l'aube": "Jambières de l'aube de la complainte noire",
+    "Marque du pantalon du Serment des Cendres": "Pantalon de la marque du serment cendré",
+    "Aube du Lamento Noir Bottes": "Bottes de l'aube de la complainte noire",
+    "Marque des bottes du serment cendré": "Bottes de la marque du serment cendré",
+    "Manteau Sacré Impérial": "Cape impériale sacrée",
+    "Le Manteau de la Tyrannie du Vent du Nord": "Cape de la tyrannie du vent septentrional"
+};
+
+const TL_ITEM_ALIASES_MAP = new Map(
+    Object.entries(TL_ITEM_ALIASES).map(([ancien, actuel]) => [cleanCompareString(ancien), cleanCompareString(actuel)])
+);
+
+// Trouver un équipement par son nom (accepte les anciens libellés des enchères passées)
 function findItemByName(name) {
     if (!name) return null;
-    return TL_ITEMS_MAP.get(cleanCompareString(name)) || null;
+    const cle = cleanCompareString(name);
+    const direct = TL_ITEMS_MAP.get(cle);
+    if (direct) return direct;
+
+    const alias = TL_ITEM_ALIASES_MAP.get(cle);
+    return alias ? (TL_ITEMS_MAP.get(alias) || null) : null;
 }
 
 // Moteur d'autocomplétion dynamique pour les suggestions d'objets
@@ -277,8 +322,18 @@ function showItemSuggestions(inputElement, containerId) {
     }, 150);
 }
 
+// Au-delà, la liste devient illisible et coûteuse à rendre : le catalogue compte
+// plusieurs centaines d'objets et une requête courte peut tout matcher.
+const ITEM_SUGGESTIONS_MAX = 40;
+
 function renderItemSuggestions(inputElement, container, containerId, query) {
-    const matches = TL_ITEMS_DB.filter(item => item.name.toLowerCase().includes(query));
+    const matches = [];
+    for (const item of TL_ITEMS_DB) {
+        if (item.name.toLowerCase().includes(query)) {
+            matches.push(item);
+            if (matches.length === ITEM_SUGGESTIONS_MAX) break;
+        }
+    }
 
     if (matches.length === 0) {
         container.classList.add('hidden');
@@ -289,9 +344,9 @@ function renderItemSuggestions(inputElement, container, containerId, query) {
     container.classList.remove('hidden');
     container.innerHTML = matches.map(item => {
         const iconHtml = getItemIconHTML(item);
-        const rarityBadge = item.rarity === 'legendary'
+        const rarityBadge = item.grade === ITEM_GRADE_LEGENDARY
             ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 uppercase font-bold">Légendaire</span>`
-            : `<span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase font-bold">Épique ${item.tier || ''}</span>`;
+            : `<span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase font-bold">Épique</span>`;
 
         return `
             <div onclick="selectItemSuggestion('${inputElement.id}', '${containerId}', '${item.name.replace(/'/g, "\\'")}')" class="p-2 flex items-center justify-between gap-3 hover:bg-[#161b26] cursor-pointer transition select-none">
@@ -430,7 +485,7 @@ async function sendDiscordAuctionNotification(itemName, endTime) {
     let embedColor = 16753920; // Or par défaut pour les enchères
     
     // Si l'objet est identifié comme légendaire, l'embed s'affiche en rouge
-    if (itemObj && itemObj.rarity === 'legendary') {
+    if (itemObj && itemObj.grade === ITEM_GRADE_LEGENDARY) {
         embedColor = 16711680;
     }
 
@@ -1916,7 +1971,7 @@ function renderMemberAuctions(sessionUserId) {
                         ${iconHtml}
                         <div>
                             <h4 class="font-bold text-sm text-amber-400 flex items-center gap-1.5 uppercase font-sans">
-                                <a href="${itemObj ? itemObj.questlogUrl : '#'}" target="_blank" class="hover:text-amber-300 transition">${auc.item_name}</a>
+                                <a href="${getItemQuestlogUrl(itemObj)}" target="_blank" class="hover:text-amber-300 transition">${auc.item_name}</a>
                             </h4>
                             <p class="text-xs text-slate-400 mt-1">${remainingText}</p>
                         </div>
@@ -2544,7 +2599,7 @@ function buildAdminAuctionsTableRowsHtml(auctions) {
                 <td class="p-4 font-bold text-slate-200">
                     <div class="flex items-center gap-2.5">
                         ${iconHtml}
-                        <a href="${itemObj ? itemObj.questlogUrl : '#'}" target="_blank" class="hover:text-purple-400 transition">${auc.item_name}</a>
+                        <a href="${getItemQuestlogUrl(itemObj)}" target="_blank" class="hover:text-purple-400 transition">${auc.item_name}</a>
                     </div>
                 </td>
                 <td class="p-4 text-slate-400 text-xs">${formatEventDate(auc.end_time)}</td>
