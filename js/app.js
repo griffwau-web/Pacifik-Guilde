@@ -1726,6 +1726,22 @@ async function deleteAuction(auctionId) {
     }
 }
 
+// Traduit en message clair les erreurs remontées par la fonction serveur place_bid
+function traduireErreurMise(err) {
+    const m = (err && err.message) ? err.message : String(err);
+    if (m.includes('POINTS_INSUFFISANTS')) {
+        const pts = m.split(':')[1];
+        return `Mise refusée : vous ne possédez que ${pts || 0} points d'activité.`;
+    }
+    if (m.includes('ENCHERE_EXPIREE')) return "L'enchère est expirée.";
+    if (m.includes('ENCHERE_CLOTUREE')) return "Cette enchère est déjà clôturée.";
+    if (m.includes('ENCHERE_INTROUVABLE')) return "Enchère introuvable (elle a peut-être été supprimée).";
+    if (m.includes('MONTANT_INVALIDE')) return "Le montant de la mise est invalide.";
+    if (m.includes('PROFIL_INTROUVABLE')) return "Complétez votre fiche de membre avant de miser.";
+    if (m.includes('AUTH_REQUISE')) return "Vous devez être connecté pour miser.";
+    return "Une erreur est survenue lors de la mise. Réessayez dans un instant.";
+}
+
 async function submitBlindBid(auctionId, bidAmountInputId) {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session || !supabaseClient) return;
@@ -1736,51 +1752,34 @@ async function submitBlindBid(auctionId, bidAmountInputId) {
         return;
     }
 
+    // Pré-vérification côté client : message immédiat sans aller-retour serveur.
+    // Ce n'est PAS la sécurité — la fonction serveur place_bid revérifie tout, faisant autorité.
     const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
     const myPoints = myProfile ? (myProfile.points || 0) : 0;
-    const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
-
     if (bidAmount > myPoints) {
         alert(`Mise impossible ! Vous ne possédez que ${myPoints} points d'activité.`);
         return;
     }
 
-    if (!(await showCustomConfirm(`Confirmer votre mise secrète de ${bidAmount} points ?`, "Miser sur l'enchère"))) {
+    if (!(await showCustomConfirm(`Confirmer votre mise de ${bidAmount} points ?`, "Miser sur l'enchère"))) {
         return;
     }
 
     try {
-        const { data: auction, error: getErr } = await supabaseClient
-            .from('auctions')
-            .select('*')
-            .eq('id', auctionId)
-            .single();
+        // La fonction serveur n'écrit que la mise du membre connecté : impossible de toucher
+        // aux mises des autres. Elle revérifie enchère active, non expirée et points suffisants.
+        const { error } = await supabaseClient.rpc('place_bid', {
+            p_auction_id: auctionId,
+            p_amount: bidAmount
+        });
 
-        if (getErr || !auction) throw new Error("Impossible de trouver l'enchère.");
+        if (error) throw error;
 
-        if (new Date(auction.end_time) < new Date()) {
-            alert("L'enchère est expirée.");
-            return;
-        }
-
-        const currentBids = auction.bids || {};
-        currentBids[session.user.id] = {
-            char_name: displayName,
-            amount: bidAmount,
-            timestamp: new Date().toISOString()
-        };
-
-        const { error: updErr } = await supabaseClient
-            .from('auctions')
-            .update({ bids: currentBids })
-            .eq('id', auctionId);
-
-        if (updErr) throw updErr;
-
-        alert("Mise secrète enregistrée !");
+        alert("Mise enregistrée !");
         await loadMembersViewData();
     } catch (err) {
-        console.error(err);
+        console.error("Échec de la mise :", err);
+        alert(traduireErreurMise(err));
     }
 }
 
