@@ -1140,9 +1140,16 @@
         © 2026 Guilde Les Pacific. Développé pour le Dashboard de Gestion.
     </footer>
 
-    <!-- Scripts de l'application -->
-    <script src="js/items.js"></script>
-    <script src="js/app.js"></script>
+    <!-- Scripts de l'application
+
+         IMPORTANT — le ?v= est un anti-cache : à INCRÉMENTER à chaque modification de
+         js/app.js ou js/items.js, avant de pousser.
+         Sans lui, les navigateurs (celui des membres comme le vôtre) continuent de servir
+         l'ancienne version du fichier après un déploiement : objets manquants, bugs déjà
+         corrigés qui réapparaissent... Changer le numéro change l'URL, ce qui force le
+         téléchargement de la nouvelle version pour tout le monde. -->
+    <script src="js/items.js?v=2"></script>
+    <script src="js/app.js?v=2"></script>
 </body>
 </html>
 

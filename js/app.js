@@ -1667,6 +1667,47 @@ async function handleCreateAuction(event) {
     }
 }
 
+// Suppression d'une enchère par l'administrateur (typiquement : mauvais objet mis en jeu).
+// Une enchère déjà clôturée a débité les points du vainqueur : la supprimer ne les rend pas,
+// on prévient donc explicitement plutôt que de laisser un écart silencieux dans les comptes.
+async function deleteAuction(auctionId) {
+    if (!supabaseClient) return;
+
+    const auction = auctionsData.find(a => String(a.id) === String(auctionId));
+    if (!auction) return;
+
+    const nbMises = Object.keys(auction.bids || {}).length;
+    const message = auction.status === 'resolved'
+        ? `Supprimer définitivement l'enchère pour "${auction.item_name}" ?\n\n`
+          + `ATTENTION : elle est déjà clôturée. ${auction.winner_name || 'Le vainqueur'} a payé `
+          + `${auction.winning_bid || 0} pts. La suppression ne lui rendra PAS ses points : `
+          + `il faudra les recréditer à la main depuis la table des membres.`
+        : `Supprimer définitivement l'enchère pour "${auction.item_name}" ?\n\n`
+          + (nbMises > 0
+              ? `${nbMises} mise${nbMises > 1 ? 's' : ''} déjà déposée${nbMises > 1 ? 's' : ''} seront perdue${nbMises > 1 ? 's' : ''}. `
+              : '')
+          + `Aucun point n'a été débité, rien n'est à recréditer.`;
+
+    if (!(await showCustomConfirm(message, "Supprimer l'enchère", true))) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('auctions')
+            .delete()
+            .eq('id', auctionId);
+
+        if (error) throw error;
+
+        // Rafraîchissement ciblé : seules les enchères ont changé
+        await loadAuctionsFromStorage();
+        renderAdminAuctionsTable();
+        lucide.createIcons();
+    } catch (err) {
+        console.error("Échec de la suppression de l'enchère :", err);
+        alert("La suppression a échoué : l'enchère est toujours en place.");
+    }
+}
+
 async function submitBlindBid(auctionId, bidAmountInputId) {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session || !supabaseClient) return;
@@ -2620,13 +2661,20 @@ function buildAdminAuctionsTableRowsHtml(auctions) {
         const itemObj = findItemByName(auc.item_name);
         const iconHtml = itemObj ? getItemIconHTML(itemObj) : `<div class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-500/20 bg-slate-500/5 text-slate-400 shrink-0"><i data-lucide="help-circle" class="w-4 h-4"></i></div>`;
 
-        const actionButtonHtml = auc.status === 'active'
-            ? `<div class="flex flex-col sm:flex-row gap-1.5 justify-center items-center">
-                <button onclick="resolveAuction('${auc.id}')" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-1 px-2.5 rounded text-xs transition flex items-center gap-1" title="Désigner le vainqueur éligible">
+        const closeButtonHtml = auc.status === 'active'
+            ? `<button onclick="resolveAuction('${auc.id}')" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-1 px-2.5 rounded text-xs transition flex items-center gap-1" title="Désigner le vainqueur éligible">
                     <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Clôturer
-                </button>
-               </div>`
+               </button>`
             : `<span class="text-xs text-slate-500 italic">Terminé</span>`;
+
+        const actionButtonHtml = `
+            <div class="flex flex-col sm:flex-row gap-1.5 justify-center items-center">
+                ${closeButtonHtml}
+                <button onclick="deleteAuction('${auc.id}')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-white font-bold py-1 px-2.5 rounded border border-red-500/20 text-xs transition flex items-center gap-1" title="Supprimer cette enchère (ex. mauvais objet mis en jeu)">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Supprimer
+                </button>
+            </div>
+        `;
 
         return `
             <tr class="hover:bg-[#161b26]/40 transition duration-150">
