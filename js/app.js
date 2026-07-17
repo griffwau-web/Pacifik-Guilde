@@ -33,10 +33,15 @@ let teamsChannel = null;
 let notificationsEnabled = true; 
 let isFormActive = true; // État d'activation du formulaire public
 
-let allDatabasePlayers = []; 
-let allDatabaseMembers = []; 
-let teamsData = [];         
+let allDatabasePlayers = [];
+let allDatabaseMembers = [];
+let teamsData = [];
 let auctionsData = [];
+
+// Contexte du membre connecté, mémorisé au chargement de l'espace membre. Il permet aux
+// rafraîchissements ciblés (temps réel) de redessiner une section sans refaire de requête
+// de session ni recharger l'ensemble des données.
+let memberViewContext = null;
 
 // Configuration par défaut des barèmes de points d'activité
 let pointsConfig = {
@@ -853,39 +858,92 @@ function subscribeToRealtimeTeams() {
                 return;
             }
             console.log("Mise à jour d'équipe reçue en direct :", payload);
-            await handleLiveUpdate();
+            await handleLiveUpdate('guild_teams');
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'auctions' }, async (payload) => {
             console.log("Mise à jour d'enchère reçue en direct :", payload);
-            await handleLiveUpdate();
+            await handleLiveUpdate('auctions');
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'member_profiles' }, async (payload) => {
             console.log("Mise à jour de profil reçue en direct :", payload);
-            await handleLiveUpdate();
+            await handleLiveUpdate('member_profiles');
         })
         .subscribe();
 }
 
 // Fonction de centralisation des mises à jour en direct
-async function handleLiveUpdate() {
+// Rafraîchissement ciblé : on ne recharge que la table réellement modifiée et on ne redessine
+// que les sections qui en dépendent. L'affichage reste donc mis à jour en direct (voire plus
+// vite), sans refetch complet des membres/candidatures/compositions/enchères à chaque événement.
+async function handleLiveUpdate(changedTable) {
     const dashboardSection = document.getElementById('view-dashboard');
     const membersSection = document.getElementById('view-members');
     const dashboardVisible = dashboardSection && !dashboardSection.classList.contains('hidden');
     const membersVisible = membersSection && !membersSection.classList.contains('hidden');
 
-    // loadDashboardData et loadMembersViewData synchronisent déjà l'état du formulaire :
-    // on ne l'interroge séparément que si aucune des deux vues n'est ouverte (vue publique).
+    // Aucune vue connectée ouverte : seul l'état d'ouverture du formulaire public nous concerne.
     if (!dashboardVisible && !membersVisible) {
         await loadFormStatus();
         return;
     }
 
-    if (dashboardVisible) {
-        await loadDashboardData();
+    switch (changedTable) {
+        case 'guild_teams':
+            await loadTeamsFromStorage();
+            if (dashboardVisible) {
+                renderWeeklyPendingPoints();
+                renderTeamMaker();
+            }
+            if (membersVisible) {
+                renderMemberTeamsSections();
+            }
+            break;
+
+        case 'auctions':
+            await loadAuctionsFromStorage();
+            if (dashboardVisible) {
+                renderAdminAuctionsTable();
+            }
+            if (membersVisible && memberViewContext) {
+                renderMemberAuctions(memberViewContext.sessionUserId);
+            }
+            break;
+
+        case 'member_profiles':
+            await reloadMembersList();
+            if (dashboardVisible) {
+                renderMembersTable();
+                // Les icônes d'armes des postulants et du récap dépendent des profils
+                renderWeeklyPendingPoints();
+                renderTeamMaker();
+            }
+            if (membersVisible) {
+                renderMemberProfileSections();
+            }
+            break;
+
+        default:
+            // Table non reconnue : on retombe sur le rechargement complet, par sécurité.
+            if (dashboardVisible) await loadDashboardData();
+            if (membersVisible) await loadMembersViewData();
+            return;
     }
-    if (membersVisible) {
-        await loadMembersViewData();
+
+    lucide.createIcons();
+}
+
+// Recharge la liste des membres seule (utilisée par les rafraîchissements ciblés)
+async function reloadMembersList() {
+    const { data, error } = await supabaseClient
+        .from('member_profiles')
+        .select('*')
+        .order('email');
+
+    if (error) {
+        console.warn("Impossible de récupérer la liste des membres.");
+        return;
     }
+    allDatabaseMembers = data;
 }
 
 function updateUIVisibility(session) {
@@ -2323,10 +2381,22 @@ async function loadMembersViewData() {
     const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
     const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
 
-    renderMemberProfileForm(myProfile);
-    renderMemberPendingPoints(displayName);
+    // Mémorisé pour permettre les rafraîchissements ciblés déclenchés par le temps réel
+    memberViewContext = { user: session.user, sessionUserId: session.user.id, displayName };
 
+    renderMemberProfileForm(myProfile);
+    renderMemberTeamsSections();
     renderMemberAuctions(session.user.id);
+    renderMemberLeaderboard();
+    lucide.createIcons();
+}
+
+// Redessine les sections de l'espace membre qui dépendent des compositions (teamsData)
+function renderMemberTeamsSections() {
+    if (!memberViewContext) return;
+    const { user, sessionUserId, displayName } = memberViewContext;
+
+    renderMemberPendingPoints(displayName);
 
     // Filtrer les équipes visibles pour ce membre
     const visibleTeams = teamsData.filter(team => {
@@ -2337,16 +2407,33 @@ async function loadMembersViewData() {
     });
 
     document.getElementById('members-teams-view').innerHTML =
-        buildMemberTeamCardsHtml(visibleTeams, session.user.id, displayName);
+        buildMemberTeamCardsHtml(visibleTeams, sessionUserId, displayName);
 
+    renderWeeklyCalendar(user);
+    renderMemberPointsRecap();
+}
+
+// Redessine le classement des membres de l'espace membre
+function renderMemberLeaderboard() {
     const leaderboardContainer = document.getElementById('members-leaderboard-container');
     if (leaderboardContainer) {
         leaderboardContainer.innerHTML = buildMemberLeaderboardHtml();
     }
+}
 
-    renderWeeklyCalendar(session.user);
-    renderMemberPointsRecap();
-    lucide.createIcons();
+// Redessine les sections de l'espace membre qui dépendent des profils (nom, points, armes)
+function renderMemberProfileSections() {
+    if (!memberViewContext) return;
+
+    const myProfile = allDatabaseMembers.find(m => m.id === memberViewContext.sessionUserId);
+    // Le pseudo affiché peut avoir changé : il conditionne les équipes visibles
+    memberViewContext.displayName = myProfile
+        ? (myProfile.character_name || myProfile.email)
+        : memberViewContext.user.email;
+
+    renderMemberProfileForm(myProfile);
+    renderMemberLeaderboard();
+    renderMemberTeamsSections(); // les icônes d'armes des cartes dépendent des profils
 }
 
 // Lignes du tableau des candidatures (formulaire d'évaluation) pour le Dashboard admin
@@ -2603,6 +2690,33 @@ function computePlayersStats(players) {
     };
 }
 
+// Rendu de la table des candidatures du Dashboard
+function renderPlayersTable(players) {
+    const tableBody = document.getElementById('table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = players.length === 0
+        ? `<tr><td colspan="6" class="p-4 text-center text-slate-500">Aucune candidature enregistrée.</td></tr>`
+        : buildPlayersTableRowsHtml(players);
+}
+
+// Rendu de la table des membres actifs du Dashboard
+function renderMembersTable() {
+    const membersTableBody = document.getElementById('members-table-body');
+    if (!membersTableBody) return;
+    membersTableBody.innerHTML = allDatabaseMembers.length === 0
+        ? `<tr><td colspan="7" class="p-4 text-center text-slate-500">Aucun membre enregistré.</td></tr>`
+        : buildMembersTableRowsHtml(allDatabaseMembers);
+}
+
+// Rendu de la table des enchères du Dashboard
+function renderAdminAuctionsTable() {
+    const adminAuctionsTableBody = document.getElementById('admin-auctions-table-body');
+    if (!adminAuctionsTableBody) return;
+    adminAuctionsTableBody.innerHTML = auctionsData.length === 0
+        ? `<tr><td colspan="7" class="p-4 text-center text-slate-500">Aucune enchère active ou passée.</td></tr>`
+        : buildAdminAuctionsTableRowsHtml(auctionsData);
+}
+
 async function loadDashboardData() {
     try {
         // Ces six chargements sont indépendants : une seule vague parallèle au lieu de quatre
@@ -2633,23 +2747,9 @@ async function loadDashboardData() {
         document.getElementById('stat-high').innerText = stats.ultraHighLevelCount;
         document.getElementById('stat-diffs').innerText = stats.discrepanciesCount;
 
-        document.getElementById('table-body').innerHTML = players.length === 0
-            ? `<tr><td colspan="6" class="p-4 text-center text-slate-500">Aucune candidature enregistrée.</td></tr>`
-            : buildPlayersTableRowsHtml(players);
-
-        const membersTableBody = document.getElementById('members-table-body');
-        if (membersTableBody) {
-            membersTableBody.innerHTML = allDatabaseMembers.length === 0
-                ? `<tr><td colspan="7" class="p-4 text-center text-slate-500">Aucun membre enregistré.</td></tr>`
-                : buildMembersTableRowsHtml(allDatabaseMembers);
-        }
-
-        const adminAuctionsTableBody = document.getElementById('admin-auctions-table-body');
-        if (adminAuctionsTableBody) {
-            adminAuctionsTableBody.innerHTML = auctionsData.length === 0
-                ? `<tr><td colspan="7" class="p-4 text-center text-slate-500">Aucune enchère active ou passée.</td></tr>`
-                : buildAdminAuctionsTableRowsHtml(auctionsData);
-        }
+        renderPlayersTable(players);
+        renderMembersTable();
+        renderAdminAuctionsTable();
 
         renderCharts(stats.levelsDistribution, stats.topPlayers);
         renderTeamMaker();
@@ -2911,11 +3011,16 @@ async function _resolveTeamDropContext(event, teamId, lockedMessage) {
 }
 
 // Recharge l'affichage des équipes selon la section actuellement active (Dashboard admin ou espace membre)
+// Après une mutation locale, teamsData est déjà à jour : on redessine sans refetch.
 async function _refreshTeamsView() {
     const dashboardSection = document.getElementById('view-dashboard');
     if (dashboardSection && !dashboardSection.classList.contains('hidden')) {
         renderTeamMaker();
+    } else if (memberViewContext) {
+        renderMemberTeamsSections();
+        lucide.createIcons();
     } else {
+        // Contexte membre pas encore initialisé : rechargement complet, par sécurité.
         await loadMembersViewData();
     }
 }
