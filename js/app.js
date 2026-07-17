@@ -97,11 +97,14 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     console.warn("Veuillez configurer Supabase avec vos clés d'API.");
 }
 
-// Normaliseur de texte ultra-robuste (insensible aux accents, NFC/NFD, espaces ou tirets)
+// Normaliseur de texte pour comparer et rechercher des noms d'objets.
+// Les accents sont RETIRES du resultat : les noms francais en sont truffes et exiger
+// « epee » avec ses accents rendait la recherche inutilisable au clavier.
 function cleanCompareString(str) {
     if (!str) return "";
     return str
-        .normalize("NFC")                  // Force la normalisation NFC des accents
+        .normalize("NFD")                          // Decompose les accents (é -> e + accent)
+        .replace(/[̀-ͯ]/g, "")           // ...puis retire les signes diacritiques
         .toLowerCase()                     // Convertit en minuscules
         .replace(/[\u00a0\s]+/g, " ")      // Remplace les espaces insécables par des espaces simples
         .replace(/[’']/g, "'")             // Uniformise les apostrophes
@@ -323,23 +326,45 @@ function showItemSuggestions(inputElement, containerId) {
 }
 
 // Au-delà, la liste devient illisible et coûteuse à rendre : le catalogue compte
-// plusieurs centaines d'objets et une requête courte peut tout matcher.
+// plusieurs centaines d'objets et une requête courte peut en matcher des centaines.
 const ITEM_SUGGESTIONS_MAX = 40;
 
-function renderItemSuggestions(inputElement, container, containerId, query) {
-    const matches = [];
-    for (const item of TL_ITEMS_DB) {
-        if (item.name.toLowerCase().includes(query)) {
-            matches.push(item);
-            if (matches.length === ITEM_SUGGESTIONS_MAX) break;
-        }
-    }
+// Noms normalisés une fois pour toutes (sans accents), pour une recherche au clavier.
+const TL_ITEMS_SEARCH = (typeof TL_ITEMS_DB !== 'undefined' ? TL_ITEMS_DB : [])
+    .filter(item => item && item.name)
+    .map(item => ({ item, cle: cleanCompareString(item.name) }));
 
-    if (matches.length === 0) {
+function renderItemSuggestions(inputElement, container, containerId, query) {
+    const q = cleanCompareString(query);
+    if (!q) {
         container.classList.add('hidden');
         container.innerHTML = '';
         return;
     }
+
+    // Classement par pertinence AVANT de plafonner : le nom qui commence par la requête
+    // d'abord, puis celui dont un mot commence par la requête, enfin le reste.
+    // Sans ce tri, le plafond coupait dans l'ordre du catalogue (donc par catégorie) et
+    // masquait par exemple toutes les armes derrière les bijoux.
+    const trouves = [];
+    for (const { item, cle } of TL_ITEMS_SEARCH) {
+        const pos = cle.indexOf(q);
+        if (pos === -1) continue;
+        let rang = 2;
+        if (pos === 0) rang = 0;
+        else if (" '-".includes(cle[pos - 1])) rang = 1;
+        trouves.push({ item, rang });
+    }
+    trouves.sort((a, b) => a.rang - b.rang || a.item.name.localeCompare(b.item.name, 'fr'));
+
+    if (trouves.length === 0) {
+        container.classList.add('hidden');
+        container.innerHTML = '';
+        return;
+    }
+
+    const matches = trouves.slice(0, ITEM_SUGGESTIONS_MAX).map(t => t.item);
+    const restants = trouves.length - matches.length;
 
     container.classList.remove('hidden');
     container.innerHTML = matches.map(item => {
@@ -358,6 +383,15 @@ function renderItemSuggestions(inputElement, container, containerId, query) {
             </div>
         `;
     }).join('');
+
+    // On indique que la liste est tronquée, sinon l'objet cherché semble absent du catalogue
+    if (restants > 0) {
+        container.innerHTML += `
+            <div class="p-2 text-center text-[10px] text-slate-500 italic border-t border-[#1e2638] select-none">
+                ${restants} autre${restants > 1 ? 's' : ''} résultat${restants > 1 ? 's' : ''} — précisez votre recherche
+            </div>
+        `;
+    }
 
     lucide.createIcons();
 }
