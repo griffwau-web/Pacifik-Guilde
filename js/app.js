@@ -1691,12 +1691,24 @@ async function deleteAuction(auctionId) {
     if (!(await showCustomConfirm(message, "Supprimer l'enchère", true))) return;
 
     try {
-        const { error } = await supabaseClient
+        // Le .select() final est indispensable : il renvoie les lignes réellement supprimées.
+        // Sans lui, une suppression refusée par la RLS de Supabase ne remonte AUCUNE erreur —
+        // elle supprime 0 ligne en silence et l'appelant croit avoir réussi.
+        const { data, error } = await supabaseClient
             .from('auctions')
             .delete()
-            .eq('id', auctionId);
+            .eq('id', auctionId)
+            .select();
 
         if (error) throw error;
+
+        if (!data || data.length === 0) {
+            console.error("Suppression refusée : 0 ligne supprimée pour l'enchère", auctionId,
+                "— il manque probablement une policy DELETE sur la table 'auctions' dans Supabase.");
+            alert("La suppression a été refusée par la base de données : aucune ligne n'a été supprimée.\n\n"
+                + "Il manque probablement une autorisation (policy DELETE) sur la table « auctions » côté Supabase.");
+            return;
+        }
 
         // Rafraîchissement ciblé : seules les enchères ont changé
         await loadAuctionsFromStorage();
@@ -1704,7 +1716,7 @@ async function deleteAuction(auctionId) {
         lucide.createIcons();
     } catch (err) {
         console.error("Échec de la suppression de l'enchère :", err);
-        alert("La suppression a échoué : l'enchère est toujours en place.");
+        alert("La suppression a échoué : l'enchère est toujours en place.\n\nDétail : " + (err.message || err));
     }
 }
 
