@@ -443,10 +443,12 @@ function maskEmail(email) {
 
 // Envoi de la notification d'événement sur Discord via Webhook (Webhook Public de Guilde)
 // Envoie un message Discord via le proxy serveur, qui détient les URLs de webhook.
-// `target` : 'public' (annonces de guilde, réservé à l'admin) ou 'admin' (alerte aux
-// officiers, ouvert aux membres). Le message (payload) est construit par l'appelant, donc
-// son apparence est inchangée ; le proxy vérifie l'identité et bloque les mentions @everyone.
-async function sendDiscordProxy(target, payload) {
+// `kind` détermine le salon et les droits : 'event' (annonce d'activité, ouverte aux membres
+// puisqu'un membre peut créer une activité), 'auction'/'reminder' (admin uniquement),
+// 'member_alert' (alerte aux officiers, ouverte aux membres). Le message (payload) est
+// construit par l'appelant : son apparence est inchangée. Le proxy vérifie l'identité,
+// applique ces droits et bloque les mentions @everyone.
+async function sendDiscordProxy(kind, payload) {
     if (!supabaseClient) return;
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) throw new Error("NON_CONNECTE");
@@ -457,7 +459,7 @@ async function sendDiscordProxy(target, payload) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ target, payload })
+        body: JSON.stringify({ kind, payload })
     });
 
     if (!response.ok) throw new Error(`Proxy Discord: HTTP ${response.status}`);
@@ -508,7 +510,7 @@ async function sendDiscordNotification(name, dateVal, motif, gsLimit) {
     };
 
     try {
-        await sendDiscordProxy('public', payload);
+        await sendDiscordProxy('event', payload);
         console.log("Notification Discord d'événement envoyée avec succès.");
     } catch (err) {
         console.error("Échec de l'envoi Discord :", err);
@@ -543,7 +545,7 @@ async function sendDiscordAuctionNotification(itemName, endTime) {
     };
 
     try {
-        await sendDiscordProxy('public', payload);
+        await sendDiscordProxy('auction', payload);
         console.log("Notification Discord d'enchère envoyée avec succès.");
     } catch (err) {
         console.error("Échec de l'envoi d'enchère sur Discord :", err);
@@ -4270,8 +4272,8 @@ async function sendDiscordMemberCreationNotification(name, dateVal, motif, gsLim
     };
 
     try {
-        // Cible le webhook d'administration (alerte aux officiers), ouvert aux membres connectés
-        await sendDiscordProxy('admin', payload);
+        // Alerte aux officiers (webhook admin), déclenchée par un membre qui crée une activité
+        await sendDiscordProxy('member_alert', payload);
         console.log("Notification d'activité membre transmise sur le webhook administrateurs.");
     } catch (err) {
         console.error("Échec de l'envoi de la notification membre :", err);
@@ -4733,7 +4735,7 @@ async function sendDiscordReminder(teamId) {
     };
 
     try {
-        await sendDiscordProxy('public', payload);
+        await sendDiscordProxy('reminder', payload);
         alert("Rappel d'inscription envoyé avec succès sur Discord !");
     } catch (err) {
         console.error("Échec de l'envoi de la relance Discord :", err);

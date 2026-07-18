@@ -54,7 +54,7 @@ module.exports = async (req, res) => {
     }
     const isAdmin = !!(user && user.email === ADMIN_EMAIL);
 
-    // 2) Corps de la requête : { target: 'public' | 'admin', payload: {...} }
+    // 2) Corps de la requête : { kind: '...', payload: {...} }
     let body = req.body;
     if (typeof body === 'string') {
         try { body = JSON.parse(body); } catch (err) { body = null; }
@@ -63,23 +63,34 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'invalid_body' });
     }
 
-    const target = body.target;
+    const kind = body.kind;
     const payload = body.payload;
 
-    if (target !== 'public' && target !== 'admin') {
-        return res.status(400).json({ error: 'invalid_target' });
+    // Chaque type de message : dans quel salon, et faut-il être admin pour l'envoyer ?
+    //   - event        : annonce publique d'activité. Un MEMBRE peut créer une activité,
+    //                    donc il peut déclencher cette annonce -> autorisé aux membres.
+    //   - auction      : annonce d'enchère -> admin uniquement.
+    //   - reminder     : relance d'inscription -> admin uniquement.
+    //   - member_alert : alerte aux officiers (un membre a créé une activité) -> membre autorisé.
+    const KINDS = {
+        event:        { channel: 'public', adminOnly: false },
+        auction:      { channel: 'public', adminOnly: true },
+        reminder:     { channel: 'public', adminOnly: true },
+        member_alert: { channel: 'admin',  adminOnly: false }
+    };
+
+    const rule = KINDS[kind];
+    if (!rule) {
+        return res.status(400).json({ error: 'invalid_kind' });
     }
     if (!payload || typeof payload !== 'object') {
         return res.status(400).json({ error: 'invalid_payload' });
     }
-
-    // 3) Les annonces publiques (événement, enchère, rappel) sont réservées à l'admin.
-    //    Le webhook admin (alerte "un membre a créé une activité") est ouvert aux membres.
-    if (target === 'public' && !isAdmin) {
+    if (rule.adminOnly && !isAdmin) {
         return res.status(403).json({ error: 'admin_only' });
     }
 
-    const webhookUrl = target === 'admin'
+    const webhookUrl = rule.channel === 'admin'
         ? process.env.DISCORD_ADMIN_WEBHOOK_URL
         : process.env.DISCORD_WEBHOOK_URL;
 
