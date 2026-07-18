@@ -1205,22 +1205,12 @@ function switchDbSection(section) {
 
 async function verifyAndShowInvite(token) {
     try {
-        const { data, error } = await supabaseClient
-            .from('invitations')
-            .select('*')
-            .eq('token', token)
-            .eq('used', false)
-            .single();
+        // Vérifie le jeton via une fonction serveur, qui ne révèle jamais la liste des jetons
+        // (validité + expiration + non-consommé sont contrôlés côté base).
+        const { data: valide, error } = await supabaseClient.rpc('check_invitation', { p_token: token });
 
-        if (error || !data) {
+        if (error || !valide) {
             alert("L'invitation est invalide, expirée ou a déjà été consommée.");
-            window.location.href = window.location.origin + window.location.pathname;
-            return;
-        }
-
-        const expiresAt = new Date(data.expires_at);
-        if (expiresAt < new Date()) {
-            alert("Ce lien d'invitation a expiré (validité de 24h dépassée).");
             window.location.href = window.location.origin + window.location.pathname;
             return;
         }
@@ -1240,22 +1230,19 @@ async function handleInviteSignupSubmit(event) {
     const token = document.getElementById('invite-token-holder').value;
 
     try {
-        // Enregistrement avec option d'adresse de redirection après validation par e-mail
+        // Le jeton est transmis dans les métadonnées : le déclencheur serveur sur auth.users
+        // vérifie qu'il est valide et le consomme de façon atomique avec la création du compte.
+        // Sans jeton valide, la création est refusée côté base — impossible de s'inscrire sans invitation.
         const { data, error } = await supabaseClient.auth.signUp({
             email: email,
             password: password,
             options: {
-                emailRedirectTo: 'https://pacifik-guilde.vercel.app/' // URL de redirection de validation d'e-mail
+                emailRedirectTo: 'https://pacifik-guilde.vercel.app/', // URL de redirection de validation d'e-mail
+                data: { invite_token: token }
             }
         });
 
         if (error) throw error;
-
-        // Consommer le jeton d'invitation
-        await supabaseClient
-            .from('invitations')
-            .update({ used: true })
-            .eq('token', token);
 
         // Alerte explicite concernant la confirmation de l'e-mail
         alert("Votre compte membre a été créé avec succès !\n\n⚠️ IMPORTANT : Un e-mail de confirmation vous a été envoyé. Vous devez impérativement cliquer sur le lien de validation contenu dans cet e-mail pour activer votre compte et pouvoir vous connecter.");
