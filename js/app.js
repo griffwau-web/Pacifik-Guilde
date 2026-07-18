@@ -1,11 +1,10 @@
 // CONFIGURATION DU MASTER ADMIN
-const ADMIN_EMAIL = "admin@lespacifik.com"; 
+const ADMIN_EMAIL = "admin@lespacifik.com";
 
-// URL DE WEBHOOK DISCORD
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1515782385495445635/gnRrDhehmiMB6YQhxwBbWilITRpENcdjVDRW7Yj_hAOZqE29ETLbkgqtMrfA0iM3gVXE"; 
-
-// URL DU WEBHOOK DISCORD PRIVÉ ADMIN (Pour les alertes de validation des compositions créées par les membres)
-const ADMIN_WEBHOOK_URL = "https://discord.com/api/webhooks/1517403890666963044/RjfSDjTpKUAy0lcj8vVt7h3199FdgvnQ5sJkNoSthHkGnxe7u70jjRLC15zP0s9dtKrs"; 
+// Les URLs de webhook Discord NE SONT PLUS ici : elles seraient lisibles par n'importe quel
+// visiteur. Elles vivent désormais en variables d'environnement côté serveur, utilisées
+// uniquement par la fonction /api/discord-notify (voir api/discord-notify.js).
+// Le navigateur passe par ce proxy via sendDiscordProxy().
 
 // ID DES ROLES DISCORD À TAGUER (À remplacer par vos vrais identifiants numériques obtenus à l'étape 1)
 const DISCORD_ROLE_GARDIENS_ID = "1373212021306167369"; // Remplacez ces chiffres fictifs par le vôtre
@@ -443,12 +442,29 @@ function maskEmail(email) {
 }
 
 // Envoi de la notification d'événement sur Discord via Webhook (Webhook Public de Guilde)
-async function sendDiscordNotification(name, dateVal, motif, gsLimit) {
-    if (!DISCORD_WEBHOOK_URL || DISCORD_WEBHOOK_URL.trim() === "" || DISCORD_WEBHOOK_URL.includes("VOTRE_WEBHOOK")) {
-        console.log("Notification Discord ignorée : Aucun Webhook configuré.");
-        return;
-    }
+// Envoie un message Discord via le proxy serveur, qui détient les URLs de webhook.
+// `target` : 'public' (annonces de guilde, réservé à l'admin) ou 'admin' (alerte aux
+// officiers, ouvert aux membres). Le message (payload) est construit par l'appelant, donc
+// son apparence est inchangée ; le proxy vérifie l'identité et bloque les mentions @everyone.
+async function sendDiscordProxy(target, payload) {
+    if (!supabaseClient) return;
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) throw new Error("NON_CONNECTE");
 
+    const response = await fetch('/api/discord-notify', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ target, payload })
+    });
+
+    if (!response.ok) throw new Error(`Proxy Discord: HTTP ${response.status}`);
+    return response;
+}
+
+async function sendDiscordNotification(name, dateVal, motif, gsLimit) {
     let embedColor = 3899382; // Bleu Pacifique par défaut
     if (motif === "PVP") {
         embedColor = 10181046; // Violet
@@ -492,15 +508,7 @@ async function sendDiscordNotification(name, dateVal, motif, gsLimit) {
     };
 
     try {
-        const response = await fetch(DISCORD_WEBHOOK_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) throw new Error(`Code HTTP ${response.status}`);
+        await sendDiscordProxy('public', payload);
         console.log("Notification Discord d'événement envoyée avec succès.");
     } catch (err) {
         console.error("Échec de l'envoi Discord :", err);
@@ -509,11 +517,6 @@ async function sendDiscordNotification(name, dateVal, motif, gsLimit) {
 
 // Envoi de la notification de lancement d'enchère sur Discord via Webhook
 async function sendDiscordAuctionNotification(itemName, endTime) {
-    if (!DISCORD_WEBHOOK_URL || DISCORD_WEBHOOK_URL.trim() === "" || DISCORD_WEBHOOK_URL.includes("VOTRE_WEBHOOK")) {
-        console.log("Notification Discord d'enchère ignorée : Aucun Webhook configuré.");
-        return;
-    }
-
     const formattedEnd = formatEventDate(endTime);
     const itemObj = findItemByName(itemName);
     let embedColor = 16753920; // Or par défaut pour les enchères
@@ -540,15 +543,7 @@ async function sendDiscordAuctionNotification(itemName, endTime) {
     };
 
     try {
-        const response = await fetch(DISCORD_WEBHOOK_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) throw new Error(`Code HTTP ${response.status}`);
+        await sendDiscordProxy('public', payload);
         console.log("Notification Discord d'enchère envoyée avec succès.");
     } catch (err) {
         console.error("Échec de l'envoi d'enchère sur Discord :", err);
@@ -4275,16 +4270,8 @@ async function sendDiscordMemberCreationNotification(name, dateVal, motif, gsLim
     };
 
     try {
-        // Envoi de la requête HTTP sur l'adresse du webhook d'administration uniquement
-        const response = await fetch(ADMIN_WEBHOOK_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) throw new Error(`Code HTTP ${response.status}`);
+        // Cible le webhook d'administration (alerte aux officiers), ouvert aux membres connectés
+        await sendDiscordProxy('admin', payload);
         console.log("Notification d'activité membre transmise sur le webhook administrateurs.");
     } catch (err) {
         console.error("Échec de l'envoi de la notification membre :", err);
@@ -4746,15 +4733,7 @@ async function sendDiscordReminder(teamId) {
     };
 
     try {
-        const response = await fetch(DISCORD_WEBHOOK_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) throw new Error(`Code HTTP ${response.status}`);
+        await sendDiscordProxy('public', payload);
         alert("Rappel d'inscription envoyé avec succès sur Discord !");
     } catch (err) {
         console.error("Échec de l'envoi de la relance Discord :", err);
