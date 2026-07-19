@@ -2540,6 +2540,7 @@ function renderMemberTeamsSections() {
     document.getElementById('members-teams-view').innerHTML =
         buildMemberTeamCardsHtml(visibleTeams, sessionUserId, displayName);
 
+    restoreSelectedProofLabels(); // ré-affiche les preuves en cours de sélection après le re-rendu
     renderWeeklyCalendar(user);
     renderMemberPointsRecap();
 }
@@ -3975,21 +3976,56 @@ async function updateProofStatus(teamId, playerName, newStatus) {
     }
 }
 
-// Permet de mettre à jour visuellement le label du bouton d'importation avec le nom du fichier sélectionné
+// Fichiers de preuve sélectionnés, conservés HORS du DOM (indexés par équipe).
+// Un rafraîchissement temps réel re-génère les cartes — donc l'<input type="file"> — ce qui
+// viderait la sélection en cours. On garde le fichier ici pour que l'envoi fonctionne même si
+// la carte a été re-rendue entre la sélection et le clic sur « Envoyer ».
+const selectedProofFiles = {};
+
+// Met à jour le label du bouton d'import et mémorise le fichier choisi
 function updateFileNameLabel(teamId) {
     const input = document.getElementById(`proof-file-${teamId}`);
     const label = document.getElementById(`file-label-${teamId}`);
-    if (input && input.files.length > 0 && label) {
-        label.innerHTML = `<i data-lucide="image" class="w-3.5 h-3.5 inline-block mr-1 text-blue-400"></i> ${input.files[0].name}`;
-        lucide.createIcons();
+    if (input && input.files.length > 0) {
+        selectedProofFiles[teamId] = input.files[0];
+        if (label) {
+            label.innerHTML = `<i data-lucide="image" class="w-3.5 h-3.5 inline-block mr-1 text-blue-400"></i> ${input.files[0].name}`;
+            lucide.createIcons();
+        }
     }
+}
+
+// Après un re-rendu des cartes, ré-affiche le nom des fichiers de preuve encore sélectionnés
+// (le nœud a été remplacé, mais le fichier est toujours mémorisé dans selectedProofFiles).
+function restoreSelectedProofLabels() {
+    let restored = false;
+    for (const teamId in selectedProofFiles) {
+        const label = document.getElementById(`file-label-${teamId}`);
+        if (label) {
+            label.innerHTML = `<i data-lucide="image" class="w-3.5 h-3.5 inline-block mr-1 text-blue-400"></i> ${selectedProofFiles[teamId].name}`;
+            restored = true;
+        }
+    }
+    if (restored) lucide.createIcons();
 }
 
 // Gère l'envoi de la capture d'écran directement dans le bucket Storage Supabase
 async function submitEventProofFile(teamId, fileInputId) {
     const fileInput = document.getElementById(fileInputId);
-    if (!fileInput || fileInput.files.length === 0) {
+    // On privilégie la sélection mémorisée (elle survit à un re-rendu de la carte),
+    // et on retombe sur l'input si besoin.
+    const file = (fileInput && fileInput.files.length > 0)
+        ? fileInput.files[0]
+        : selectedProofFiles[teamId];
+
+    if (!file) {
         alert("Veuillez d'abord sélectionner une capture d'écran.");
+        return;
+    }
+
+    // Vérification de sécurité sur le type de fichier
+    if (!file.type.startsWith('image/')) {
+        alert("Seuls les fichiers d'image (PNG, JPG, etc.) sont acceptés.");
         return;
     }
 
@@ -3998,19 +4034,15 @@ async function submitEventProofFile(teamId, fileInputId) {
 
     const myProfile = allDatabaseMembers.find(m => m.id === session.user.id);
     const displayName = myProfile ? (myProfile.character_name || myProfile.email) : session.user.email;
-    const file = fileInput.files[0];
 
-    // Vérification de sécurité sur le type de fichier
-    if (!file.type.startsWith('image/')) {
-        alert("Seuls les fichiers d'image (PNG, JPG, etc.) sont acceptés.");
-        return;
+    // Bouton de chargement visuel temporaire (protégé : la carte a pu être re-rendue)
+    const panel = fileInput ? fileInput.closest('.animate-fade-in') : null;
+    const submitBtn = panel ? panel.querySelector('button') : null;
+    const originalBtnText = submitBtn ? submitBtn.innerText : "";
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Envoi...";
     }
-
-    // Bouton de chargement visuel temporaire
-    const submitBtn = fileInput.closest('.animate-fade-in').querySelector('button');
-    const originalBtnText = submitBtn.innerText;
-    submitBtn.disabled = true;
-    submitBtn.innerText = "Envoi...";
 
     try {
         const fileExt = file.name.split('.').pop();
@@ -4050,6 +4082,7 @@ async function submitEventProofFile(teamId, fileInputId) {
             };
 
             await saveTeamsState();
+            delete selectedProofFiles[teamId]; // sélection consommée
             alert("Votre capture d'écran a été déposée avec succès ! Elle est en attente de vérification.");
             await loadMembersViewData();
         }
@@ -4057,8 +4090,10 @@ async function submitEventProofFile(teamId, fileInputId) {
         console.error("Erreur lors de l'importation de l'image :", err);
         alert("Impossible d'envoyer l'image sur le serveur.");
     } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerText = originalBtnText;
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerText = originalBtnText;
+        }
     }
 }
 
