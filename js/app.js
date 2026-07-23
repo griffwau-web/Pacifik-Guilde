@@ -552,6 +552,51 @@ async function sendDiscordAuctionNotification(itemName, endTime) {
     }
 }
 
+// Rappel manuel d'une enchère par l'administrateur (bouton "Rappel" du Dashboard).
+// Renvoie l'annonce de l'enchère sur les deux salons Discord (admin + membres).
+async function sendAuctionReminder(auctionId) {
+    const auction = auctionsData.find(a => String(a.id) === String(auctionId));
+    if (!auction) return;
+
+    if (!notificationsEnabled) {
+        alert("Les notifications Discord sont actuellement désactivées globalement.");
+        return;
+    }
+
+    if (!(await showCustomConfirm(`Renvoyer une notification Discord pour l'enchère "${auction.item_name}" ?`, "Rappel d'enchère"))) {
+        return;
+    }
+
+    const itemObj = findItemByName(auction.item_name);
+    let embedColor = 16753920; // Or par défaut
+    if (itemObj && itemObj.grade === ITEM_GRADE_LEGENDARY) {
+        embedColor = 16711680; // Rouge pour le légendaire
+    }
+
+    const payload = {
+        content: `⏳ **RAPPEL D'ENCHÈRE** — il est encore temps de miser sur "${auction.item_name}" !`,
+        embeds: [{
+            title: `🔔 Rappel : enchère en cours pour ${auction.item_name}`,
+            description: `L'enchère est toujours ouverte. Misez sur votre espace membre : https://pacifik-guilde.vercel.app/`,
+            color: embedColor,
+            fields: [
+                { name: "Objet mis en jeu", value: auction.item_name, inline: true },
+                { name: "Date de Clôture", value: formatEventDate(auction.end_time), inline: true }
+            ],
+            footer: { text: "Guilde Les Pacific" },
+            timestamp: new Date().toISOString()
+        }]
+    };
+
+    try {
+        await sendDiscordProxy('auction_reminder', payload);
+        alert("Rappel d'enchère envoyé sur Discord !");
+    } catch (err) {
+        console.error("Échec du rappel d'enchère :", err);
+        alert("Échec de l'envoi du rappel : " + (err.message || err));
+    }
+}
+
 // Formater l'affichage des dates des événements
 function formatEventDate(dateStr) {
     if (!dateStr) return "";
@@ -2669,9 +2714,17 @@ function buildAdminAuctionsTableRowsHtml(auctions) {
                </button>`
             : `<span class="text-xs text-slate-500 italic">Terminé</span>`;
 
+        // Rappel : renvoie la notification Discord de l'enchère (uniquement tant qu'elle est active)
+        const reminderButtonHtml = auc.status === 'active'
+            ? `<button onclick="sendAuctionReminder('${auc.id}')" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 hover:text-white font-bold py-1 px-2.5 rounded border border-blue-500/20 text-xs transition flex items-center gap-1" title="Renvoyer une notification Discord pour cette enchère">
+                    <i data-lucide="bell" class="w-3.5 h-3.5"></i> Rappel
+               </button>`
+            : '';
+
         const actionButtonHtml = `
             <div class="flex flex-col sm:flex-row gap-1.5 justify-center items-center">
                 ${closeButtonHtml}
+                ${reminderButtonHtml}
                 <button onclick="deleteAuction('${auc.id}')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-white font-bold py-1 px-2.5 rounded border border-red-500/20 text-xs transition flex items-center gap-1" title="Supprimer cette enchère (ex. mauvais objet mis en jeu)">
                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Supprimer
                 </button>

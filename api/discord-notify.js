@@ -66,17 +66,19 @@ module.exports = async (req, res) => {
     const kind = body.kind;
     const payload = body.payload;
 
-    // Chaque type de message : dans quel salon, et faut-il être admin pour l'envoyer ?
-    //   - event        : annonce publique d'activité. Un MEMBRE peut créer une activité,
-    //                    donc il peut déclencher cette annonce -> autorisé aux membres.
-    //   - auction      : annonce d'enchère -> admin uniquement.
-    //   - reminder     : relance d'inscription -> admin uniquement.
-    //   - member_alert : alerte aux officiers (un membre a créé une activité) -> membre autorisé.
+    // Chaque type de message : dans quel(s) salon(s), et faut-il être admin pour l'envoyer ?
+    //   channel : 'public' (salon membres), 'admin' (salon officiers), 'both' (les deux).
+    //   - event            : annonce publique d'activité (un membre peut la déclencher).
+    //   - auction          : annonce d'enchère -> les deux salons (admin + membres).
+    //   - auction_reminder : rappel d'enchère (bouton admin) -> les deux salons.
+    //   - reminder         : relance d'inscription d'activité -> admin uniquement.
+    //   - member_alert     : alerte aux officiers (un membre a créé une activité).
     const KINDS = {
-        event:        { channel: 'public', adminOnly: false },
-        auction:      { channel: 'public', adminOnly: true },
-        reminder:     { channel: 'public', adminOnly: true },
-        member_alert: { channel: 'admin',  adminOnly: false }
+        event:            { channel: 'public', adminOnly: false },
+        auction:          { channel: 'both',   adminOnly: false },
+        auction_reminder: { channel: 'both',   adminOnly: false },
+        reminder:         { channel: 'public', adminOnly: true },
+        member_alert:     { channel: 'admin',  adminOnly: false }
     };
 
     const rule = KINDS[kind];
@@ -90,11 +92,20 @@ module.exports = async (req, res) => {
         return res.status(403).json({ error: 'admin_only' });
     }
 
-    const webhookUrl = rule.channel === 'admin'
-        ? process.env.DISCORD_ADMIN_WEBHOOK_URL
-        : process.env.DISCORD_WEBHOOK_URL;
+    // Le(s) webhook(s) cible(s) selon le salon voulu.
+    const publicUrl = process.env.DISCORD_WEBHOOK_URL;
+    const adminUrl = process.env.DISCORD_ADMIN_WEBHOOK_URL;
+    let webhookUrls;
+    if (rule.channel === 'admin') {
+        webhookUrls = [adminUrl];
+    } else if (rule.channel === 'both') {
+        webhookUrls = [publicUrl, adminUrl];
+    } else {
+        webhookUrls = [publicUrl];
+    }
+    webhookUrls = webhookUrls.filter(Boolean); // on ignore un webhook non configuré
 
-    if (!webhookUrl) {
+    if (webhookUrls.length === 0) {
         return res.status(500).json({ error: 'webhook_not_configured' });
     }
 
@@ -110,17 +121,22 @@ module.exports = async (req, res) => {
         safePayload.embeds = payload.embeds.slice(0, 10);
     }
 
-    try {
-        const discord = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(safePayload)
-        });
-        if (!discord.ok) {
-            return res.status(502).json({ error: 'discord_error', status: discord.status });
+    // On transmet à chaque salon ; on considère l'envoi réussi si AU MOINS un a abouti.
+    const results = await Promise.all(webhookUrls.map(async (url) => {
+        try {
+            const discord = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(safePayload)
+            });
+            return discord.ok;
+        } catch (err) {
+            return false;
         }
-        return res.status(200).json({ ok: true });
-    } catch (err) {
-        return res.status(502).json({ error: 'discord_unreachable' });
+    }));
+
+    if (results.some(Boolean)) {
+        return res.status(200).json({ ok: true, sent: results.filter(Boolean).length });
     }
+    return res.status(502).json({ error: 'discord_error' });
 };
